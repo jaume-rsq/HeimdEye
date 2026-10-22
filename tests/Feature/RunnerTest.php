@@ -47,7 +47,7 @@ class RunnerTest extends TestCase
         $result = $this->execute($this->check('echo "pve=$HE_PVE_IP x=$HE_X user=$HE_SSH_USER"; echo segona'));
 
         $this->assertSame(CheckStatus::Pass, $result->status);
-        $this->assertSame('pve=192.168.20.35 x=21 user=jaume', $result->message);
+        $this->assertSame('pve=198.51.100.19 x=21 user=jaume', $result->message);
         $this->assertSame(0, $result->exitCode);
     }
 

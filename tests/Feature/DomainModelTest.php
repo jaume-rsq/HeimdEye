@@ -87,12 +87,12 @@ class DomainModelTest extends TestCase
         $this->assertSame('23', $vars['x']);
         $this->assertSame('172.23.0.0/22', $vars['lan']);
         $this->assertSame('10.23.0.0/22', $vars['dmz']);
-        $this->assertSame('192.168.20.67', $vars['pve_ip']);
-        $this->assertSame('192.168.20.78', $vars['router_ip']);
-        $this->assertSame('192.168.20.67', $resolver->toEnv($vars)['HE_PVE_IP']);
+        $this->assertSame('198.51.100.51', $vars['pve_ip']);
+        $this->assertSame('198.51.100.62', $vars['router_ip']);
+        $this->assertSame('198.51.100.51', $resolver->toEnv($vars)['HE_PVE_IP']);
 
-        $student->variables = [...$student->variables, 'router_ip' => '192.168.20.77'];
-        $this->assertSame('192.168.20.77', $resolver->resolve($student, $student->modules()->first())['router_ip']);
+        $student->variables = [...$student->variables, 'router_ip' => '198.51.100.61'];
+        $this->assertSame('198.51.100.61', $resolver->resolve($student, $student->modules()->first())['router_ip']);
 
         $this->assertSame(['missing_var'], $resolver->missing('{{ x }} {{ missing_var | host(1) }}', $vars));
     }
