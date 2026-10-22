@@ -6,7 +6,7 @@ contra els equips dels alumnes. El disseny complet és al document de disseny de
 
 ## Estat
 
-Fase 1: base de dades, models i seeders. Encara no hi ha vistes ni runner.
+Fase 2: base de dades, seeders i runner de checks (executors `local` i `ssh`). Encara no hi ha vistes.
 
 ## Posada en marxa (desenvolupament)
 
@@ -58,3 +58,28 @@ L'script acaba amb codi 0 si el check s'assoleix; el que escriu a stdout és el 
 Les variables de l'alumne arriben com a entorn `HE_*` (`HE_NS1`, `HE_SUBDOMAIN`, `HE_X`...).
 Els checks que fan `ssh` des del servidor reben també `HE_SSH_USER` i `HE_SSH_KEY` (credencial del mòdul).
 Vegeu `App\Support\VariableResolver` i els checks inicials a `database/seeders/Block02ProxmoxSeeder.php`.
+
+## Runner
+
+```bash
+php artisan heimdeye:run                       # tots els checks actius, ara, i desa resultats
+php artisan heimdeye:run --block=2 --student=rcano
+php artisan heimdeye:run --check=3 --dry       # prova: mostra resultats, no desa res
+php artisan heimdeye:run --nightly             # com la nocturna: tot a la cua
+php artisan queue:work --queue=checks          # worker que executa la cua
+```
+
+La nocturna la llança el scheduler (`HEIMDEYE_NIGHTLY_AT`, per defecte 02:00); cal el cron de Laravel:
+`* * * * * cd /ruta/heimdeye && php artisan schedule:run >> /dev/null 2>&1`.
+
+- Estats: `pass` (sortida 0), `fail`, `error` (el check no es pot executar), `timeout` i
+  `unavailable` (ssh no connecta: codi 255). A la cua, `unavailable` i `timeout` es reintenten
+  un cop al cap de `HEIMDEYE_RETRY_AFTER` segons (180).
+- Cada execució es desa a `check_runs`; `check_student` guarda l'estat actual i la primera
+  data d'assoliment, que no es torna a tocar.
+- Clau SSH: la de la credencial del mòdul si en té una de desada; si no, `HEIMDEYE_SSH_KEY_PATH`;
+  si tampoc, la clau per defecte de l'usuari que executa el worker.
+- Aïllament: `HEIMDEYE_RUNNER_WRAPPER` embolcalla cada execució, per exemple
+  `systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%`.
+  Amb `systemd-run` s'hi afegeixen `RuntimeMaxSec` i les variables (`--setenv`). L'usuari del
+  sandbox ha de poder llegir la clau SSH.
