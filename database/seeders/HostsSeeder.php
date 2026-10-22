@@ -70,17 +70,10 @@ class HostsSeeder extends Seeder
             ['descripcio' => 'Contrasenya de l\'usuari jaume als equips Linux dels alumnes'],
         );
 
-        $action = $module->actions()->updateOrCreate(
-            ['nom' => 'Contrasenya de l\'usuari jaume'],
+        $actions = [
             [
+                'nom' => 'Contrasenya de l\'usuari jaume',
                 'descripcio' => 'Posa la contrasenya del secret jaume_password a l\'usuari jaume (que entra amb clau).',
-                'executor' => Executor::Ansible,
-                'posicio' => 1,
-            ],
-        );
-        if (! $action->versions()->exists()) {
-            $action->versions()->create([
-                'versio' => 1,
                 'codi' => <<<'YAML'
                     - hosts: pve:vm_router:vm_dns_bind
                       become: true
@@ -91,7 +84,96 @@ class HostsSeeder extends Seeder
                             # Sal fixa perquè el hash no canviï a cada execució (idempotent).
                             password: "{{ jaume_password | password_hash('sha512', 'heimdeye') }}"
                     YAML,
-            ]);
+            ],
+            [
+                'nom' => 'Accés de jaume als nodes PVE',
+                'descripcio' => 'Sudo sense contrasenya, clau pública i contrasenya de jaume; usuari jaume@pam administrador a PVE i, si hi és, a PBS. Cal que jaume ja pugui fer sudo sense contrasenya.',
+                'parametres' => [
+                    ['name' => 'jaume_pubkey_file', 'label' => 'Clau pública (fitxer a la VM de HeimdEye)', 'default' => '~/.ssh/id_ed25519.pub'],
+                ],
+                'codi' => <<<'YAML'
+                    - name: Accés de jaume als nodes PVE
+                      hosts: pve
+                      become: true
+                      tasks:
+                        - name: Instal·lar sudo
+                          ansible.builtin.apt:
+                            name: sudo
+                            state: present
+
+                        - name: Sudo sense contrasenya
+                          ansible.builtin.copy:
+                            dest: /etc/sudoers.d/jaume
+                            content: "jaume ALL=(ALL) NOPASSWD:ALL\n"
+                            owner: root
+                            group: root
+                            mode: "0440"
+                            validate: "visudo -cf %s"
+
+                        - name: Clau pública de jaume
+                          ansible.posix.authorized_key:
+                            user: jaume
+                            key: "{{ lookup('file', jaume_pubkey_file) }}"
+                            state: present
+
+                        - name: Usuari jaume amb contrasenya
+                          ansible.builtin.user:
+                            name: jaume
+                            shell: /bin/bash
+                            # Sal fixa perquè el hash no canviï a cada execució (idempotent).
+                            password: "{{ jaume_password | password_hash('sha512', 'heimdeye') }}"
+                            update_password: always
+
+                        - name: Llistar usuaris de PVE
+                          ansible.builtin.command: pveum user list --output-format json
+                          register: pve_users
+                          changed_when: false
+
+                        - name: Crear usuari jaume@pam a PVE
+                          ansible.builtin.command: pveum user add jaume@pam
+                          when: '"jaume@pam" not in pve_users.stdout'
+
+                        - name: Donar rol Administrator a / a PVE
+                          ansible.builtin.command: pveum acl modify / --users jaume@pam --roles Administrator
+                          changed_when: false # "modify" és idempotent, però no informa de si ha canviat
+
+                        - name: Comprovar si PBS està instal·lat
+                          ansible.builtin.stat:
+                            path: /usr/sbin/proxmox-backup-manager
+                          register: pbs
+
+                        - name: Llistar usuaris de PBS
+                          ansible.builtin.command: proxmox-backup-manager user list --output-format json
+                          register: pbs_users
+                          changed_when: false
+                          when: pbs.stat.exists
+
+                        - name: Crear usuari jaume@pam a PBS
+                          ansible.builtin.command: proxmox-backup-manager user create jaume@pam
+                          when:
+                            - pbs.stat.exists
+                            - '"jaume@pam" not in pbs_users.stdout'
+
+                        - name: Donar rol Admin a / a PBS
+                          ansible.builtin.command: proxmox-backup-manager acl update / Admin --auth-id jaume@pam
+                          changed_when: false
+                          when: pbs.stat.exists
+                    YAML,
+            ],
+        ];
+        foreach ($actions as $position => $def) {
+            $action = $module->actions()->updateOrCreate(
+                ['nom' => $def['nom']],
+                [
+                    'descripcio' => $def['descripcio'],
+                    'executor' => Executor::Ansible,
+                    'parametres' => $def['parametres'] ?? null,
+                    'posicio' => $position + 1,
+                ],
+            );
+            if (! $action->versions()->exists()) {
+                $action->versions()->create(['versio' => 1, 'codi' => $def['codi']]);
+            }
         }
     }
 }
