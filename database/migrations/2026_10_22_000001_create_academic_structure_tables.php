@@ -39,6 +39,7 @@ return new class extends Migration
             $table->foreignId('cycle_id')->constrained()->restrictOnDelete();
             $table->string('code')->nullable(); // codi oficial, p. ex. 0227
             $table->string('name');
+            $table->text('description')->nullable();
             $table->string('kind'); // App\Enums\ModuleKind
             $table->json('combines')->nullable(); // codis oficials que agrupa un mòdul lliure
             $table->json('derived_vars')->nullable(); // plantilles {{var}} calculades per alumne

@@ -12,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasManyThrough;
 class Module extends Model
 {
     protected $fillable = [
-        'academic_year_id', 'cycle_id', 'code', 'name', 'kind',
+        'academic_year_id', 'cycle_id', 'code', 'name', 'description', 'kind',
         'combines', 'derived_vars', 'credential_id',
     ];
 

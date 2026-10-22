@@ -1,11 +1,11 @@
-table_no,username,full_name,email,x,router_ip,aula_net
-1,alumne01,Alumne 01,alumne01@example.com,21,192.168.20.46,192.168.20.32/28
-2,alumne02,Alumne 02,alumne02@example.com,22,192.168.20.62,192.168.20.48/28
-3,alumne03,Alumne 03,alumne03@example.com,23,192.168.20.78,192.168.20.64/28
-4,alumne04,Alumne 04,alumne04@example.com,24,192.168.20.94,192.168.20.80/28
-5,alumne05,Alumne 05,alumne05@example.com,25,192.168.20.110,192.168.20.96/28
-6,alumne06,Alumne 06,alumne06@example.com,26,192.168.20.126,192.168.20.112/28
-7,alumne07,Alumne 07,alumne07@example.com,27,192.168.20.142,192.168.20.128/28
-8,alumne08,Alumne 08,alumne08@example.com,28,192.168.20.158,192.168.20.144/28
-9,alumne09,Alumne 09,alumne09@example.com,29,192.168.20.174,192.168.20.160/28
-10,alumne10,Alumne 10,alumne10@example.com,30,192.168.20.190,192.168.20.176/28
+xarxa,taula,alumne,email,alum
+192.168.20.32/28,Taula01,"Cognom01 Cognom, Nom01",alumne01@example.com,alum31
+192.168.20.48/28,Taula02,"Cognom02 Cognom, Nom02",alumne02@example.com,alum32
+192.168.20.64/28,Taula03,"Cognom03 Cognom, Nom03",alumne03@example.com,alum33
+192.168.20.80/28,Taula04,"Cognom04 Cognom, Nom04",alumne04@example.com,alum34
+192.168.20.96/28,Taula05,"Cognom05 Cognom, Nom05",alumne05@example.com,alum35
+192.168.20.112/28,Taula06,"Cognom06 Cognom, Nom06",alumne06@example.com,alum36
+192.168.20.128/28,Taula07,"Cognom07 Cognom, Nom07",alumne07@example.com,alum37
+192.168.20.144/28,Taula08,"Cognom08 Cognom, Nom08",alumne08@example.com,alum38
+192.168.20.160/28,Taula09,"Cognom09 Cognom, Nom09",alumne09@example.com,alum39
+192.168.20.176/28,Taula10,"Cognom10 Cognom, Nom10",alumne10@example.com,alum40

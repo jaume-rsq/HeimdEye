@@ -8,6 +8,7 @@ use App\Models\CheckStudent;
 use App\Models\Module;
 use App\Models\Student;
 use App\Support\VariableResolver;
+use Database\Seeders\StudentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Tests\TestCase;
@@ -18,13 +19,14 @@ class DomainModelTest extends TestCase
 
     protected bool $seed = true;
 
-    public function test_seeders_load_the_smix2_module(): void
+    public function test_seeders_load_the_combined_module(): void
     {
-        $module = Module::where('name', 'SMIX2 Infraestructura')->firstOrFail();
+        $module = Module::where('code', '9991')->firstOrFail();
 
+        $this->assertSame('SX+SI+AW', $module->name);
         $this->assertSame(10, $module->students()->count());
-        $this->assertSame(8, $module->blocks()->sole()->number);
-        $this->assertSame(8, Check::count());
+        $this->assertSame(2, $module->blocks()->sole()->number);
+        $this->assertSame(3, Check::count());
         $this->assertTrue(Check::all()->every(fn (Check $c) => $c->currentVersion?->version === 1));
     }
 
@@ -82,13 +84,43 @@ class DomainModelTest extends TestCase
         $resolver = new VariableResolver;
         $vars = $resolver->resolve($student, $student->modules()->firstOrFail());
 
-        $this->assertSame('10.23.0.11', $vars['ns1']);
-        $this->assertSame('alumne03.smix2.julioantonio.cat', $vars['subdomain']);
-        $this->assertSame('10.23.0.11', $resolver->toEnv($vars)['HE_NS1']);
+        $this->assertSame('23', $vars['x']);
+        $this->assertSame('172.23.0.0/22', $vars['lan']);
+        $this->assertSame('10.23.0.0/22', $vars['dmz']);
+        $this->assertSame('192.168.20.67', $vars['pve_ip']);
+        $this->assertSame('192.168.20.78', $vars['router_ip']);
+        $this->assertSame('192.168.20.67', $resolver->toEnv($vars)['HE_PVE_IP']);
 
-        $student->vars = [...$student->vars, 'ns1' => '10.23.0.53'];
-        $this->assertSame('10.23.0.53', $resolver->resolve($student, $student->modules()->first())['ns1']);
+        $student->vars = [...$student->vars, 'router_ip' => '192.168.20.77'];
+        $this->assertSame('192.168.20.77', $resolver->resolve($student, $student->modules()->first())['router_ip']);
 
-        $this->assertSame(['missing_var'], $resolver->missing('{{ ns1 }} {{missing_var}}', $vars));
+        $this->assertSame(['missing_var'], $resolver->missing('{{ x }} {{ missing_var | host(1) }}', $vars));
+    }
+
+    public function test_host_filter(): void
+    {
+        $resolver = new VariableResolver;
+
+        $this->assertSame('192.168.20.35', $resolver->host('192.168.20.32/28', 3));
+        $this->assertSame('192.168.20.46', $resolver->host('192.168.20.32/28', -1));
+        $this->assertSame('10.21.0.1', $resolver->host('10.21.1.7/22', 1));
+
+        $this->expectException(\InvalidArgumentException::class);
+        $resolver->host('192.168.20.32/28', 15);
+    }
+
+    public function test_student_seeder_reads_a_pasted_tab_separated_list(): void
+    {
+        $path = tempnam(sys_get_temp_dir(), 'students');
+        file_put_contents($path, "Xarxa\tTaula\tAlumne\teMail\talum\n192.168.20.192/28\tTaula11\tProva, Alumne\tprova@example.com\talum99\n");
+        config(['heimdeye.students_csv' => $path]);
+
+        $this->seed(StudentSeeder::class);
+        unlink($path);
+
+        $student = Student::where('username', 'prova')->firstOrFail();
+        $this->assertSame(31, $student->x);
+        $this->assertSame('Prova, Alumne', $student->full_name);
+        $this->assertSame('Taula 11', $student->publicName());
     }
 }

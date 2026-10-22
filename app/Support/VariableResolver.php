@@ -5,6 +5,7 @@ namespace App\Support;
 use App\Models\GlobalVar;
 use App\Models\Module;
 use App\Models\Student;
+use InvalidArgumentException;
 
 /**
  * Calcula les variables que rep un check per a un alumne.
@@ -14,6 +15,9 @@ use App\Models\Student;
  */
 class VariableResolver
 {
+    /** {{ var }} o {{ var | filtre(n) }} */
+    private const MARKER = '/\{\{\s*([A-Za-z0-9_]+)\s*(?:\|\s*([a-z_]+)\(\s*(-?\d+)\s*\))?\s*\}\}/';
+
     /** @return array<string, string> */
     public function resolve(Student $student, Module $module): array
     {
@@ -54,18 +58,44 @@ class VariableResolver
     }
 
     /**
-     * Substitueix {{ var }} pel seu valor. Els marcadors desconeguts es queden tal qual,
-     * perquè missing() els pugui detectar.
+     * Substitueix {{ var }} pel seu valor. Admet el filtre {{ xarxa | host(n) }}:
+     * la n-èsima adreça útil d'una xarxa CIDR (amb n negativa, comptant des del final).
+     * Els marcadors desconeguts es queden tal qual, perquè missing() els pugui detectar.
      *
      * @param  array<string, mixed>  $vars
      */
     public function render(string $template, array $vars): string
     {
-        return preg_replace_callback(
-            '/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/',
-            fn (array $m) => array_key_exists($m[1], $vars) ? (string) $vars[$m[1]] : $m[0],
-            $template,
-        );
+        return preg_replace_callback(self::MARKER, function (array $m) use ($vars) {
+            if (! array_key_exists($m[1], $vars)) {
+                return $m[0];
+            }
+
+            return match ($m[2] ?? '') {
+                '' => (string) $vars[$m[1]],
+                'host' => $this->host((string) $vars[$m[1]], (int) $m[3]),
+                default => $m[0],
+            };
+        }, $template);
+    }
+
+    /** n-èsima adreça útil d'una xarxa IPv4: host('192.168.20.32/28', 3) = 192.168.20.35, amb -1 = .46. */
+    public function host(string $cidr, int $n): string
+    {
+        [$ip, $prefix] = array_pad(explode('/', $cidr, 2), 2, null);
+        $long = ip2long($ip);
+        if ($long === false || ! is_numeric($prefix) || $prefix < 0 || $prefix > 30 || $n === 0) {
+            throw new InvalidArgumentException("host($n) no és vàlid per a '$cidr'");
+        }
+
+        $size = 2 ** (32 - (int) $prefix);
+        $network = $long & ~($size - 1) & 0xFFFFFFFF;
+        $offset = $n > 0 ? $n : $size - 1 + $n;
+        if ($offset < 1 || $offset > $size - 2) {
+            throw new InvalidArgumentException("host($n) queda fora de '$cidr'");
+        }
+
+        return long2ip($network + $offset);
     }
 
     /**
@@ -76,7 +106,7 @@ class VariableResolver
      */
     public function missing(string $template, array $vars): array
     {
-        preg_match_all('/\{\{\s*([A-Za-z0-9_]+)\s*\}\}/', $template, $m);
+        preg_match_all(self::MARKER, $template, $m);
 
         return array_values(array_unique(array_diff($m[1], array_keys($vars))));
     }

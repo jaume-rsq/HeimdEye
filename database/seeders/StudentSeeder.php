@@ -14,8 +14,11 @@ use RuntimeException;
 /**
  * Alumnes de SMIX2 matriculats al mòdul combinat.
  *
- * Les dades reals van a database/seeders/data/students.csv, que no es versiona.
- * Si no hi és, es carrega students.example.csv amb dades fictícies.
+ * Les dades reals van a database/seeders/data/students.csv, que no es versiona
+ * (el repositori és públic). Si no hi és, es carrega students.example.csv.
+ *
+ * Columnes: xarxa,taula,alumne,email,alum (el format de la llista de l'aula).
+ * Accepta comes o tabuladors, així es pot enganxar la taula directament.
  */
 class StudentSeeder extends Seeder
 {
@@ -25,26 +28,29 @@ class StudentSeeder extends Seeder
         $cycle = Cycle::where('code', 'SMIX')->firstOrFail();
         $module = Module::where('academic_year_id', $year->id)
             ->where('cycle_id', $cycle->id)
-            ->where('name', 'SMIX2 Infraestructura')
+            ->where('code', '9991')
             ->firstOrFail();
 
         foreach ($this->rows() as $row) {
+            $tableNo = (int) preg_replace('/\D/', '', $row['taula']);
+            $username = strstr($row['email'], '@', true);
+
             $user = User::updateOrCreate(
                 ['email' => $row['email']],
-                ['name' => $row['full_name'], 'role' => Role::Student],
+                ['name' => $row['alumne'], 'role' => Role::Student],
             );
 
             $student = Student::updateOrCreate(
-                ['academic_year_id' => $year->id, 'username' => $row['username']],
+                ['academic_year_id' => $year->id, 'username' => $username],
                 [
                     'user_id' => $user->id,
                     'cycle_id' => $cycle->id,
-                    'full_name' => $row['full_name'],
-                    'table_no' => (int) $row['table_no'],
-                    'x' => (int) $row['x'],
+                    'full_name' => $row['alumne'],
+                    'table_no' => $tableNo,
+                    'x' => 20 + $tableNo,
                     'vars' => [
-                        'router_ip' => $row['router_ip'],
-                        'aula_net' => $row['aula_net'],
+                        'aula_net' => $row['xarxa'],
+                        'alum' => $row['alum'],
                     ],
                 ],
             );
@@ -62,13 +68,15 @@ class StudentSeeder extends Seeder
         }
 
         $handle = fopen($path, 'r') ?: throw new RuntimeException("No es pot llegir $path");
-        $header = fgetcsv($handle, escape: '');
+        $separator = str_contains(fgets($handle), "\t") ? "\t" : ',';
+        rewind($handle);
+        $header = array_map(fn ($h) => strtolower(trim($h)), fgetcsv($handle, separator: $separator, escape: ''));
         $rows = [];
-        while (($line = fgetcsv($handle, escape: '')) !== false) {
+        while (($line = fgetcsv($handle, separator: $separator, escape: '')) !== false) {
             if ($line === [null]) {
                 continue;
             }
-            $rows[] = array_combine($header, $line);
+            $rows[] = array_combine($header, array_map('trim', $line));
         }
         fclose($handle);
 

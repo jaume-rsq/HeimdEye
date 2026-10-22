@@ -52,9 +52,9 @@ class Student extends Model
         return $this->hasMany(CheckRun::class);
     }
 
-    /** Nom que surt al leaderboard públic. */
+    /** Nom que surt al leaderboard públic: l'àlies, o la taula si no en té. */
     public function publicName(): string
     {
-        return $this->display_name ?? $this->username;
+        return $this->display_name ?? sprintf('Taula %02d', $this->table_no);
     }
 }

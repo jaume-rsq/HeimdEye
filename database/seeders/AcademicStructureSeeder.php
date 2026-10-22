@@ -50,17 +50,18 @@ class AcademicStructureSeeder extends Seeder
         );
 
         $module = Module::updateOrCreate(
-            ['academic_year_id' => $year->id, 'cycle_id' => $smix->id, 'name' => 'SMIX2 Infraestructura'],
+            ['academic_year_id' => $year->id, 'cycle_id' => $smix->id, 'code' => '9991'],
             [
+                'name' => 'SX+SI+AW',
+                'description' => 'Mòdul combinat per Serveis de Xarxa, Seguretat Informàtica i Aplicacions Web',
                 'kind' => ModuleKind::Free,
-                'combines' => ['0226', '0227', '0228'],
+                'combines' => ['0227', '0226', '0228'],
                 'credential_id' => $credential->id,
                 'derived_vars' => [
                     'lan' => '172.{{x}}.0.0/22',
                     'dmz' => '10.{{x}}.0.0/22',
-                    'ns1' => '10.{{x}}.0.11',
-                    'ns2' => '172.{{x}}.0.11',
-                    'subdomain' => '{{username}}.{{base_domain}}',
+                    'pve_ip' => '{{ aula_net | host(3) }}',
+                    'router_ip' => '{{ aula_net | host(-1) }}',
                 ],
             ],
         );

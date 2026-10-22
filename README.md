@@ -24,14 +24,20 @@ php artisan test
 ### Alumnes
 
 El seeder llegeix `database/seeders/data/students.csv`, que **no es versiona** perquè conté
-dades personals. Copia l'exemple i omple-hi les dades reals:
+dades personals (el repositori és públic). Hi pots enganxar la llista de l'aula tal qual,
+separada per tabuladors o per comes, amb aquesta capçalera:
 
-```bash
-cp database/seeders/data/students.example.csv database/seeders/data/students.csv
+```
+Xarxa	Taula	Alumne	eMail	alum
+192.168.20.32/28	Taula01	Cognoms, Nom	usuari@iesjulioantonio.cat	alum32
 ```
 
-Columnes: `table_no,username,full_name,email,x,router_ip,aula_net`. Si el fitxer no existeix,
-es carreguen 10 alumnes ficticis.
+L'usuari és la part del correu abans de l'`@`, i X = 20 + número de taula. Si el fitxer no
+existeix, es carreguen 10 alumnes ficticis (`students.example.csv`).
+
+Variables derivades del mòdul 9991: `lan` = 172.X.0.0/22, `dmz` = 10.X.0.0/22,
+`pve_ip` = tercera adreça útil de la xarxa d'aula, `router_ip` = darrera adreça útil.
+Les plantilles admeten `{{ aula_net | host(3) }}` i `{{ aula_net | host(-1) }}`.
 
 ## Model de dades
 
@@ -50,4 +56,5 @@ Curs (`academic_years`) → Cicle (`cycles`) → Mòdul (`modules`) → Bloc (`b
 
 L'script acaba amb codi 0 si el check s'assoleix; el que escriu a stdout és el missatge.
 Les variables de l'alumne arriben com a entorn `HE_*` (`HE_NS1`, `HE_SUBDOMAIN`, `HE_X`...).
-Vegeu `App\Support\VariableResolver` i el bloc d'exemple a `database/seeders/Block08DnsSeeder.php`.
+Els checks que fan `ssh` des del servidor reben també `HE_SSH_USER` i `HE_SSH_KEY` (credencial del mòdul).
+Vegeu `App\Support\VariableResolver` i els checks inicials a `database/seeders/Block02ProxmoxSeeder.php`.
