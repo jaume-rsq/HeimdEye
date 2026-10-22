@@ -30,11 +30,12 @@ class AcademicStructureSeeder extends Seeder
         Cycle::updateOrCreate(['codi' => 'ASIX'], ['nom' => 'Administració de Sistemes Informàtics en Xarxa']);
 
         foreach ([
-            'central_ip' => '192.168.20.11',
-            'alt_resolver' => '192.168.20.254',
-            'heimdeye_ip' => '192.168.20.12',
-            'base_domain' => 'smix2.julioantonio.cat',
-            'zabbix_server' => '192.168.20.12',
+            'pve' => '192.168.20.7',
+            'dns_aula' => '192.168.20.11',
+            'heimdeye' => '192.168.20.12',
+            'zabbix' => '192.168.20.12',
+            'zentyal' => '192.168.20.254',
+            'domini' => 'smix2.julioantonio.cat',
         ] as $key => $value) {
             GlobalVar::updateOrCreate(['clau' => $key], ['valor' => $value]);
         }
