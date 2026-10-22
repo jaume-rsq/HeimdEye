@@ -22,35 +22,65 @@ class ProcessRunner
      */
     public function run(array $command, array $env, string $stdin, int $timeout, ?callable $statusForExitCode = null): CheckResult
     {
-        $process = new Process($this->wrap($command, $env, $timeout), env: $env, input: $stdin, timeout: $timeout);
-        $start = hrtime(true);
+        $run = $this->execute($command, $env, $stdin, $timeout);
 
-        try {
-            $process->run();
-        } catch (ProcessTimedOutException) {
+        if ($run['error'] !== null) {
+            return CheckResult::error('No s\'ha pogut executar: '.$run['error']);
+        }
+        if ($run['timedOut']) {
             return new CheckResult(
                 CheckStatus::Timeout,
                 "Ha superat el temps màxim ({$timeout} s)",
-                $this->output($process),
+                $this->limit($run['stdout']."\n".$run['stderr']),
                 null,
-                $this->elapsed($start),
+                $run['durationMs'],
             );
-        } catch (RuntimeException $e) {
-            return CheckResult::error('No s\'ha pogut executar: '.$e->getMessage());
         }
 
-        $exitCode = $process->getExitCode();
+        $exitCode = $run['exitCode'];
         $status = $exitCode === 0
             ? CheckStatus::Pass
             : ($statusForExitCode ? $statusForExitCode($exitCode) : CheckStatus::Fail);
 
         return new CheckResult(
             $status,
-            $this->message($process->getOutput(), $process->getErrorOutput()),
-            $this->output($process),
+            $this->message($run['stdout'], $run['stderr']),
+            $this->limit($run['stdout']."\n".$run['stderr']),
             $exitCode,
-            $this->elapsed($start),
+            $run['durationMs'],
         );
+    }
+
+    /**
+     * Executa l'ordre i en retorna la sortida en brut.
+     *
+     * @param  list<string>  $command
+     * @param  array<string, string>  $env
+     * @return array{exitCode: ?int, stdout: string, stderr: string, timedOut: bool, error: ?string, durationMs: int}
+     */
+    public function execute(array $command, array $env, string $stdin, int $timeout): array
+    {
+        $process = new Process($this->wrap($command, $env, $timeout), env: $env, input: $stdin, timeout: $timeout);
+        $start = hrtime(true);
+        $timedOut = false;
+        $error = null;
+
+        try {
+            $process->run();
+        } catch (ProcessTimedOutException) {
+            $timedOut = true;
+        } catch (RuntimeException|\ValueError $e) {
+            $error = $e->getMessage();
+        }
+
+        return [
+            'exitCode' => $timedOut || $error ? null : $process->getExitCode(),
+            'stdout' => $error ? '' : $process->getOutput(),
+            'stderr' => $error ? '' : $process->getErrorOutput(),
+            'timedOut' => $timedOut,
+            'error' => $error,
+            'durationMs' => intdiv(hrtime(true) - $start, 1_000_000),
+        ];
     }
 
     /**
@@ -96,15 +126,11 @@ class ProcessRunner
         return null;
     }
 
-    private function output(Process $process): ?string
+    /** Sortida retallada al límit configurat, o null si és buida. */
+    public function limit(string $output): ?string
     {
-        $output = trim($process->getOutput()."\n".$process->getErrorOutput());
+        $output = trim($output);
 
         return $output === '' ? null : mb_strcut($output, 0, (int) config('heimdeye.runner.output_limit'));
-    }
-
-    private function elapsed(int $start): int
-    {
-        return intdiv(hrtime(true) - $start, 1_000_000);
     }
 }

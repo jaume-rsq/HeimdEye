@@ -85,7 +85,7 @@ class RunnerTest extends TestCase
 
     public function test_not_implemented_executor_is_an_error(): void
     {
-        $this->assertSame(CheckStatus::Error, $this->execute($this->check('- hosts: all', Executor::Ansible))->status);
+        $this->assertSame(CheckStatus::Error, $this->execute($this->check('GET /', Executor::Http))->status);
     }
 
     public function test_recorder_keeps_the_first_pass_date(): void

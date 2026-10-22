@@ -26,7 +26,9 @@ class VariableResolver
                 'username' => $student->username,
                 'full_name' => $student->full_name,
                 'table_no' => $student->table_no,
+                'num_taula' => $student->table_no === null ? null : sprintf('%02d', $student->table_no),
                 'x' => $student->x,
+                'email' => $student->user?->email,
             ], fn ($value) => $value !== null),
             $student->vars ?? [],
         );
@@ -58,8 +60,9 @@ class VariableResolver
     }
 
     /**
-     * Substitueix {{ var }} pel seu valor. Admet el filtre {{ xarxa | host(n) }}:
-     * la n-èsima adreça útil d'una xarxa CIDR (amb n negativa, comptant des del final).
+     * Substitueix {{ var }} pel seu valor. Filtres:
+     * - {{ xarxa | host(n) }}: n-èsima adreça útil d'una xarxa CIDR (amb n negativa, des del final);
+     * - {{ ip | octet(n) }}: n-èsim octet (1-4) d'una adreça o xarxa.
      * Els marcadors desconeguts es queden tal qual, perquè missing() els pugui detectar.
      *
      * @param  array<string, mixed>  $vars
@@ -74,6 +77,7 @@ class VariableResolver
             return match ($m[2] ?? '') {
                 '' => (string) $vars[$m[1]],
                 'host' => $this->host((string) $vars[$m[1]], (int) $m[3]),
+                'octet' => $this->octet((string) $vars[$m[1]], (int) $m[3]),
                 default => $m[0],
             };
         }, $template);
@@ -96,6 +100,17 @@ class VariableResolver
         }
 
         return long2ip($network + $offset);
+    }
+
+    /** n-èsim octet d'una adreça IPv4: octet('192.168.20.32/28', 4) = 32. */
+    public function octet(string $ip, int $n): string
+    {
+        $parts = explode('.', strtok($ip, '/'));
+        if (count($parts) !== 4 || $n < 1 || $n > 4) {
+            throw new InvalidArgumentException("octet($n) no és vàlid per a '$ip'");
+        }
+
+        return $parts[$n - 1];
     }
 
     /**

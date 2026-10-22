@@ -55,6 +55,21 @@ class Module extends Model
         return $this->hasMany(Block::class)->orderBy('position');
     }
 
+    public function hostTypes(): HasMany
+    {
+        return $this->hasMany(HostType::class)->orderBy('position');
+    }
+
+    public function secrets(): HasMany
+    {
+        return $this->hasMany(Secret::class);
+    }
+
+    public function actions(): HasMany
+    {
+        return $this->hasMany(Action::class)->orderBy('position');
+    }
+
     public function tasks(): HasManyThrough
     {
         return $this->hasManyThrough(Task::class, Block::class);
