@@ -27,19 +27,19 @@ class RunnerTest extends TestCase
     private function check(string $code, Executor $executor = Executor::Local, array $config = [], int $timeout = 10): Check
     {
         $check = Task::firstOrFail()->checks()->create([
-            'name' => 'Prova',
+            'nom' => 'Prova',
             'executor' => $executor,
-            'active' => true,
-            'timeout_s' => $timeout,
+            'es_actiu' => true,
+            'temps_max_seg' => $timeout,
         ]);
-        $check->versions()->create(['version' => 1, 'code' => $code, 'config' => $config]);
+        $check->versions()->create(['versio' => 1, 'codi' => $code, 'configuracio' => $config]);
 
         return $check->fresh();
     }
 
     private function execute(Check $check, string $username = 'alumne01'): CheckResult
     {
-        return app(CheckRunner::class)->run($check, Student::where('username', $username)->firstOrFail());
+        return app(CheckRunner::class)->run($check, Student::where('usuari', $username)->firstOrFail());
     }
 
     public function test_local_check_gets_student_variables_and_reports_the_first_line(): void
@@ -92,7 +92,7 @@ class RunnerTest extends TestCase
     {
         $check = $this->check('true');
         $student = Student::firstOrFail();
-        $batch = RunBatch::create(['module_id' => $check->task->block->module_id, 'origin' => 'manual', 'totals' => ['expected' => 2]]);
+        $batch = RunBatch::create(['modul_id' => $check->task->block->modul_id, 'origen' => 'manual', 'totals' => ['expected' => 2]]);
         $recorder = app(ResultRecorder::class);
 
         $this->travelTo('2026-11-03 02:00');
@@ -101,13 +101,13 @@ class RunnerTest extends TestCase
         $recorder->record($batch, $check, $student, new CheckResult(CheckStatus::Fail));
         $batch->refreshTotals();
 
-        $state = CheckStudent::where(['check_id' => $check->id, 'student_id' => $student->id])->sole();
-        $this->assertSame(CheckStatus::Fail, $state->current_status);
-        $this->assertSame('2026-11-03', $state->first_passed_at->toDateString());
-        $this->assertSame('2026-11-03', $state->last_passed_at->toDateString());
+        $state = CheckStudent::where(['check_id' => $check->id, 'alumne_id' => $student->id])->sole();
+        $this->assertSame(CheckStatus::Fail, $state->estat_actual);
+        $this->assertSame('2026-11-03', $state->data_primer_assoliment->toDateString());
+        $this->assertSame('2026-11-03', $state->data_ultim_assoliment->toDateString());
         $this->assertSame(2, CheckRun::where('check_id', $check->id)->count());
         $this->assertSame(['expected' => 2, 'fail' => 1, 'pass' => 1], collect($batch->totals)->sortKeys()->all());
-        $this->assertNotNull($batch->finished_at);
+        $this->assertNotNull($batch->data_fi);
     }
 
     public function test_command_runs_and_records_selected_checks(): void
@@ -117,7 +117,7 @@ class RunnerTest extends TestCase
         $this->artisan('heimdeye:run', ['--check' => [$check->id], '--student' => ['alumne01', 'alumne02']])
             ->assertSuccessful();
 
-        $this->assertSame(2, CheckStudent::where('check_id', $check->id)->where('current_status', 'pass')->count());
+        $this->assertSame(2, CheckStudent::where('check_id', $check->id)->where('estat_actual', 'pass')->count());
         $this->assertSame(['expected' => 2, 'pass' => 2], collect(RunBatch::sole()->totals)->sortKeys()->all());
     }
 
@@ -140,13 +140,13 @@ class RunnerTest extends TestCase
 
         // Bloc 2: 3 checks actius × 10 alumnes.
         Queue::assertPushed(RunCheck::class, 30);
-        $this->assertSame('nightly', RunBatch::sole()->origin->value);
+        $this->assertSame('nocturna', RunBatch::sole()->origen->value);
     }
 
     public function test_job_retries_once_when_the_host_is_unavailable(): void
     {
         $check = $this->check('true', Executor::Ssh, ['host' => '127.0.0.1', 'port' => 1]);
-        $batch = RunBatch::create(['module_id' => $check->task->block->module_id, 'origin' => 'nightly']);
+        $batch = RunBatch::create(['modul_id' => $check->task->block->modul_id, 'origen' => 'nocturna']);
 
         $job = (new RunCheck($batch, $check, Student::firstOrFail()))->withFakeQueueInteractions();
         $job->handle(app(CheckRunner::class), app(ResultRecorder::class));

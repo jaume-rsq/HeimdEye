@@ -9,52 +9,54 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Student extends Model
 {
+    protected $table = 'alumnes';
+
     protected $fillable = [
-        'user_id', 'academic_year_id', 'cycle_id', 'username', 'full_name',
-        'display_name', 'table_no', 'x', 'vars', 'active',
+        'usuari_id', 'curs_id', 'cicle_id', 'usuari', 'nom_complet',
+        'alies', 'num_taula', 'x', 'variables', 'es_actiu',
     ];
 
     protected function casts(): array
     {
         return [
-            'vars' => 'array',
-            'active' => 'boolean',
+            'variables' => 'array',
+            'es_actiu' => 'boolean',
         ];
     }
 
     public function user(): BelongsTo
     {
-        return $this->belongsTo(User::class);
+        return $this->belongsTo(User::class, 'usuari_id');
     }
 
     public function academicYear(): BelongsTo
     {
-        return $this->belongsTo(AcademicYear::class);
+        return $this->belongsTo(AcademicYear::class, 'curs_id');
     }
 
     public function cycle(): BelongsTo
     {
-        return $this->belongsTo(Cycle::class);
+        return $this->belongsTo(Cycle::class, 'cicle_id');
     }
 
     public function modules(): BelongsToMany
     {
-        return $this->belongsToMany(Module::class, 'enrollments');
+        return $this->belongsToMany(Module::class, 'modul_alumne', 'alumne_id', 'modul_id');
     }
 
     public function checkStates(): HasMany
     {
-        return $this->hasMany(CheckStudent::class);
+        return $this->hasMany(CheckStudent::class, 'alumne_id');
     }
 
     public function runs(): HasMany
     {
-        return $this->hasMany(CheckRun::class);
+        return $this->hasMany(CheckRun::class, 'alumne_id');
     }
 
     /** Nom que surt al leaderboard públic: l'àlies, o la taula si no en té. */
     public function publicName(): string
     {
-        return $this->display_name ?? sprintf('Taula %02d', $this->table_no);
+        return $this->alies ?? sprintf('Taula %02d', $this->num_taula);
     }
 }

@@ -9,22 +9,24 @@ class ActionVersion extends Model
 {
     const UPDATED_AT = null;
 
-    protected $fillable = ['action_id', 'version', 'code', 'config', 'created_by'];
+    protected $table = 'versions_accio';
+
+    protected $fillable = ['accio_id', 'versio', 'codi', 'configuracio', 'creat_per'];
 
     protected function casts(): array
     {
         return [
-            'config' => 'array',
+            'configuracio' => 'array',
         ];
     }
 
     public function action(): BelongsTo
     {
-        return $this->belongsTo(Action::class);
+        return $this->belongsTo(Action::class, 'accio_id');
     }
 
     public function author(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'creat_per');
     }
 }

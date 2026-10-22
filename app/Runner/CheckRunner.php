@@ -37,9 +37,9 @@ class CheckRunner
                 $check->task->block->module,
                 $student,
                 $check->executor,
-                $version->code,
-                $version->config ?? [],
-                $check->timeout_s,
+                $version->codi,
+                $version->configuracio ?? [],
+                $check->temps_max_seg,
                 $check->credential,
             );
 

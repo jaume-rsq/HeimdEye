@@ -19,24 +19,24 @@ class ResultRecorder
             $now = now();
 
             $run = CheckRun::create([
-                'run_batch_id' => $batch->id,
+                'execucio_id' => $batch->id,
                 'check_id' => $check->id,
-                'check_version_id' => $check->currentVersion?->id,
-                'student_id' => $student->id,
-                'status' => $result->status,
-                'message' => $result->message,
-                'output' => $result->output,
-                'exit_code' => $result->exitCode,
-                'duration_ms' => $result->durationMs,
-                'ran_at' => $now,
+                'versio_check_id' => $check->currentVersion?->id,
+                'alumne_id' => $student->id,
+                'estat' => $result->status,
+                'missatge' => $result->message,
+                'sortida' => $result->output,
+                'codi_sortida' => $result->exitCode,
+                'durada_ms' => $result->durationMs,
+                'data_execucio' => $now,
             ]);
 
-            $state = CheckStudent::firstOrNew(['check_id' => $check->id, 'student_id' => $student->id]);
-            $state->current_status = $result->status;
-            $state->last_run_at = $now;
+            $state = CheckStudent::firstOrNew(['check_id' => $check->id, 'alumne_id' => $student->id]);
+            $state->estat_actual = $result->status;
+            $state->data_darrera_execucio = $now;
             if ($result->status === CheckStatus::Pass) {
-                $state->last_passed_at = $now;
-                $state->first_passed_at ??= $now; // no es torna a tocar mai
+                $state->data_ultim_assoliment = $now;
+                $state->data_primer_assoliment ??= $now; // no es torna a tocar mai
             }
             $state->save();
 

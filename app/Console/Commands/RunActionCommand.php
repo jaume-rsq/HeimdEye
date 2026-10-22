@@ -23,7 +23,7 @@ class RunActionCommand extends Command
     public function handle(ActionRunner $runner): int
     {
         $action = Action::with('module')->whereKey(ctype_digit($this->argument('action')) ? $this->argument('action') : null)
-            ->orWhere('name', $this->argument('action'))
+            ->orWhere('nom', $this->argument('action'))
             ->first();
         if ($action === null) {
             $this->error('No existeix l\'acció');
@@ -32,9 +32,9 @@ class RunActionCommand extends Command
         }
 
         $students = $action->module->students()
-            ->where('active', true)
-            ->when($this->option('student'), fn ($q, $usernames) => $q->whereIn('username', $usernames))
-            ->orderBy('table_no')
+            ->where('es_actiu', true)
+            ->when($this->option('student'), fn ($q, $usernames) => $q->whereIn('usuari', $usernames))
+            ->orderBy('num_taula')
             ->get();
 
         $params = [];
@@ -61,12 +61,12 @@ class RunActionCommand extends Command
         $this->table(
             ['Alumne', 'Estat', 'ok', 'changed', 'failed', 'Resum'],
             $batch->actionRuns()->with('student')->get()->map(fn ($run) => [
-                $run->student->username,
-                $run->status->value,
+                $run->student->usuari,
+                $run->estat->value,
                 $run->ok,
                 $run->changed,
                 $run->failed,
-                strtok((string) $run->output, "\n"),
+                strtok((string) $run->sortida, "\n"),
             ]),
         );
 

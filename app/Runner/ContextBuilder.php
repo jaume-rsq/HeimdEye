@@ -46,9 +46,9 @@ class ContextBuilder
         $credential ??= $module->credential;
 
         if (isset($config['host_type'])) {
-            $type = $module->hostTypes->firstWhere('name', $config['host_type'])
+            $type = $module->hostTypes->firstWhere('nom', $config['host_type'])
                 ?? throw new InvalidArgumentException("No existeix el tipus d'equip {$config['host_type']}");
-            $config['host'] = $this->resolver->render($type->address, $vars);
+            $config['host'] = $this->resolver->render($type->adreca, $vars);
             $credential = $type->credential ?? $credential;
         }
         $config = $this->renderConfig($config, $vars);
@@ -64,7 +64,7 @@ class ContextBuilder
         $mask = array_values($secrets);
 
         $sshKey = null;
-        if (in_array($credential?->type, [CredentialType::Winrm, CredentialType::Password], true) && $credential->secret) {
+        if (in_array($credential?->tipus, [CredentialType::Winrm, CredentialType::Password], true) && $credential->secret) {
             $mask[] = $credential->secret;
         } elseif ($credential?->secret) {
             $sshKey = $this->files->write("key-{$credential->id}", rtrim($credential->secret)."\n");
@@ -82,7 +82,7 @@ class ContextBuilder
             env: $env,
             config: $config,
             timeout: $timeout,
-            sshUser: $credential?->username,
+            sshUser: $credential?->nom_usuari,
             sshKey: $sshKey ?? config('heimdeye.runner.ssh_key_path'),
             inventory: $inventory,
             extraVars: [...$params, ...$secrets],
@@ -100,8 +100,8 @@ class ContextBuilder
     public function secretsFor(Module $module, string $code): array
     {
         return $module->secrets
-            ->filter(fn ($secret) => $secret->value !== null && str_contains(strtolower($code), strtolower($secret->key)))
-            ->mapWithKeys(fn ($secret) => [$secret->key => $secret->value])
+            ->filter(fn ($secret) => $secret->valor !== null && str_contains(strtolower($code), strtolower($secret->clau)))
+            ->mapWithKeys(fn ($secret) => [$secret->clau => $secret->valor])
             ->all();
     }
 

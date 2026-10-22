@@ -7,14 +7,16 @@ use Illuminate\Database\Eloquent\Model;
 
 class Credential extends Model
 {
-    protected $fillable = ['name', 'type', 'username', 'secret'];
+    protected $table = 'credencials';
+
+    protected $fillable = ['nom', 'tipus', 'nom_usuari', 'secret'];
 
     protected $hidden = ['secret'];
 
     protected function casts(): array
     {
         return [
-            'type' => CredentialType::class,
+            'tipus' => CredentialType::class,
             'secret' => 'encrypted',
         ];
     }

@@ -14,32 +14,34 @@ use Illuminate\Support\Carbon;
 
 class Check extends Model
 {
+    protected $table = 'checks';
+
     protected $fillable = [
-        'task_id', 'name', 'description', 'executor', 'kind', 'points',
-        'active', 'active_from', 'active_to', 'deadline', 'punctuality_bonus_pct',
-        'timeout_s', 'credential_id', 'position',
+        'tasca_id', 'nom', 'descripcio', 'executor', 'tipus', 'punts',
+        'es_actiu', 'actiu_des', 'actiu_fins', 'data_limit', 'bonus_puntualitat_pct',
+        'temps_max_seg', 'credencial_id', 'posicio',
     ];
 
     protected function casts(): array
     {
         return [
             'executor' => Executor::class,
-            'kind' => CheckKind::class,
-            'active' => 'boolean',
-            'active_from' => 'date',
-            'active_to' => 'date',
-            'deadline' => 'datetime',
+            'tipus' => CheckKind::class,
+            'es_actiu' => 'boolean',
+            'actiu_des' => 'date',
+            'actiu_fins' => 'date',
+            'data_limit' => 'datetime',
         ];
     }
 
     public function task(): BelongsTo
     {
-        return $this->belongsTo(Task::class);
+        return $this->belongsTo(Task::class, 'tasca_id');
     }
 
     public function credential(): BelongsTo
     {
-        return $this->belongsTo(Credential::class);
+        return $this->belongsTo(Credential::class, 'credencial_id');
     }
 
     public function versions(): HasMany
@@ -50,7 +52,7 @@ class Check extends Model
     /** La versió vigent és la de número més alt. */
     public function currentVersion(): HasOne
     {
-        return $this->hasOne(CheckVersion::class)->ofMany('version', 'max');
+        return $this->hasOne(CheckVersion::class)->ofMany('versio', 'max');
     }
 
     public function states(): HasMany
@@ -64,19 +66,19 @@ class Check extends Model
     }
 
     /**
-     * Si active és true o false, mana. Si és null, el check està actiu
-     * dins de l'interval [active_from, active_to] (extrems oberts si són buits).
+     * Si es_actiu és true o false, mana. Si és null, el check està actiu
+     * dins de l'interval [actiu_des, actiu_fins] (extrems oberts si són buits).
      */
     public function isActiveOn(?CarbonInterface $day = null): bool
     {
-        if ($this->active !== null) {
-            return $this->active;
+        if ($this->es_actiu !== null) {
+            return $this->es_actiu;
         }
 
         $day = ($day ?? Carbon::today())->toDateString();
 
-        return ($this->active_from === null || $this->active_from->toDateString() <= $day)
-            && ($this->active_to === null || $this->active_to->toDateString() >= $day);
+        return ($this->actiu_des === null || $this->actiu_des->toDateString() <= $day)
+            && ($this->actiu_fins === null || $this->actiu_fins->toDateString() >= $day);
     }
 
     /** Mateixa regla que isActiveOn(), en SQL. */
@@ -85,11 +87,11 @@ class Check extends Model
         $day = ($day ?? Carbon::today())->toDateString();
 
         return $query->where(fn (Builder $q) => $q
-            ->where('active', true)
+            ->where('es_actiu', true)
             ->orWhere(fn (Builder $q) => $q
-                ->whereNull('active')
-                ->where(fn (Builder $q) => $q->whereNull('active_from')->orWhereDate('active_from', '<=', $day))
-                ->where(fn (Builder $q) => $q->whereNull('active_to')->orWhereDate('active_to', '>=', $day))));
+                ->whereNull('es_actiu')
+                ->where(fn (Builder $q) => $q->whereNull('actiu_des')->orWhereDate('actiu_des', '<=', $day))
+                ->where(fn (Builder $q) => $q->whereNull('actiu_fins')->orWhereDate('actiu_fins', '>=', $day))));
     }
 
     /** Punts que dona el check si es va assolir per primer cop en aquesta data. */
@@ -99,8 +101,8 @@ class Check extends Model
             return 0;
         }
 
-        $onTime = $this->deadline !== null && $firstPassedAt->lessThanOrEqualTo($this->deadline);
+        $onTime = $this->data_limit !== null && $firstPassedAt->lessThanOrEqualTo($this->data_limit);
 
-        return $this->points * (1 + ($onTime ? $this->punctuality_bonus_pct / 100 : 0));
+        return $this->punts * (1 + ($onTime ? $this->bonus_puntualitat_pct / 100 : 0));
     }
 }

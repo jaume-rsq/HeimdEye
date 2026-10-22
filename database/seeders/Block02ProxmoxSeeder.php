@@ -24,15 +24,15 @@ class Block02ProxmoxSeeder extends Seeder
 
     public function run(): void
     {
-        $module = Module::where('code', '9991')->firstOrFail();
+        $module = Module::where('codi', '9991')->firstOrFail();
 
         $block = Block::updateOrCreate(
-            ['module_id' => $module->id, 'number' => 2],
+            ['modul_id' => $module->id, 'numero' => 2],
             [
-                'title' => 'Proxmox VE, màquines virtuals i accés remot',
-                'starts_on' => '2026-09-21',
-                'ends_on' => '2026-09-25',
-                'position' => 2,
+                'titol' => 'Proxmox VE, màquines virtuals i accés remot',
+                'data_inici' => '2026-09-21',
+                'data_fi' => '2026-09-25',
+                'posicio' => 2,
             ],
         );
 
@@ -41,15 +41,15 @@ class Block02ProxmoxSeeder extends Seeder
             (darrera adreça útil) han d'acceptar connexions SSH de l'usuari `jaume` amb clau.
             MD, [
             [
-                'name' => 'SSH al servidor Proxmox',
-                'code' => self::SSH."\n".<<<'SH'
+                'nom' => 'SSH al servidor Proxmox',
+                'codi' => self::SSH."\n".<<<'SH'
                     ssh "${opts[@]}" "$HE_SSH_USER@$HE_PVE_IP" true || exit 1
                     echo "SSH correcte a $HE_PVE_IP"
                     SH,
             ],
             [
-                'name' => 'SSH al router',
-                'code' => self::SSH."\n".<<<'SH'
+                'nom' => 'SSH al router',
+                'codi' => self::SSH."\n".<<<'SH'
                     ssh "${opts[@]}" "$HE_SSH_USER@$HE_ROUTER_IP" true || exit 1
                     echo "SSH correcte a $HE_ROUTER_IP"
                     SH,
@@ -60,12 +60,12 @@ class Block02ProxmoxSeeder extends Seeder
             Crea com a mínim una màquina virtual al teu servidor Proxmox.
             MD, [
             [
-                'name' => 'Hi ha alguna VM definida',
+                'nom' => 'Hi ha alguna VM definida',
                 'executor' => Executor::Ssh,
-                'points' => 2,
-                'config' => ['host_type' => 'pve'],
+                'punts' => 2,
+                'configuracio' => ['host_type' => 'pve'],
                 // qm necessita root: l'usuari de la credencial ha de poder fer sudo -n qm list.
-                'code' => <<<'SH'
+                'codi' => <<<'SH'
                     out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
                     vms=$(echo "$out" | tail -n +2)
                     [ -n "$vms" ] || { echo "Cap VM definida"; exit 1; }
@@ -79,25 +79,25 @@ class Block02ProxmoxSeeder extends Seeder
     private function task(Block $block, int $position, string $title, string $statement, array $checks): void
     {
         $task = $block->tasks()->updateOrCreate(
-            ['title' => $title],
-            ['statement' => $statement, 'position' => $position],
+            ['titol' => $title],
+            ['enunciat' => $statement, 'posicio' => $position],
         );
 
         foreach ($checks as $i => $def) {
             $check = $task->checks()->updateOrCreate(
-                ['name' => $def['name']],
+                ['nom' => $def['nom']],
                 [
                     'executor' => $def['executor'] ?? Executor::Local,
-                    'points' => $def['points'] ?? 1,
-                    'position' => $i + 1,
+                    'punts' => $def['punts'] ?? 1,
+                    'posicio' => $i + 1,
                 ],
             );
 
             if (! $check->versions()->exists()) {
                 $check->versions()->create([
-                    'version' => 1,
-                    'code' => $def['code'],
-                    'config' => $def['config'] ?? null,
+                    'versio' => 1,
+                    'codi' => $def['codi'],
+                    'configuracio' => $def['configuracio'] ?? null,
                 ]);
             }
         }

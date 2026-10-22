@@ -21,28 +21,28 @@ class DomainModelTest extends TestCase
 
     public function test_seeders_load_the_combined_module(): void
     {
-        $module = Module::where('code', '9991')->firstOrFail();
+        $module = Module::where('codi', '9991')->firstOrFail();
 
-        $this->assertSame('SX+SI+AW', $module->name);
+        $this->assertSame('SX+SI+AW', $module->nom);
         $this->assertSame(10, $module->students()->count());
-        $this->assertSame(2, $module->blocks()->sole()->number);
+        $this->assertSame(2, $module->blocks()->sole()->numero);
         $this->assertSame(3, Check::count());
-        $this->assertTrue(Check::all()->every(fn (Check $c) => $c->currentVersion?->version === 1));
+        $this->assertTrue(Check::all()->every(fn (Check $c) => $c->currentVersion?->versio === 1));
     }
 
     public function test_active_flag_overrides_dates(): void
     {
-        $check = new Check(['active_from' => '2026-11-02', 'active_to' => '2026-11-30']);
+        $check = new Check(['actiu_des' => '2026-11-02', 'actiu_fins' => '2026-11-30']);
         $before = Carbon::parse('2026-10-30');
         $inside = Carbon::parse('2026-11-10');
 
         $this->assertFalse($check->isActiveOn($before));
         $this->assertTrue($check->isActiveOn($inside));
 
-        $check->active = true;
+        $check->es_actiu = true;
         $this->assertTrue($check->isActiveOn($before));
 
-        $check->active = false;
+        $check->es_actiu = false;
         $this->assertFalse($check->isActiveOn($inside));
     }
 
@@ -58,7 +58,7 @@ class DomainModelTest extends TestCase
 
     public function test_punctuality_bonus_applies_only_before_deadline(): void
     {
-        $check = new Check(['points' => 10, 'punctuality_bonus_pct' => 20, 'deadline' => '2026-11-06 23:59:59']);
+        $check = new Check(['punts' => 10, 'bonus_puntualitat_pct' => 20, 'data_limit' => '2026-11-06 23:59:59']);
 
         $this->assertEquals(12, $check->pointsFor(Carbon::parse('2026-11-05 10:00')));
         $this->assertEquals(10, $check->pointsFor(Carbon::parse('2026-11-07 10:00')));
@@ -67,20 +67,20 @@ class DomainModelTest extends TestCase
 
     public function test_teacher_status_takes_priority(): void
     {
-        $state = new CheckStudent(['current_status' => CheckStatus::Fail]);
+        $state = new CheckStudent(['estat_actual' => CheckStatus::Fail]);
         $this->assertFalse($state->isPassing());
 
-        $state->teacher_status = true;
+        $state->estat_professor = true;
         $this->assertTrue($state->isPassing());
 
-        $state->current_status = CheckStatus::Pass;
-        $state->teacher_status = false;
+        $state->estat_actual = CheckStatus::Pass;
+        $state->estat_professor = false;
         $this->assertFalse($state->isPassing());
     }
 
     public function test_resolver_builds_student_variables(): void
     {
-        $student = Student::where('username', 'alumne03')->firstOrFail();
+        $student = Student::where('usuari', 'alumne03')->firstOrFail();
         $resolver = new VariableResolver;
         $vars = $resolver->resolve($student, $student->modules()->firstOrFail());
 
@@ -91,7 +91,7 @@ class DomainModelTest extends TestCase
         $this->assertSame('192.168.20.78', $vars['router_ip']);
         $this->assertSame('192.168.20.67', $resolver->toEnv($vars)['HE_PVE_IP']);
 
-        $student->vars = [...$student->vars, 'router_ip' => '192.168.20.77'];
+        $student->variables = [...$student->variables, 'router_ip' => '192.168.20.77'];
         $this->assertSame('192.168.20.77', $resolver->resolve($student, $student->modules()->first())['router_ip']);
 
         $this->assertSame(['missing_var'], $resolver->missing('{{ x }} {{ missing_var | host(1) }}', $vars));
@@ -118,9 +118,9 @@ class DomainModelTest extends TestCase
         $this->seed(StudentSeeder::class);
         unlink($path);
 
-        $student = Student::where('username', 'prova')->firstOrFail();
+        $student = Student::where('usuari', 'prova')->firstOrFail();
         $this->assertSame(31, $student->x);
-        $this->assertSame('Prova, Alumne', $student->full_name);
+        $this->assertSame('Prova, Alumne', $student->nom_complet);
         $this->assertSame('Taula 11', $student->publicName());
     }
 }

@@ -11,43 +11,45 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /** Script que el professor executa a mà per canviar els equips dels alumnes. */
 class Action extends Model
 {
+    protected $table = 'accions';
+
     protected $fillable = [
-        'module_id', 'block_id', 'name', 'description', 'executor', 'params',
-        'verify_check_ids', 'timeout_s', 'position',
+        'modul_id', 'bloc_id', 'nom', 'descripcio', 'executor', 'parametres',
+        'checks_verificacio', 'temps_max_seg', 'posicio',
     ];
 
     protected function casts(): array
     {
         return [
             'executor' => Executor::class,
-            'params' => 'array',
-            'verify_check_ids' => 'array',
+            'parametres' => 'array',
+            'checks_verificacio' => 'array',
         ];
     }
 
     public function module(): BelongsTo
     {
-        return $this->belongsTo(Module::class);
+        return $this->belongsTo(Module::class, 'modul_id');
     }
 
     public function block(): BelongsTo
     {
-        return $this->belongsTo(Block::class);
+        return $this->belongsTo(Block::class, 'bloc_id');
     }
 
     public function versions(): HasMany
     {
-        return $this->hasMany(ActionVersion::class);
+        return $this->hasMany(ActionVersion::class, 'accio_id');
     }
 
     /** La versió vigent és la de número més alt. */
     public function currentVersion(): HasOne
     {
-        return $this->hasOne(ActionVersion::class)->ofMany('version', 'max');
+        return $this->hasOne(ActionVersion::class, 'accio_id')->ofMany('versio', 'max');
     }
 
     public function runs(): HasMany
     {
-        return $this->hasMany(ActionRun::class);
+        return $this->hasMany(ActionRun::class, 'accio_id');
     }
 }

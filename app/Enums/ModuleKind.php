@@ -7,6 +7,6 @@ namespace App\Enums;
  */
 enum ModuleKind: string
 {
-    case Official = 'official';
-    case Free = 'free';
+    case Official = 'oficial';
+    case Free = 'lliure';
 }

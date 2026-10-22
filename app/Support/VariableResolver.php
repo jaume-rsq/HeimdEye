@@ -23,21 +23,20 @@ class VariableResolver
     {
         $own = array_merge(
             array_filter([
-                'username' => $student->username,
-                'full_name' => $student->full_name,
-                'table_no' => $student->table_no,
-                'num_taula' => $student->table_no === null ? null : sprintf('%02d', $student->table_no),
+                'usuari' => $student->usuari,
+                'nom_complet' => $student->nom_complet,
+                'num_taula' => $student->num_taula === null ? null : sprintf('%02d', $student->num_taula),
                 'x' => $student->x,
                 'email' => $student->user?->email,
             ], fn ($value) => $value !== null),
-            $student->vars ?? [],
+            $student->variables ?? [],
         );
 
-        $base = array_merge(GlobalVar::query()->pluck('value', 'key')->all(), $own);
+        $base = array_merge(GlobalVar::query()->pluck('valor', 'clau')->all(), $own);
 
         $derived = array_map(
             fn (string $template) => $this->render($template, $base),
-            $module->derived_vars ?? [],
+            $module->variables_derivades ?? [],
         );
 
         return array_map('strval', array_merge($base, $derived, $own));

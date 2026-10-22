@@ -8,42 +8,44 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class ActionRun extends Model
 {
+    protected $table = 'execucions_accio';
+
     public $timestamps = false;
 
     protected $fillable = [
-        'run_batch_id', 'action_id', 'action_version_id', 'student_id', 'triggered_by',
-        'check_mode', 'status', 'ok', 'changed', 'failed', 'params', 'output',
-        'started_at', 'finished_at',
+        'execucio_id', 'accio_id', 'versio_accio_id', 'alumne_id', 'llancat_per',
+        'es_simulacio', 'estat', 'ok', 'changed', 'failed', 'parametres', 'sortida',
+        'data_inici', 'data_fi',
     ];
 
     protected function casts(): array
     {
         return [
-            'status' => ActionStatus::class,
-            'check_mode' => 'boolean',
-            'params' => 'array',
-            'started_at' => 'datetime',
-            'finished_at' => 'datetime',
+            'estat' => ActionStatus::class,
+            'es_simulacio' => 'boolean',
+            'parametres' => 'array',
+            'data_inici' => 'datetime',
+            'data_fi' => 'datetime',
         ];
     }
 
     public function batch(): BelongsTo
     {
-        return $this->belongsTo(RunBatch::class, 'run_batch_id');
+        return $this->belongsTo(RunBatch::class, 'execucio_id');
     }
 
     public function action(): BelongsTo
     {
-        return $this->belongsTo(Action::class);
+        return $this->belongsTo(Action::class, 'accio_id');
     }
 
     public function student(): BelongsTo
     {
-        return $this->belongsTo(Student::class);
+        return $this->belongsTo(Student::class, 'alumne_id');
     }
 
     public function triggeredBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'triggered_by');
+        return $this->belongsTo(User::class, 'llancat_per');
     }
 }

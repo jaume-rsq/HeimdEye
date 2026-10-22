@@ -8,21 +8,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CheckStudent extends Model
 {
-    protected $table = 'check_student';
+    protected $table = 'check_alumne';
 
     protected $fillable = [
-        'check_id', 'student_id', 'current_status', 'teacher_status', 'teacher_comment',
-        'teacher_updated_by', 'first_passed_at', 'last_passed_at', 'last_run_at',
+        'check_id', 'alumne_id', 'estat_actual', 'estat_professor', 'comentari_professor',
+        'modificat_per', 'data_primer_assoliment', 'data_ultim_assoliment', 'data_darrera_execucio',
     ];
 
     protected function casts(): array
     {
         return [
-            'current_status' => CheckStatus::class,
-            'teacher_status' => 'boolean',
-            'first_passed_at' => 'datetime',
-            'last_passed_at' => 'datetime',
-            'last_run_at' => 'datetime',
+            'estat_actual' => CheckStatus::class,
+            'estat_professor' => 'boolean',
+            'data_primer_assoliment' => 'datetime',
+            'data_ultim_assoliment' => 'datetime',
+            'data_darrera_execucio' => 'datetime',
         ];
     }
 
@@ -33,17 +33,17 @@ class CheckStudent extends Model
 
     public function student(): BelongsTo
     {
-        return $this->belongsTo(Student::class);
+        return $this->belongsTo(Student::class, 'alumne_id');
     }
 
     public function teacherUpdatedBy(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'teacher_updated_by');
+        return $this->belongsTo(User::class, 'modificat_per');
     }
 
     /** L'estat del professor, si n'hi ha, preval sobre el resultat automàtic. */
     public function isPassing(): bool
     {
-        return $this->teacher_status ?? $this->current_status === CheckStatus::Pass;
+        return $this->estat_professor ?? $this->estat_actual === CheckStatus::Pass;
     }
 }

@@ -22,12 +22,12 @@ class AcademicStructureSeeder extends Seeder
     public function run(): void
     {
         $year = AcademicYear::updateOrCreate(
-            ['name' => '2026/27'],
-            ['starts_on' => '2026-09-14', 'ends_on' => '2027-06-30', 'is_current' => true],
+            ['nom' => '2026/27'],
+            ['data_inici' => '2026-09-14', 'data_fi' => '2027-06-30', 'es_actual' => true],
         );
 
-        $smix = Cycle::updateOrCreate(['code' => 'SMIX'], ['name' => 'Sistemes Microinformàtics i Xarxes']);
-        Cycle::updateOrCreate(['code' => 'ASIX'], ['name' => 'Administració de Sistemes Informàtics en Xarxa']);
+        $smix = Cycle::updateOrCreate(['codi' => 'SMIX'], ['nom' => 'Sistemes Microinformàtics i Xarxes']);
+        Cycle::updateOrCreate(['codi' => 'ASIX'], ['nom' => 'Administració de Sistemes Informàtics en Xarxa']);
 
         foreach ([
             'central_ip' => '192.168.20.11',
@@ -36,29 +36,29 @@ class AcademicStructureSeeder extends Seeder
             'base_domain' => 'smix2.julioantonio.cat',
             'zabbix_server' => '192.168.20.12',
         ] as $key => $value) {
-            GlobalVar::updateOrCreate(['key' => $key], ['value' => $value]);
+            GlobalVar::updateOrCreate(['clau' => $key], ['valor' => $value]);
         }
 
         // La clau privada no es versiona: s'afegeix des de l'administració.
         $credential = Credential::firstOrCreate(
-            ['name' => 'SSH jaume'],
-            ['type' => CredentialType::Ssh, 'username' => 'jaume'],
+            ['nom' => 'SSH jaume'],
+            ['tipus' => CredentialType::Ssh, 'nom_usuari' => 'jaume'],
         );
 
         $admin = User::updateOrCreate(
             ['email' => config('heimdeye.admin.email')],
-            ['name' => config('heimdeye.admin.name'), 'role' => Role::Admin],
+            ['nom' => config('heimdeye.admin.name'), 'rol' => Role::Admin],
         );
 
         $module = Module::updateOrCreate(
-            ['academic_year_id' => $year->id, 'cycle_id' => $smix->id, 'code' => '9991'],
+            ['curs_id' => $year->id, 'cicle_id' => $smix->id, 'codi' => '9991'],
             [
-                'name' => 'SX+SI+AW',
-                'description' => 'Mòdul combinat per Serveis de Xarxa, Seguretat Informàtica i Aplicacions Web',
-                'kind' => ModuleKind::Free,
-                'combines' => ['0227', '0226', '0228'],
-                'credential_id' => $credential->id,
-                'derived_vars' => [
+                'nom' => 'SX+SI+AW',
+                'descripcio' => 'Mòdul combinat per Serveis de Xarxa, Seguretat Informàtica i Aplicacions Web',
+                'tipus' => ModuleKind::Free,
+                'combina' => ['0227', '0226', '0228'],
+                'credencial_id' => $credential->id,
+                'variables_derivades' => [
                     'lan' => '172.{{x}}.0.0/22',
                     'dmz' => '10.{{x}}.0.0/22',
                     'pve_ip' => '{{ aula_net | host(3) }}',
@@ -69,8 +69,8 @@ class AcademicStructureSeeder extends Seeder
                     'base' => '{{ aula_net | octet(4) }}',
                     'xarxa' => '{{aula_net}}',
                     'taula' => 'Taula{{num_taula}}',
-                    'alumne' => '{{full_name}}',
-                    'nom_dns' => '{{username}}',
+                    'alumne' => '{{nom_complet}}',
+                    'nom_dns' => '{{usuari}}',
                 ],
             ],
         );

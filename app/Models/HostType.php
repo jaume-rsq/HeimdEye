@@ -8,31 +8,33 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class HostType extends Model
 {
+    protected $table = 'tipus_equip';
+
     protected $fillable = [
-        'module_id', 'name', 'ansible_group', 'scope', 'host_name', 'address',
-        'connection_vars', 'credential_id', 'position',
+        'modul_id', 'nom', 'grup_ansible', 'abast', 'nom_host', 'adreca',
+        'variables_connexio', 'credencial_id', 'posicio',
     ];
 
     protected function casts(): array
     {
         return [
-            'scope' => HostScope::class,
-            'connection_vars' => 'array',
+            'abast' => HostScope::class,
+            'variables_connexio' => 'array',
         ];
     }
 
     public function module(): BelongsTo
     {
-        return $this->belongsTo(Module::class);
+        return $this->belongsTo(Module::class, 'modul_id');
     }
 
     public function credential(): BelongsTo
     {
-        return $this->belongsTo(Credential::class);
+        return $this->belongsTo(Credential::class, 'credencial_id');
     }
 
     public function isGlobal(): bool
     {
-        return $this->scope === HostScope::Global;
+        return $this->abast === HostScope::Global;
     }
 }

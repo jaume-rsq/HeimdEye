@@ -7,6 +7,6 @@ namespace App\Enums;
  */
 enum HostScope: string
 {
-    case Student = 'student';
+    case Student = 'alumne';
     case Global = 'global';
 }

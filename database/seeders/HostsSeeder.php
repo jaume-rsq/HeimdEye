@@ -17,25 +17,25 @@ class HostsSeeder extends Seeder
 {
     public function run(): void
     {
-        $module = Module::where('code', '9991')->firstOrFail();
+        $module = Module::where('codi', '9991')->firstOrFail();
 
         $windows = Credential::firstOrCreate(
-            ['name' => 'WinRM Windows Server'],
-            ['type' => CredentialType::Winrm, 'username' => 'Administrador'],
+            ['nom' => 'WinRM Windows Server'],
+            ['tipus' => CredentialType::Winrm, 'nom_usuari' => 'Administrador'],
         );
         $zabbix = Credential::firstOrCreate(
-            ['name' => 'API Zabbix'],
-            ['type' => CredentialType::Password, 'username' => 'ansible'],
+            ['nom' => 'API Zabbix'],
+            ['tipus' => CredentialType::Password, 'nom_usuari' => 'ansible'],
         );
 
         $types = [
-            ['name' => 'pve', 'ansible_group' => 'pve', 'host_name' => 'pve{{num_taula}}-{{username}}', 'address' => '{{pve_ip}}'],
-            ['name' => 'router', 'ansible_group' => 'vm_router', 'host_name' => 'router{{num_taula}}', 'address' => '{{router_ip}}'],
-            ['name' => 'dns', 'ansible_group' => 'vm_dns_bind', 'host_name' => 'dns{{num_taula}}', 'address' => '{{dns_ip}}'],
+            ['nom' => 'pve', 'grup_ansible' => 'pve', 'nom_host' => 'pve{{num_taula}}-{{usuari}}', 'adreca' => '{{pve_ip}}'],
+            ['nom' => 'router', 'grup_ansible' => 'vm_router', 'nom_host' => 'router{{num_taula}}', 'adreca' => '{{router_ip}}'],
+            ['nom' => 'dns', 'grup_ansible' => 'vm_dns_bind', 'nom_host' => 'dns{{num_taula}}', 'adreca' => '{{dns_ip}}'],
             [
-                'name' => 'dnswin', 'ansible_group' => 'vm_dns_windows', 'host_name' => 'dnswin{{num_taula}}', 'address' => '{{dnswin_ip}}',
-                'credential_id' => $windows->id,
-                'connection_vars' => [
+                'nom' => 'dnswin', 'grup_ansible' => 'vm_dns_windows', 'nom_host' => 'dnswin{{num_taula}}', 'adreca' => '{{dnswin_ip}}',
+                'credencial_id' => $windows->id,
+                'variables_connexio' => [
                     'ansible_connection' => 'winrm',
                     'ansible_winrm_transport' => 'ntlm',
                     'ansible_winrm_server_cert_validation' => 'ignore',
@@ -43,9 +43,9 @@ class HostsSeeder extends Seeder
                 ],
             ],
             [
-                'name' => 'zbx', 'ansible_group' => 'zabbix', 'scope' => HostScope::Global, 'host_name' => 'zbx', 'address' => '{{zabbix_server}}',
-                'credential_id' => $zabbix->id,
-                'connection_vars' => [
+                'nom' => 'zbx', 'grup_ansible' => 'zabbix', 'abast' => HostScope::Global, 'nom_host' => 'zbx', 'adreca' => '{{zabbix_server}}',
+                'credencial_id' => $zabbix->id,
+                'variables_connexio' => [
                     'ansible_connection' => 'httpapi',
                     'ansible_network_os' => 'community.zabbix.zabbix',
                     'ansible_httpapi_port' => 80,
@@ -55,26 +55,26 @@ class HostsSeeder extends Seeder
             ],
         ];
         foreach ($types as $position => $type) {
-            $module->hostTypes()->updateOrCreate(['name' => $type['name']], [...$type, 'position' => $position + 1]);
+            $module->hostTypes()->updateOrCreate(['nom' => $type['nom']], [...$type, 'posicio' => $position + 1]);
         }
 
         $module->secrets()->firstOrCreate(
-            ['key' => 'jaume_password'],
-            ['description' => 'Contrasenya de l\'usuari jaume als equips Linux dels alumnes'],
+            ['clau' => 'jaume_password'],
+            ['descripcio' => 'Contrasenya de l\'usuari jaume als equips Linux dels alumnes'],
         );
 
         $action = $module->actions()->updateOrCreate(
-            ['name' => 'Contrasenya de l\'usuari jaume'],
+            ['nom' => 'Contrasenya de l\'usuari jaume'],
             [
-                'description' => 'Posa la contrasenya del secret jaume_password a l\'usuari jaume (que entra amb clau).',
+                'descripcio' => 'Posa la contrasenya del secret jaume_password a l\'usuari jaume (que entra amb clau).',
                 'executor' => Executor::Ansible,
-                'position' => 1,
+                'posicio' => 1,
             ],
         );
         if (! $action->versions()->exists()) {
             $action->versions()->create([
-                'version' => 1,
-                'code' => <<<'YAML'
+                'versio' => 1,
+                'codi' => <<<'YAML'
                     - hosts: pve:vm_router:vm_dns_bind
                       become: true
                       tasks:

@@ -52,43 +52,43 @@ class ActionRunner
         }
 
         $module = $action->module;
-        $types = $hostTypes === [] ? $module->hostTypes : $module->hostTypes->whereIn('name', $hostTypes);
-        if ($unknown = array_diff($hostTypes, $types->pluck('name')->all())) {
+        $types = $hostTypes === [] ? $module->hostTypes : $module->hostTypes->whereIn('nom', $hostTypes);
+        if ($unknown = array_diff($hostTypes, $types->pluck('nom')->all())) {
             throw new InvalidArgumentException('No existeix el tipus d\'equip '.implode(', ', $unknown));
         }
 
         $batch = RunBatch::create([
-            'module_id' => $module->id,
-            'origin' => RunOrigin::Action,
-            'triggered_by' => $user?->id,
-            'started_at' => now(),
-            'totals' => ['expected' => $students->count(), 'check_mode' => $checkMode],
+            'modul_id' => $module->id,
+            'origen' => RunOrigin::Action,
+            'llancat_per' => $user?->id,
+            'data_inici' => now(),
+            'totals' => ['expected' => $students->count(), 'es_simulacio' => $checkMode],
         ]);
 
         $record = fn (Student $student, ActionStatus $status, array $counts, ?string $output, $startedAt) => ActionRun::create([
-            'run_batch_id' => $batch->id,
-            'action_id' => $action->id,
-            'action_version_id' => $version->id,
-            'student_id' => $student->id,
-            'triggered_by' => $user?->id,
-            'check_mode' => $checkMode,
-            'status' => $status,
+            'execucio_id' => $batch->id,
+            'accio_id' => $action->id,
+            'versio_accio_id' => $version->id,
+            'alumne_id' => $student->id,
+            'llancat_per' => $user?->id,
+            'es_simulacio' => $checkMode,
+            'estat' => $status,
             ...$counts,
-            'params' => $params ?: null,
-            'output' => $output,
-            'started_at' => $startedAt,
-            'finished_at' => now(),
+            'parametres' => $params ?: null,
+            'sortida' => $output,
+            'data_inici' => $startedAt,
+            'data_fi' => now(),
         ]);
 
         $builder = new ContextBuilder($this->resolver);
         try {
             if ($action->executor === Executor::Ansible) {
-                $this->runAnsible($builder, $action, $version->code, $students, $types, $params, $checkMode, $record);
+                $this->runAnsible($builder, $action, $version->codi, $students, $types, $params, $checkMode, $record);
             } else {
                 foreach ($students as $student) {
                     $startedAt = now();
                     try {
-                        $context = $builder->build($module, $student, $action->executor, $version->code, $version->config ?? [], $action->timeout_s, params: $params);
+                        $context = $builder->build($module, $student, $action->executor, $version->codi, $version->configuracio ?? [], $action->temps_max_seg, params: $params);
                         $result = CheckRunner::executor($action->executor)->execute($context)->masked($context->mask);
                     } catch (InvalidArgumentException $e) {
                         $result = CheckResult::error($e->getMessage());
@@ -102,7 +102,7 @@ class ActionRunner
 
         $batch->refreshTotals();
 
-        if (! $checkMode && $action->verify_check_ids) {
+        if (! $checkMode && $action->checks_verificacio) {
             $this->verify($action, $students);
         }
 
@@ -126,7 +126,7 @@ class ActionRunner
             $inventory->build($action->module, $students, $types),
             [...$params, ...$secrets],
             $checkMode,
-            $action->timeout_s,
+            $action->temps_max_seg,
         );
         $mask = [...array_values($secrets), ...$inventory->mask()];
 
@@ -151,7 +151,7 @@ class ActionRunner
      */
     private function params(Action $action, array $given): array
     {
-        $declared = collect($action->params ?? [])->keyBy('name');
+        $declared = collect($action->parametres ?? [])->keyBy('name');
         if ($unknown = array_diff(array_keys($given), $declared->keys()->all())) {
             throw new InvalidArgumentException('Paràmetre desconegut: '.implode(', ', $unknown));
         }
@@ -182,15 +182,15 @@ class ActionRunner
     /** Llança els checks vinculats sobre els mateixos alumnes per confirmar l'efecte. */
     private function verify(Action $action, Collection $students): void
     {
-        $checks = Check::whereIn('id', $action->verify_check_ids)->get();
+        $checks = Check::whereIn('id', $action->checks_verificacio)->get();
         if ($checks->isEmpty()) {
             return;
         }
 
         $batch = RunBatch::create([
-            'module_id' => $action->module_id,
-            'origin' => RunOrigin::Manual,
-            'started_at' => now(),
+            'modul_id' => $action->modul_id,
+            'origen' => RunOrigin::Manual,
+            'data_inici' => now(),
             'totals' => ['expected' => $checks->count() * $students->count()],
         ]);
         foreach ($checks as $check) {

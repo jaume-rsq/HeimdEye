@@ -9,12 +9,14 @@ class CheckVersion extends Model
 {
     const UPDATED_AT = null;
 
-    protected $fillable = ['check_id', 'version', 'code', 'config', 'created_by'];
+    protected $table = 'versions_check';
+
+    protected $fillable = ['check_id', 'versio', 'codi', 'configuracio', 'creat_per'];
 
     protected function casts(): array
     {
         return [
-            'config' => 'array',
+            'configuracio' => 'array',
         ];
     }
 
@@ -25,6 +27,6 @@ class CheckVersion extends Model
 
     public function author(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'creat_per');
     }
 }

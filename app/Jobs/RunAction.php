@@ -36,7 +36,7 @@ class RunAction implements ShouldQueue
     {
         $runner->run(
             $this->action,
-            Student::whereIn('id', $this->studentIds)->orderBy('table_no')->get(),
+            Student::whereIn('id', $this->studentIds)->orderBy('num_taula')->get(),
             $this->hostTypes,
             $this->params,
             $this->checkMode,

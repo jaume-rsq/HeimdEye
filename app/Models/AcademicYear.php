@@ -7,24 +7,26 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class AcademicYear extends Model
 {
-    protected $fillable = ['name', 'starts_on', 'ends_on', 'is_current'];
+    protected $table = 'cursos';
+
+    protected $fillable = ['nom', 'data_inici', 'data_fi', 'es_actual'];
 
     protected function casts(): array
     {
         return [
-            'starts_on' => 'date',
-            'ends_on' => 'date',
-            'is_current' => 'boolean',
+            'data_inici' => 'date',
+            'data_fi' => 'date',
+            'es_actual' => 'boolean',
         ];
     }
 
     public function modules(): HasMany
     {
-        return $this->hasMany(Module::class);
+        return $this->hasMany(Module::class, 'curs_id');
     }
 
     public function students(): HasMany
     {
-        return $this->hasMany(Student::class);
+        return $this->hasMany(Student::class, 'curs_id');
     }
 }

@@ -6,5 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class GlobalVar extends Model
 {
-    protected $fillable = ['key', 'value'];
+    protected $table = 'variables_globals';
+
+    protected $fillable = ['clau', 'valor'];
 }

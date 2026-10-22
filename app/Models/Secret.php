@@ -7,19 +7,21 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class Secret extends Model
 {
-    protected $fillable = ['module_id', 'key', 'value', 'description'];
+    protected $table = 'secrets';
 
-    protected $hidden = ['value'];
+    protected $fillable = ['modul_id', 'clau', 'valor', 'descripcio'];
+
+    protected $hidden = ['valor'];
 
     protected function casts(): array
     {
         return [
-            'value' => 'encrypted',
+            'valor' => 'encrypted',
         ];
     }
 
     public function module(): BelongsTo
     {
-        return $this->belongsTo(Module::class);
+        return $this->belongsTo(Module::class, 'modul_id');
     }
 }

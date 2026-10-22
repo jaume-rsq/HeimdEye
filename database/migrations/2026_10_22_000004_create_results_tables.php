@@ -8,55 +8,55 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('run_batches', function (Blueprint $table) {
+        Schema::create('execucions', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('module_id')->constrained()->cascadeOnDelete();
-            $table->string('origin'); // App\Enums\RunOrigin
-            $table->foreignId('triggered_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('started_at')->nullable();
-            $table->timestamp('finished_at')->nullable();
+            $table->foreignId('modul_id')->constrained('moduls')->cascadeOnDelete();
+            $table->string('origen'); // App\Enums\RunOrigin
+            $table->foreignId('llancat_per')->nullable()->constrained('usuaris')->nullOnDelete();
+            $table->timestamp('data_inici')->nullable();
+            $table->timestamp('data_fi')->nullable();
             $table->json('totals')->nullable(); // recompte per estat
             $table->timestamps();
         });
 
-        Schema::create('check_runs', function (Blueprint $table) {
+        Schema::create('execucions_check', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('run_batch_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('check_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('check_version_id')->nullable()->constrained()->nullOnDelete();
-            $table->foreignId('student_id')->constrained()->cascadeOnDelete();
-            $table->string('status'); // App\Enums\CheckStatus
-            $table->string('message')->nullable();
-            $table->text('output')->nullable(); // stdout/stderr retallats
-            $table->smallInteger('exit_code')->nullable();
-            $table->unsignedInteger('duration_ms')->nullable();
-            $table->timestamp('ran_at');
+            $table->foreignId('execucio_id')->constrained('execucions')->cascadeOnDelete();
+            $table->foreignId('check_id')->constrained('checks')->cascadeOnDelete();
+            $table->foreignId('versio_check_id')->nullable()->constrained('versions_check')->nullOnDelete();
+            $table->foreignId('alumne_id')->constrained('alumnes')->cascadeOnDelete();
+            $table->string('estat'); // App\Enums\CheckStatus
+            $table->string('missatge')->nullable();
+            $table->text('sortida')->nullable(); // stdout/stderr retallats
+            $table->smallInteger('codi_sortida')->nullable();
+            $table->unsignedInteger('durada_ms')->nullable();
+            $table->timestamp('data_execucio');
 
-            $table->index(['check_id', 'student_id', 'ran_at']);
+            $table->index(['check_id', 'alumne_id', 'data_execucio']);
         });
 
         // Estat actual de cada check per a cada alumne (desnormalitzat per al leaderboard).
-        Schema::create('check_student', function (Blueprint $table) {
+        Schema::create('check_alumne', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('check_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('student_id')->constrained()->cascadeOnDelete();
-            $table->string('current_status')->nullable(); // null: mai executat
-            $table->boolean('teacher_status')->nullable(); // si no és null, preval
-            $table->text('teacher_comment')->nullable();
-            $table->foreignId('teacher_updated_by')->nullable()->constrained('users')->nullOnDelete();
-            $table->timestamp('first_passed_at')->nullable();
-            $table->timestamp('last_passed_at')->nullable();
-            $table->timestamp('last_run_at')->nullable();
+            $table->foreignId('check_id')->constrained('checks')->cascadeOnDelete();
+            $table->foreignId('alumne_id')->constrained('alumnes')->cascadeOnDelete();
+            $table->string('estat_actual')->nullable(); // null: mai executat
+            $table->boolean('estat_professor')->nullable(); // si no és null, preval
+            $table->text('comentari_professor')->nullable();
+            $table->foreignId('modificat_per')->nullable()->constrained('usuaris')->nullOnDelete();
+            $table->timestamp('data_primer_assoliment')->nullable();
+            $table->timestamp('data_ultim_assoliment')->nullable();
+            $table->timestamp('data_darrera_execucio')->nullable();
             $table->timestamps();
 
-            $table->unique(['check_id', 'student_id']);
+            $table->unique(['check_id', 'alumne_id']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('check_student');
-        Schema::dropIfExists('check_runs');
-        Schema::dropIfExists('run_batches');
+        Schema::dropIfExists('check_alumne');
+        Schema::dropIfExists('execucions_check');
+        Schema::dropIfExists('execucions');
     }
 };

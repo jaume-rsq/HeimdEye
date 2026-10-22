@@ -7,8 +7,8 @@ namespace App\Enums;
  */
 enum RunOrigin: string
 {
-    case Nightly = 'nightly';
+    case Nightly = 'nocturna';
     case Manual = 'manual';
-    case Test = 'test';
-    case Action = 'action';
+    case Test = 'prova';
+    case Action = 'accio';
 }

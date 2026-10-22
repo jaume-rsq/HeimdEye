@@ -39,13 +39,13 @@ class InventoryBuilder
     public function build(Module $module, iterable $students, Collection $hostTypes): array
     {
         $this->hostMap = [];
-        $globals = GlobalVar::query()->pluck('value', 'key')->all();
+        $globals = GlobalVar::query()->pluck('valor', 'clau')->all();
         $children = [];
         $studentGroups = [];
 
         foreach ($module->hostTypes->filter->isGlobal() as $type) {
-            $name = $this->resolver->render($type->host_name, $globals);
-            $children[$type->ansible_group]['hosts'][$name] = $this->hostVars($type, $globals);
+            $name = $this->resolver->render($type->nom_host, $globals);
+            $children[$type->grup_ansible]['hosts'][$name] = $this->hostVars($type, $globals);
             $this->hostMap[$name] = null;
         }
 
@@ -56,8 +56,8 @@ class InventoryBuilder
             $children[$group] = ['hosts' => [], 'vars' => array_diff_assoc($vars, $globals)];
 
             foreach ($hostTypes->reject->isGlobal() as $type) {
-                $name = $this->resolver->render($type->host_name, $vars);
-                $children[$type->ansible_group]['hosts'][$name] = $this->hostVars($type, $vars);
+                $name = $this->resolver->render($type->nom_host, $vars);
+                $children[$type->grup_ansible]['hosts'][$name] = $this->hostVars($type, $vars);
                 $children[$group]['hosts'][$name] = (object) [];
                 $this->hostMap[$name] = $student->id;
             }
@@ -86,8 +86,8 @@ class InventoryBuilder
      */
     private function hostVars(HostType $type, array $vars): array
     {
-        $hostVars = ['ansible_host' => $this->resolver->render($type->address, $vars)];
-        foreach ($type->connection_vars ?? [] as $key => $value) {
+        $hostVars = ['ansible_host' => $this->resolver->render($type->adreca, $vars)];
+        foreach ($type->variables_connexio ?? [] as $key => $value) {
             $hostVars[$key] = is_string($value) ? $this->resolver->render($value, $vars) : $value;
         }
 
@@ -101,8 +101,8 @@ class InventoryBuilder
             return [];
         }
 
-        $vars = ['ansible_user' => $credential->username];
-        if (in_array($credential->type, [CredentialType::Winrm, CredentialType::Password], true)) {
+        $vars = ['ansible_user' => $credential->nom_usuari];
+        if (in_array($credential->tipus, [CredentialType::Winrm, CredentialType::Password], true)) {
             if ($credential->secret) {
                 $vars['ansible_password'] = $credential->secret;
                 $this->mask[] = $credential->secret;
