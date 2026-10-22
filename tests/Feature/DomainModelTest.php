@@ -7,6 +7,8 @@ use App\Models\Check;
 use App\Models\CheckStudent;
 use App\Models\Module;
 use App\Models\Student;
+use App\Runner\Ansible\InventoryBuilder;
+use App\Runner\TempFiles;
 use App\Support\VariableResolver;
 use Database\Seeders\StudentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -122,5 +124,17 @@ class DomainModelTest extends TestCase
         $this->assertSame(31, $student->x);
         $this->assertSame('Prova, Alumne', $student->nom_complet);
         $this->assertSame('Taula 11', $student->publicName());
+    }
+
+    public function test_inventory_gets_the_public_key_from_the_private_one(): void
+    {
+        config(['heimdeye.runner.ssh_pubkey_path' => '/home/jaume/.ssh/id_ed25519.pub']);
+        $module = Module::where('codi', '9991')->firstOrFail();
+        $builder = new InventoryBuilder(app(VariableResolver::class), new TempFiles);
+
+        $inventory = $builder->build($module, [Student::where('usuari', 'alumne01')->firstOrFail()], $module->hostTypes);
+
+        $this->assertSame('/home/jaume/.ssh/id_ed25519.pub', $inventory['all']['vars']['heimdeye_ssh_pubkey_file']);
+        $this->assertSame('198.51.100.18', $inventory['all']['children']['estacio_windows']['hosts']['estacio01']['ansible_host']);
     }
 }

@@ -23,10 +23,13 @@ return [
     |   "systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%"
     |   (amb systemd-run s'hi afegeixen RuntimeMaxSec i les variables amb --setenv). Buit = directe.
     | - ssh_key_path: clau privada a fer servir si la credencial no en té cap desada.
+    | - ssh_pubkey_path: clau pública corresponent (per defecte, la privada amb .pub). Arriba als
+    |   playbooks com a heimdeye_ssh_pubkey_file.
     */
     'runner' => [
         'wrapper' => env('HEIMDEYE_RUNNER_WRAPPER', ''),
         'ssh_key_path' => env('HEIMDEYE_SSH_KEY_PATH'),
+        'ssh_pubkey_path' => env('HEIMDEYE_SSH_PUBKEY_PATH', env('HEIMDEYE_SSH_KEY_PATH') ? env('HEIMDEYE_SSH_KEY_PATH').'.pub' : null),
         'queue' => env('HEIMDEYE_QUEUE', 'checks'),
         'retry_after' => (int) env('HEIMDEYE_RETRY_AFTER', 180),
         'output_limit' => 8192,

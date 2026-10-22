@@ -65,7 +65,12 @@ class InventoryBuilder
 
         $children['alumnes'] = ['children' => $studentGroups ?: (object) []];
 
-        return ['all' => ['vars' => $globals ?: (object) [], 'children' => $children]];
+        $vars = $globals;
+        if ($pubkey = config('heimdeye.runner.ssh_pubkey_path')) {
+            $vars['heimdeye_ssh_pubkey_file'] = $pubkey;
+        }
+
+        return ['all' => ['vars' => $vars ?: (object) [], 'children' => $children]];
     }
 
     /** @return array<string, ?int> */

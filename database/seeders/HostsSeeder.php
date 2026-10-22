@@ -86,14 +86,10 @@ class HostsSeeder extends Seeder
                     YAML,
             ],
             [
-                'nom' => 'Accés de jaume als nodes PVE',
-                'descripcio' => 'Sudo sense contrasenya, clau pública i contrasenya de jaume; usuari jaume@pam administrador a PVE i, si hi és, a PBS. Cal que jaume ja pugui fer sudo sense contrasenya.',
-                'parametres' => [
-                    ['name' => 'jaume_pubkey_file', 'label' => 'Clau pública (fitxer a la VM de HeimdEye)', 'default' => '~/.ssh/id_ed25519.pub'],
-                ],
+                'nom' => 'Sudo sense contrasenya per a jaume',
+                'descripcio' => 'Instal·la sudo i deixa que jaume el faci servir sense contrasenya. Cal que jaume ja pugui fer sudo.',
                 'codi' => <<<'YAML'
-                    - name: Accés de jaume als nodes PVE
-                      hosts: pve
+                    - hosts: pve
                       become: true
                       tasks:
                         - name: Instal·lar sudo
@@ -109,21 +105,29 @@ class HostsSeeder extends Seeder
                             group: root
                             mode: "0440"
                             validate: "visudo -cf %s"
-
+                    YAML,
+            ],
+            [
+                'nom' => 'Clau pública de jaume',
+                'descripcio' => 'Afegeix a jaume la clau pública de HeimdEye (HEIMDEYE_SSH_PUBKEY_PATH, o la privada amb .pub).',
+                'codi' => <<<'YAML'
+                    - hosts: pve
+                      become: true
+                      tasks:
                         - name: Clau pública de jaume
                           ansible.posix.authorized_key:
                             user: jaume
-                            key: "{{ lookup('file', jaume_pubkey_file) }}"
+                            key: "{{ lookup('file', heimdeye_ssh_pubkey_file) }}"
                             state: present
-
-                        - name: Usuari jaume amb contrasenya
-                          ansible.builtin.user:
-                            name: jaume
-                            shell: /bin/bash
-                            # Sal fixa perquè el hash no canviï a cada execució (idempotent).
-                            password: "{{ jaume_password | password_hash('sha512', 'heimdeye') }}"
-                            update_password: always
-
+                    YAML,
+            ],
+            [
+                'nom' => 'Usuari jaume@pam administrador a PVE',
+                'descripcio' => 'Crea jaume@pam al Proxmox VE si no hi és i li dona el rol Administrator a /.',
+                'codi' => <<<'YAML'
+                    - hosts: pve
+                      become: true
+                      tasks:
                         - name: Llistar usuaris de PVE
                           ansible.builtin.command: pveum user list --output-format json
                           register: pve_users
@@ -136,7 +140,15 @@ class HostsSeeder extends Seeder
                         - name: Donar rol Administrator a / a PVE
                           ansible.builtin.command: pveum acl modify / --users jaume@pam --roles Administrator
                           changed_when: false # "modify" és idempotent, però no informa de si ha canviat
-
+                    YAML,
+            ],
+            [
+                'nom' => 'Usuari jaume@pam administrador a PBS',
+                'descripcio' => 'Si hi ha Proxmox Backup Server, hi crea jaume@pam si no hi és i li dona el rol Admin a /.',
+                'codi' => <<<'YAML'
+                    - hosts: pve
+                      become: true
+                      tasks:
                         - name: Comprovar si PBS està instal·lat
                           ansible.builtin.stat:
                             path: /usr/sbin/proxmox-backup-manager
