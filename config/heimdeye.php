@@ -33,4 +33,12 @@ return [
         'nightly_at' => env('HEIMDEYE_NIGHTLY_AT', '02:00'),
     ],
 
+    /*
+    | Ansible: executable i nom del grup de cada alumne a l'inventari generat.
+    */
+    'ansible' => [
+        'playbook_bin' => env('HEIMDEYE_ANSIBLE_PLAYBOOK', 'ansible-playbook'),
+        'student_group' => 'taula{{num_taula}}',
+    ],
+
 ];

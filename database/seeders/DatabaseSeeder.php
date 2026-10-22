@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             AcademicStructureSeeder::class,
             StudentSeeder::class,
+            HostsSeeder::class,
             Block02ProxmoxSeeder::class,
         ]);
     }

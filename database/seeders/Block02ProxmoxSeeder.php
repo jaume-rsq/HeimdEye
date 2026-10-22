@@ -63,7 +63,7 @@ class Block02ProxmoxSeeder extends Seeder
                 'name' => 'Hi ha alguna VM definida',
                 'executor' => Executor::Ssh,
                 'points' => 2,
-                'config' => ['host' => '{{pve_ip}}'],
+                'config' => ['host_type' => 'pve'],
                 // qm necessita root: l'usuari de la credencial ha de poder fer sudo -n qm list.
                 'code' => <<<'SH'
                     out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }

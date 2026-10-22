@@ -34,6 +34,7 @@ class AcademicStructureSeeder extends Seeder
             'alt_resolver' => '192.168.20.254',
             'heimdeye_ip' => '192.168.20.12',
             'base_domain' => 'smix2.julioantonio.cat',
+            'zabbix_server' => '192.168.20.12',
         ] as $key => $value) {
             GlobalVar::updateOrCreate(['key' => $key], ['value' => $value]);
         }
@@ -62,6 +63,14 @@ class AcademicStructureSeeder extends Seeder
                     'dmz' => '10.{{x}}.0.0/22',
                     'pve_ip' => '{{ aula_net | host(3) }}',
                     'router_ip' => '{{ aula_net | host(-1) }}',
+                    'dns_ip' => '10.{{x}}.0.11',
+                    'dnswin_ip' => '172.{{x}}.0.11',
+                    // Mateixos noms que l'inventari Ansible de l'aula (smix2.ini).
+                    'base' => '{{ aula_net | octet(4) }}',
+                    'xarxa' => '{{aula_net}}',
+                    'taula' => 'Taula{{num_taula}}',
+                    'alumne' => '{{full_name}}',
+                    'nom_dns' => '{{username}}',
                 ],
             ],
         );

@@ -6,7 +6,8 @@ contra els equips dels alumnes. El disseny complet és al document de disseny de
 
 ## Estat
 
-Fase 2: base de dades, seeders i runner de checks (executors `local` i `ssh`). Encara no hi ha vistes.
+Fase 3: base de dades, seeders, runner de checks (executors `local`, `ssh` i `ansible`) i accions
+del professor. Encara no hi ha vistes.
 
 ## Posada en marxa (desenvolupament)
 
@@ -82,4 +83,39 @@ La nocturna la llança el scheduler (`HEIMDEYE_NIGHTLY_AT`, per defecte 02:00); 
 - Aïllament: `HEIMDEYE_RUNNER_WRAPPER` embolcalla cada execució, per exemple
   `systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%`.
   Amb `systemd-run` s'hi afegeixen `RuntimeMaxSec` i les variables (`--setenv`). L'usuari del
-  sandbox ha de poder llegir la clau SSH.
+  sandbox ha de poder llegir la clau SSH i els fitxers temporals que crea el runner (inventari,
+  playbook, claus), que són al directori temporal del sistema amb permisos 0700/0600.
+
+## Equips, inventari Ansible i secrets
+
+Cada mòdul defineix els seus **tipus d'equip** (`host_types`): grup Ansible, nom del host i
+adreça (plantilles amb variables de l'alumne), variables de connexió i credencial. Els de
+tipus `student` en generen un per alumne; els `global` (com el Zabbix) un de sol.
+A partir d'aquí es genera l'inventari en JSON, equivalent a `smix2.ini`: grups per tipus
+(`pve`, `vm_router`, `vm_dns_bind`...), un grup per alumne (`taula01`...) amb les seves
+variables, i `alumnes`. Vegeu `database/seeders/HostsSeeder.php`.
+
+Els **secrets** del mòdul (`secrets`, xifrats amb `APP_KEY`) fan de vault: un playbook o
+script rep només els que anomena (com a variable Ansible o `HE_SECRET_*`), i a la sortida
+desada apareixen com a `********`. Els valors s'omplen des de l'administració, mai al repositori.
+
+Els checks també poden ser playbooks (`executor = ansible`); si un check `ssh` porta
+`config.host_type`, es connecta a l'adreça i amb la credencial d'aquell tipus d'equip.
+
+## Accions
+
+Les accions són scripts o playbooks que llança el professor (no puntuen): posar contrasenya,
+instal·lar l'agent de monitoratge... Cada execució queda a `action_runs` per alumne, amb
+l'estat (`ok`, `changed`, `failed`, `unavailable`, `error`, `timeout`) i la sortida emmascarada.
+
+```bash
+php artisan heimdeye:action "Contrasenya de l'usuari jaume" --student=alumne01 --simulate
+php artisan heimdeye:action 4 --student=alumne01 --student=alumne02 --host=pve --param=usuari=jaume
+php artisan heimdeye:action 4 --queue          # tots els alumnes, a la cua
+```
+
+- Un sol `ansible-playbook` per a tots els alumnes seleccionats; el resultat es reparteix per
+  alumne segons els equips (els globals compten per a tots).
+- `--simulate` executa amb `--check --diff`: no canvia res i mostra què canviaria.
+- `--host` limita els tipus d'equip a l'inventari; `--param` dona valor als paràmetres declarats.
+- Si l'acció té `verify_check_ids`, després de l'execució real es llancen aquests checks.
