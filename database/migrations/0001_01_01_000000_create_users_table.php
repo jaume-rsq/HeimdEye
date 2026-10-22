@@ -11,15 +11,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('users', function (Blueprint $table) {
+        Schema::create('usuaris', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('nom');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             // El login és via Cloudflare Access; la contrasenya només serveix en local.
             $table->string('password')->nullable();
-            $table->string('role')->default('student');
-            $table->boolean('active')->default(true);
+            $table->string('rol')->default('alumne');
+            $table->boolean('es_actiu')->default(true);
             $table->rememberToken();
             $table->timestamps();
         });
@@ -45,7 +45,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('users');
+        Schema::dropIfExists('usuaris');
         Schema::dropIfExists('password_reset_tokens');
         Schema::dropIfExists('sessions');
     }

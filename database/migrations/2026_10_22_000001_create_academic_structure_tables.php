@@ -8,66 +8,66 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('academic_years', function (Blueprint $table) {
+        Schema::create('cursos', function (Blueprint $table) {
             $table->id();
-            $table->string('name')->unique(); // 2026/27
-            $table->date('starts_on');
-            $table->date('ends_on');
-            $table->boolean('is_current')->default(false);
+            $table->string('nom')->unique(); // 2026/27
+            $table->date('data_inici');
+            $table->date('data_fi');
+            $table->boolean('es_actual')->default(false);
             $table->timestamps();
         });
 
-        Schema::create('cycles', function (Blueprint $table) {
+        Schema::create('cicles', function (Blueprint $table) {
             $table->id();
-            $table->string('code')->unique(); // SMIX, ASIX
-            $table->string('name');
+            $table->string('codi')->unique(); // SMIX, ASIX
+            $table->string('nom');
             $table->timestamps();
         });
 
-        Schema::create('credentials', function (Blueprint $table) {
+        Schema::create('credencials', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
-            $table->string('type'); // App\Enums\CredentialType
-            $table->string('username');
+            $table->string('nom');
+            $table->string('tipus'); // App\Enums\CredentialType
+            $table->string('nom_usuari');
             $table->text('secret')->nullable(); // xifrat amb la clau de l'app
             $table->timestamps();
         });
 
-        Schema::create('modules', function (Blueprint $table) {
+        Schema::create('moduls', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('academic_year_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('cycle_id')->constrained()->restrictOnDelete();
-            $table->string('code')->nullable(); // codi oficial, p. ex. 0227
-            $table->string('name');
-            $table->text('description')->nullable();
-            $table->string('kind'); // App\Enums\ModuleKind
-            $table->json('combines')->nullable(); // codis oficials que agrupa un mòdul lliure
-            $table->json('derived_vars')->nullable(); // plantilles {{var}} calculades per alumne
-            $table->foreignId('credential_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('curs_id')->constrained('cursos')->cascadeOnDelete();
+            $table->foreignId('cicle_id')->constrained('cicles')->restrictOnDelete();
+            $table->string('codi')->nullable(); // codi oficial, p. ex. 0227
+            $table->string('nom');
+            $table->text('descripcio')->nullable();
+            $table->string('tipus'); // App\Enums\ModuleKind
+            $table->json('combina')->nullable(); // codis oficials que agrupa un mòdul lliure
+            $table->json('variables_derivades')->nullable(); // plantilles {{var}} calculades per alumne
+            $table->foreignId('credencial_id')->nullable()->constrained('credencials')->nullOnDelete();
             $table->timestamps();
         });
 
-        Schema::create('module_teacher', function (Blueprint $table) {
-            $table->foreignId('module_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-            $table->primary(['module_id', 'user_id']);
+        Schema::create('modul_professor', function (Blueprint $table) {
+            $table->foreignId('modul_id')->constrained('moduls')->cascadeOnDelete();
+            $table->foreignId('usuari_id')->constrained('usuaris')->cascadeOnDelete();
+            $table->primary(['modul_id', 'usuari_id']);
         });
 
-        Schema::create('global_vars', function (Blueprint $table) {
+        Schema::create('variables_globals', function (Blueprint $table) {
             $table->id();
-            $table->string('key')->unique();
-            $table->string('value');
+            $table->string('clau')->unique();
+            $table->string('valor');
             $table->timestamps();
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('global_vars');
-        Schema::dropIfExists('module_teacher');
-        Schema::dropIfExists('modules');
-        Schema::dropIfExists('credentials');
-        Schema::dropIfExists('cycles');
-        Schema::dropIfExists('academic_years');
+        Schema::dropIfExists('variables_globals');
+        Schema::dropIfExists('modul_professor');
+        Schema::dropIfExists('moduls');
+        Schema::dropIfExists('credencials');
+        Schema::dropIfExists('cicles');
+        Schema::dropIfExists('cursos');
     }
 };

@@ -8,33 +8,33 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('students', function (Blueprint $table) {
+        Schema::create('alumnes', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->nullable()->unique()->constrained()->nullOnDelete();
-            $table->foreignId('academic_year_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('cycle_id')->constrained()->restrictOnDelete();
-            $table->string('username');
-            $table->string('full_name');
-            $table->string('display_name')->nullable(); // nom al leaderboard públic
-            $table->unsignedSmallInteger('table_no')->nullable();
+            $table->foreignId('usuari_id')->nullable()->unique()->constrained('usuaris')->nullOnDelete();
+            $table->foreignId('curs_id')->constrained('cursos')->cascadeOnDelete();
+            $table->foreignId('cicle_id')->constrained('cicles')->restrictOnDelete();
+            $table->string('usuari');
+            $table->string('nom_complet');
+            $table->string('alies')->nullable(); // nom al leaderboard públic
+            $table->unsignedSmallInteger('num_taula')->nullable();
             $table->unsignedSmallInteger('x')->nullable(); // índex de xarxa: 172.X / 10.X
-            $table->json('vars')->nullable();
-            $table->boolean('active')->default(true);
+            $table->json('variables')->nullable();
+            $table->boolean('es_actiu')->default(true);
             $table->timestamps();
 
-            $table->unique(['academic_year_id', 'username']);
+            $table->unique(['curs_id', 'usuari']);
         });
 
-        Schema::create('enrollments', function (Blueprint $table) {
-            $table->foreignId('student_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('module_id')->constrained()->cascadeOnDelete();
-            $table->primary(['student_id', 'module_id']);
+        Schema::create('modul_alumne', function (Blueprint $table) {
+            $table->foreignId('alumne_id')->constrained('alumnes')->cascadeOnDelete();
+            $table->foreignId('modul_id')->constrained('moduls')->cascadeOnDelete();
+            $table->primary(['alumne_id', 'modul_id']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('enrollments');
-        Schema::dropIfExists('students');
+        Schema::dropIfExists('modul_alumne');
+        Schema::dropIfExists('alumnes');
     }
 };

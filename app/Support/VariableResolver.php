@@ -23,19 +23,20 @@ class VariableResolver
     {
         $own = array_merge(
             array_filter([
-                'username' => $student->username,
-                'full_name' => $student->full_name,
-                'table_no' => $student->table_no,
+                'usuari' => $student->usuari,
+                'nom_complet' => $student->nom_complet,
+                'num_taula' => $student->num_taula === null ? null : sprintf('%02d', $student->num_taula),
                 'x' => $student->x,
+                'email' => $student->user?->email,
             ], fn ($value) => $value !== null),
-            $student->vars ?? [],
+            $student->variables ?? [],
         );
 
-        $base = array_merge(GlobalVar::query()->pluck('value', 'key')->all(), $own);
+        $base = array_merge(GlobalVar::query()->pluck('valor', 'clau')->all(), $own);
 
         $derived = array_map(
             fn (string $template) => $this->render($template, $base),
-            $module->derived_vars ?? [],
+            $module->variables_derivades ?? [],
         );
 
         return array_map('strval', array_merge($base, $derived, $own));
@@ -58,8 +59,9 @@ class VariableResolver
     }
 
     /**
-     * Substitueix {{ var }} pel seu valor. Admet el filtre {{ xarxa | host(n) }}:
-     * la n-èsima adreça útil d'una xarxa CIDR (amb n negativa, comptant des del final).
+     * Substitueix {{ var }} pel seu valor. Filtres:
+     * - {{ xarxa | host(n) }}: n-èsima adreça útil d'una xarxa CIDR (amb n negativa, des del final);
+     * - {{ ip | octet(n) }}: n-èsim octet (1-4) d'una adreça o xarxa.
      * Els marcadors desconeguts es queden tal qual, perquè missing() els pugui detectar.
      *
      * @param  array<string, mixed>  $vars
@@ -74,6 +76,7 @@ class VariableResolver
             return match ($m[2] ?? '') {
                 '' => (string) $vars[$m[1]],
                 'host' => $this->host((string) $vars[$m[1]], (int) $m[3]),
+                'octet' => $this->octet((string) $vars[$m[1]], (int) $m[3]),
                 default => $m[0],
             };
         }, $template);
@@ -96,6 +99,17 @@ class VariableResolver
         }
 
         return long2ip($network + $offset);
+    }
+
+    /** n-èsim octet d'una adreça IPv4: octet('192.168.20.32/28', 4) = 32. */
+    public function octet(string $ip, int $n): string
+    {
+        $parts = explode('.', strtok($ip, '/'));
+        if (count($parts) !== 4 || $n < 1 || $n > 4) {
+            throw new InvalidArgumentException("octet($n) no és vàlid per a '$ip'");
+        }
+
+        return $parts[$n - 1];
     }
 
     /**

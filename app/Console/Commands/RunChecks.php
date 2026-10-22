@@ -42,9 +42,9 @@ class RunChecks extends Command
             }
 
             $batch = $this->option('dry') ? null : RunBatch::create([
-                'module_id' => $module->id,
-                'origin' => $origin,
-                'started_at' => now(),
+                'modul_id' => $module->id,
+                'origen' => $origin,
+                'data_inici' => now(),
                 'totals' => ['expected' => $checks->count() * $students->count()],
             ]);
 
@@ -62,7 +62,7 @@ class RunChecks extends Command
                         $recorder->record($batch, $check, $student, $result);
                     }
 
-                    $rows[] = [$student->username, $check->id.' '.$check->name, $result->status->value, $result->message, $result->durationMs];
+                    $rows[] = [$student->usuari, $check->id.' '.$check->nom, $result->status->value, $result->message, $result->durationMs];
                 }
             }
 
@@ -70,7 +70,7 @@ class RunChecks extends Command
                 $batch->refreshTotals();
             }
             if ($batch && $queued) {
-                $this->info("Lot {$batch->id} ({$module->code}): {$batch->totals['expected']} execucions a la cua");
+                $this->info("Lot {$batch->id} ({$module->codi}): {$batch->totals['expected']} execucions a la cua");
             }
         }
 
@@ -87,12 +87,12 @@ class RunChecks extends Command
     private function modules(): Collection
     {
         if ($code = $this->option('module')) {
-            return Module::where('code', $code)
-                ->whereHas('academicYear', fn (Builder $q) => $q->where('is_current', true))
+            return Module::where('codi', $code)
+                ->whereHas('academicYear', fn (Builder $q) => $q->where('es_actual', true))
                 ->get();
         }
 
-        return AcademicYear::where('is_current', true)->first()?->modules ?? collect();
+        return AcademicYear::where('es_actual', true)->first()?->modules ?? collect();
     }
 
     /** @return Collection<int, Check> */
@@ -101,8 +101,8 @@ class RunChecks extends Command
         $query = Check::query()
             ->with(['currentVersion', 'credential', 'task.block.module.credential'])
             ->whereHas('task.block', fn (Builder $q) => $q
-                ->where('module_id', $module->id)
-                ->when($this->option('block'), fn (Builder $q, $number) => $q->where('number', $number)));
+                ->where('modul_id', $module->id)
+                ->when($this->option('block'), fn (Builder $q, $number) => $q->where('numero', $number)));
 
         return $this->option('check')
             ? $query->whereIn('id', $this->option('check'))->get()
@@ -113,8 +113,8 @@ class RunChecks extends Command
     private function students(Module $module): Collection
     {
         return $module->students()
-            ->where('active', true)
-            ->when($this->option('student'), fn (Builder $q, $usernames) => $q->whereIn('username', $usernames))
+            ->where('es_actiu', true)
+            ->when($this->option('student'), fn (Builder $q, $usernames) => $q->whereIn('usuari', $usernames))
             ->get();
     }
 }

@@ -8,15 +8,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Task extends Model
 {
-    protected $fillable = ['block_id', 'title', 'statement', 'position'];
+    protected $table = 'tasques';
+
+    protected $fillable = ['bloc_id', 'titol', 'enunciat', 'posicio'];
 
     public function block(): BelongsTo
     {
-        return $this->belongsTo(Block::class);
+        return $this->belongsTo(Block::class, 'bloc_id');
     }
 
     public function checks(): HasMany
     {
-        return $this->hasMany(Check::class)->orderBy('position');
+        return $this->hasMany(Check::class, 'tasca_id')->orderBy('posicio');
     }
 }

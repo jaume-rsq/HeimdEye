@@ -24,11 +24,11 @@ class StudentSeeder extends Seeder
 {
     public function run(): void
     {
-        $year = AcademicYear::where('name', '2026/27')->firstOrFail();
-        $cycle = Cycle::where('code', 'SMIX')->firstOrFail();
-        $module = Module::where('academic_year_id', $year->id)
-            ->where('cycle_id', $cycle->id)
-            ->where('code', '9991')
+        $year = AcademicYear::where('nom', '2026/27')->firstOrFail();
+        $cycle = Cycle::where('codi', 'SMIX')->firstOrFail();
+        $module = Module::where('curs_id', $year->id)
+            ->where('cicle_id', $cycle->id)
+            ->where('codi', '9991')
             ->firstOrFail();
 
         foreach ($this->rows() as $row) {
@@ -37,18 +37,18 @@ class StudentSeeder extends Seeder
 
             $user = User::updateOrCreate(
                 ['email' => $row['email']],
-                ['name' => $row['alumne'], 'role' => Role::Student],
+                ['nom' => $row['alumne'], 'rol' => Role::Student],
             );
 
             $student = Student::updateOrCreate(
-                ['academic_year_id' => $year->id, 'username' => $username],
+                ['curs_id' => $year->id, 'usuari' => $username],
                 [
-                    'user_id' => $user->id,
-                    'cycle_id' => $cycle->id,
-                    'full_name' => $row['alumne'],
-                    'table_no' => $tableNo,
+                    'usuari_id' => $user->id,
+                    'cicle_id' => $cycle->id,
+                    'nom_complet' => $row['alumne'],
+                    'num_taula' => $tableNo,
                     'x' => 20 + $tableNo,
-                    'vars' => [
+                    'variables' => [
                         'aula_net' => $row['xarxa'],
                         'alum' => $row['alum'],
                     ],

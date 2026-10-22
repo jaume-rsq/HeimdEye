@@ -7,6 +7,6 @@ namespace App\Enums;
  */
 enum CheckKind: string
 {
-    case Required = 'required';
-    case Optional = 'optional';
+    case Required = 'obligatori';
+    case Optional = 'opcional';
 }

@@ -20,6 +20,18 @@ final readonly class CheckResult
         return new self(CheckStatus::Error, $message);
     }
 
+    /** @param  list<string>  $secrets */
+    public function masked(array $secrets): self
+    {
+        return new self(
+            $this->status,
+            Masker::mask($this->message, $secrets),
+            Masker::mask($this->output, $secrets),
+            $this->exitCode,
+            $this->durationMs,
+        );
+    }
+
     public function passed(): bool
     {
         return $this->status === CheckStatus::Pass;

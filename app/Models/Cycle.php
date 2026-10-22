@@ -7,15 +7,17 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Cycle extends Model
 {
-    protected $fillable = ['code', 'name'];
+    protected $table = 'cicles';
+
+    protected $fillable = ['codi', 'nom'];
 
     public function modules(): HasMany
     {
-        return $this->hasMany(Module::class);
+        return $this->hasMany(Module::class, 'cicle_id');
     }
 
     public function students(): HasMany
     {
-        return $this->hasMany(Student::class);
+        return $this->hasMany(Student::class, 'cicle_id');
     }
 }

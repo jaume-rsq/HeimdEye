@@ -12,6 +12,8 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+    protected $table = 'usuaris';
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -21,11 +23,11 @@ class User extends Authenticatable
      * @var list<string>
      */
     protected $fillable = [
-        'name',
+        'nom',
         'email',
         'password',
-        'role',
-        'active',
+        'rol',
+        'es_actiu',
     ];
 
     /**
@@ -48,30 +50,30 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
-            'role' => Role::class,
-            'active' => 'boolean',
+            'rol' => Role::class,
+            'es_actiu' => 'boolean',
         ];
     }
 
     /** Mòduls que imparteix, si és professor. */
     public function modules(): BelongsToMany
     {
-        return $this->belongsToMany(Module::class, 'module_teacher');
+        return $this->belongsToMany(Module::class, 'modul_professor', 'usuari_id', 'modul_id');
     }
 
     /** Fitxa d'alumne, si és alumne. */
     public function student(): HasOne
     {
-        return $this->hasOne(Student::class);
+        return $this->hasOne(Student::class, 'usuari_id');
     }
 
     public function isAdmin(): bool
     {
-        return $this->role === Role::Admin;
+        return $this->rol === Role::Admin;
     }
 
     public function isTeacher(): bool
     {
-        return in_array($this->role, [Role::Admin, Role::Teacher], true);
+        return in_array($this->rol, [Role::Admin, Role::Teacher], true);
     }
 }

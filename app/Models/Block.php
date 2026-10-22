@@ -8,23 +8,25 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Block extends Model
 {
-    protected $fillable = ['module_id', 'number', 'title', 'starts_on', 'ends_on', 'position'];
+    protected $table = 'blocs';
+
+    protected $fillable = ['modul_id', 'numero', 'titol', 'data_inici', 'data_fi', 'posicio'];
 
     protected function casts(): array
     {
         return [
-            'starts_on' => 'date',
-            'ends_on' => 'date',
+            'data_inici' => 'date',
+            'data_fi' => 'date',
         ];
     }
 
     public function module(): BelongsTo
     {
-        return $this->belongsTo(Module::class);
+        return $this->belongsTo(Module::class, 'modul_id');
     }
 
     public function tasks(): HasMany
     {
-        return $this->hasMany(Task::class)->orderBy('position');
+        return $this->hasMany(Task::class, 'bloc_id')->orderBy('posicio');
     }
 }
