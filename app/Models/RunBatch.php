@@ -35,4 +35,17 @@ class RunBatch extends Model
     {
         return $this->hasMany(CheckRun::class);
     }
+
+    /** Recompte per estat; tanca el lot quan ja hi ha tantes execucions com s'esperaven. */
+    public function refreshTotals(): void
+    {
+        $counts = $this->runs()->toBase()->selectRaw('status, count(*) as n')->groupBy('status')->pluck('n', 'status');
+        $totals = ['expected' => $this->totals['expected'] ?? null, ...$counts->map(fn ($n) => (int) $n)->all()];
+
+        $this->totals = $totals;
+        if ($this->finished_at === null && $counts->sum() >= ($totals['expected'] ?? PHP_INT_MAX)) {
+            $this->finished_at = now();
+        }
+        $this->save();
+    }
 }
