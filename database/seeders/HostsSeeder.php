@@ -28,6 +28,13 @@ class HostsSeeder extends Seeder
             ['tipus' => CredentialType::Password, 'nom_usuari' => 'ansible'],
         );
 
+        $winrm = [
+            'ansible_connection' => 'winrm',
+            'ansible_winrm_transport' => 'ntlm',
+            'ansible_winrm_server_cert_validation' => 'ignore',
+            'ansible_port' => 5985,
+        ];
+
         $types = [
             ['nom' => 'pve', 'grup_ansible' => 'pve', 'nom_host' => 'pve{{num_taula}}-{{usuari}}', 'adreca' => '{{pve_ip}}'],
             ['nom' => 'router', 'grup_ansible' => 'vm_router', 'nom_host' => 'router{{num_taula}}', 'adreca' => '{{router_ip}}'],
@@ -35,12 +42,12 @@ class HostsSeeder extends Seeder
             [
                 'nom' => 'dnswin', 'grup_ansible' => 'vm_dns_windows', 'nom_host' => 'dnswin{{num_taula}}', 'adreca' => '{{dnswin_ip}}',
                 'credencial_id' => $windows->id,
-                'variables_connexio' => [
-                    'ansible_connection' => 'winrm',
-                    'ansible_winrm_transport' => 'ntlm',
-                    'ansible_winrm_server_cert_validation' => 'ignore',
-                    'ansible_port' => 5985,
-                ],
+                'variables_connexio' => $winrm,
+            ],
+            [
+                'nom' => 'estacio', 'grup_ansible' => 'estacio_windows', 'nom_host' => 'estacio{{num_taula}}', 'adreca' => '{{estacio_ip}}',
+                'credencial_id' => $windows->id,
+                'variables_connexio' => $winrm,
             ],
             [
                 'nom' => 'zbx', 'grup_ansible' => 'zabbix', 'abast' => HostScope::Global, 'nom_host' => 'zbx', 'adreca' => '{{zabbix_server}}',
