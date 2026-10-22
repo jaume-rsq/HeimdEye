@@ -21,7 +21,7 @@ class RunChecks extends Command
         {--module= : Codi del mòdul (per defecte, tots els del curs actual)}
         {--block= : Número de bloc}
         {--check=* : Id de check; s\'executa encara que no estigui actiu}
-        {--student=* : Usuari de l\'alumne}
+        {--student=* : Usuari o número de taula de l\'alumne}
         {--nightly : Execució nocturna: tot a la cua}
         {--queue : Envia les execucions a la cua en lloc d\'executar-les ara}
         {--dry : Prova: mostra els resultats però no desa res}';
@@ -33,10 +33,13 @@ class RunChecks extends Command
         $queued = $this->option('nightly') || $this->option('queue');
         $origin = $this->option('nightly') ? RunOrigin::Nightly : RunOrigin::Manual;
         $rows = [];
+        $foundChecks = $foundStudents = false;
 
         foreach ($this->modules() as $module) {
             $checks = $this->checks($module);
             $students = $this->students($module);
+            $foundChecks = $foundChecks || $checks->isNotEmpty();
+            $foundStudents = $foundStudents || $students->isNotEmpty();
             if ($checks->isEmpty() || $students->isEmpty()) {
                 continue;
             }
@@ -77,7 +80,11 @@ class RunChecks extends Command
         if ($rows) {
             $this->table(['Alumne', 'Check', 'Estat', 'Missatge', 'ms'], $rows);
         } elseif (! $queued) {
-            $this->warn('No hi ha cap check actiu per executar');
+            $this->warn(match (true) {
+                ! $foundChecks => $this->option('check') ? 'No s\'ha trobat cap dels checks indicats' : 'No hi ha cap check actiu per executar',
+                ! $foundStudents => $this->option('student') ? 'No s\'ha trobat cap dels alumnes indicats (usuari o número de taula)' : 'No hi ha cap alumne actiu matriculat',
+                default => 'Els checks i els alumnes trobats són de mòduls diferents',
+            });
         }
 
         return self::SUCCESS;
@@ -114,7 +121,9 @@ class RunChecks extends Command
     {
         return $module->students()
             ->where('es_actiu', true)
-            ->when($this->option('student'), fn (Builder $q, $usernames) => $q->whereIn('usuari', $usernames))
+            ->when($this->option('student'), fn (Builder $q, $keys) => $q->where(fn (Builder $q) => $q
+                ->whereIn('usuari', $keys)
+                ->orWhereIn('num_taula', array_filter($keys, 'ctype_digit'))))
             ->get();
     }
 }

@@ -82,7 +82,7 @@ class AnsibleTest extends TestCase
 
         $ok = $this->runFor($action, 'alumne01');
         $this->assertSame(ActionStatus::Changed, $ok->estat);
-        $this->assertStringContainsString('Taula01 192.168.20.32/28', $ok->sortida);
+        $this->assertStringContainsString('Taula01 198.51.100.16/28', $ok->sortida);
         $this->assertStringNotContainsString('Taula02', $ok->sortida);
 
         $failed = $this->runFor($action, 'alumne02');

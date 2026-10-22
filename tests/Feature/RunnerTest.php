@@ -47,7 +47,7 @@ class RunnerTest extends TestCase
         $result = $this->execute($this->check('echo "pve=$HE_PVE_IP x=$HE_X user=$HE_SSH_USER"; echo segona'));
 
         $this->assertSame(CheckStatus::Pass, $result->status);
-        $this->assertSame('pve=192.168.20.35 x=21 user=jaume', $result->message);
+        $this->assertSame('pve=198.51.100.19 x=21 user=jaume', $result->message);
         $this->assertSame(0, $result->exitCode);
     }
 
@@ -119,6 +119,25 @@ class RunnerTest extends TestCase
 
         $this->assertSame(2, CheckStudent::where('check_id', $check->id)->where('estat_actual', 'pass')->count());
         $this->assertSame(['expected' => 2, 'pass' => 2], collect(RunBatch::sole()->totals)->sortKeys()->all());
+    }
+
+    public function test_student_option_accepts_the_table_number(): void
+    {
+        $check = $this->check('echo ok');
+        $table = Student::where('usuari', 'alumne03')->value('num_taula');
+
+        $this->artisan('heimdeye:run', ['--check' => [$check->id], '--student' => [(string) $table], '--dry' => true])
+            ->expectsOutputToContain('alumne03')
+            ->assertSuccessful();
+    }
+
+    public function test_unknown_student_is_reported(): void
+    {
+        $check = $this->check('echo ok');
+
+        $this->artisan('heimdeye:run', ['--check' => [$check->id], '--student' => ['ningu'], '--dry' => true])
+            ->expectsOutput("No s'ha trobat cap dels alumnes indicats (usuari o número de taula)")
+            ->assertSuccessful();
     }
 
     public function test_dry_run_saves_nothing(): void
