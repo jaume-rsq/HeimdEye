@@ -63,12 +63,21 @@ class StudentSeeder extends Seeder
     private function rows(): array
     {
         $path = config('heimdeye.students_csv');
+        if (! str_starts_with($path, '/')) {
+            $path = base_path($path);
+        }
         if (! is_file($path)) {
             $path = database_path('seeders/data/students.example.csv');
         }
 
         $handle = fopen($path, 'r') ?: throw new RuntimeException("No es pot llegir $path");
-        $separator = str_contains(fgets($handle), "\t") ? "\t" : ',';
+        $first = fgets($handle);
+        if ($first === false || trim($first) === '') {
+            fclose($handle);
+
+            return []; // fitxer buit: cap alumne
+        }
+        $separator = str_contains($first, "\t") ? "\t" : ',';
         rewind($handle);
         $header = array_map(fn ($h) => strtolower(trim($h)), fgetcsv($handle, separator: $separator, escape: ''));
         $rows = [];

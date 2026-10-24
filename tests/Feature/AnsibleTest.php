@@ -46,8 +46,8 @@ class AnsibleTest extends TestCase
 
     private function action(string $playbook, array $params = []): Action
     {
-        $action = $this->module->actions()->create(['nom' => 'Prova', 'executor' => Executor::Ansible, 'parametres' => $params, 'temps_max_seg' => 60]);
-        $action->versions()->create(['versio' => 1, 'codi' => $playbook]);
+        $action = $this->module->actions()->create(['nom' => 'Prova', 'executor' => Executor::Ansible]);
+        $action->versions()->create(['versio' => 1, 'codi' => $playbook, 'parametres' => $params, 'temps_max_seg' => 60]);
 
         return $action->fresh();
     }
@@ -167,8 +167,8 @@ class AnsibleTest extends TestCase
 
     public function test_ansible_check(): void
     {
-        $check = Task::firstOrFail()->checks()->create(['nom' => 'Ansible', 'executor' => Executor::Ansible, 'es_actiu' => true, 'temps_max_seg' => 60]);
-        $check->versions()->create(['versio' => 1, 'codi' => <<<'YAML'
+        $check = Task::firstOrFail()->checks()->create(['nom' => 'Ansible', 'executor' => Executor::Ansible, 'es_actiu' => true]);
+        $check->versions()->create(['versio' => 1, 'temps_max_seg' => 60, 'codi' => <<<'YAML'
             - hosts: locals
               gather_facts: false
               tasks:

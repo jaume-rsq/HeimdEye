@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Executor;
+use App\Models\Concerns\HasFixedExecutor;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -11,19 +12,16 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /** Script que el professor executa a mà per canviar els equips dels alumnes. */
 class Action extends Model
 {
+    use HasFixedExecutor;
+
     protected $table = 'accions';
 
-    protected $fillable = [
-        'modul_id', 'bloc_id', 'nom', 'descripcio', 'executor', 'parametres',
-        'checks_verificacio', 'temps_max_seg', 'posicio',
-    ];
+    protected $fillable = ['modul_id', 'bloc_id', 'nom', 'descripcio', 'executor', 'posicio'];
 
     protected function casts(): array
     {
         return [
             'executor' => Executor::class,
-            'parametres' => 'array',
-            'checks_verificacio' => 'array',
         ];
     }
 

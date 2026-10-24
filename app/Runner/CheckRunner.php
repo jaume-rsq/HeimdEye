@@ -38,9 +38,8 @@ class CheckRunner
                 $student,
                 $check->executor,
                 $version->codi,
-                $version->configuracio ?? [],
-                $check->temps_max_seg,
-                $check->credential,
+                $version->temps_max_seg,
+                Params::values($version->parametres),
             );
 
             return $executor->execute($context)->masked($context->mask);

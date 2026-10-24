@@ -50,7 +50,7 @@ class HostsSeeder extends Seeder
                 'variables_connexio' => $winrm,
             ],
             [
-                'nom' => 'zbx', 'grup_ansible' => 'zabbix', 'abast' => HostScope::Global, 'nom_host' => 'zbx', 'adreca' => '{{zabbix_server}}',
+                'nom' => 'zbx', 'grup_ansible' => 'zabbix', 'abast' => HostScope::Global, 'nom_host' => 'zbx', 'adreca' => '{{zabbix}}',
                 'credencial_id' => $zabbix->id,
                 'variables_connexio' => [
                     'ansible_connection' => 'httpapi',

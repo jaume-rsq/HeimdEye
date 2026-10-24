@@ -2,23 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\ExecutableVersion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CheckVersion extends Model
 {
+    use ExecutableVersion;
+
     const UPDATED_AT = null;
 
     protected $table = 'versions_check';
 
-    protected $fillable = ['check_id', 'versio', 'codi', 'configuracio', 'creat_per'];
-
-    protected function casts(): array
-    {
-        return [
-            'configuracio' => 'array',
-        ];
-    }
+    protected $fillable = ['check_id'];
 
     public function check(): BelongsTo
     {

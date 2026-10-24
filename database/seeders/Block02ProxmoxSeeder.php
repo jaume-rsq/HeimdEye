@@ -11,8 +11,9 @@ use Illuminate\Database\Seeder;
  * Bloc 2 (Proxmox VE i accés remot) amb els checks inicials d'SSH.
  *
  * Contracte dels checks: codi de sortida 0 = assolit; stdout = missatge.
- * Les variables arriben com a entorn HE_* (HE_PVE_IP, HE_ROUTER_IP...). El runner
- * hi afegeix la credencial del mòdul: HE_SSH_USER i HE_SSH_KEY (ruta a la clau).
+ * Les variables arriben com a entorn HE_* (HE_PVE_IP, HE_ROUTER_IP...). Als checks
+ * locals, el runner hi afegeix la credencial del mòdul: HE_SSH_USER i HE_SSH_KEY.
+ * Els checks ssh diuen amb la capçalera "# hosts:" a quins equips s'executen.
  */
 class Block02ProxmoxSeeder extends Seeder
 {
@@ -64,9 +65,9 @@ class Block02ProxmoxSeeder extends Seeder
                 'nom' => 'Hi ha alguna VM definida',
                 'executor' => Executor::Ssh,
                 'punts' => 2,
-                'configuracio' => ['host_type' => 'pve'],
                 // qm necessita root: l'usuari de la credencial ha de poder fer sudo -n qm list.
                 'codi' => <<<'SH'
+                    # hosts: pve
                     out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
                     vms=$(echo "$out" | tail -n +2)
                     [ -n "$vms" ] || { echo "Cap VM definida"; exit 1; }
@@ -98,7 +99,7 @@ class Block02ProxmoxSeeder extends Seeder
                 $check->versions()->create([
                     'versio' => 1,
                     'codi' => $def['codi'],
-                    'configuracio' => $def['configuracio'] ?? null,
+                    'temps_max_seg' => 15,
                 ]);
             }
         }
