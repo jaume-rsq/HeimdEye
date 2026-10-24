@@ -179,12 +179,11 @@ class HostsSeeder extends Seeder
                 [
                     'descripcio' => $def['descripcio'],
                     'executor' => Executor::Ansible,
-                    'parametres' => $def['parametres'] ?? null,
                     'posicio' => $position + 1,
                 ],
             );
             if (! $action->versions()->exists()) {
-                $action->versions()->create(['versio' => 1, 'codi' => $def['codi']]);
+                $action->versions()->create(['versio' => 1, 'codi' => $def['codi'], 'parametres' => $def['parametres'] ?? null]);
             }
         }
     }
