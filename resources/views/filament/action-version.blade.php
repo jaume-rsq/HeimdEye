@@ -1,0 +1,35 @@
+{{-- Detall d'una versió d'acció i diferències amb l'anterior. Estils en línia: el tema de Filament no compila classes noves. --}}
+@php
+    $diff = $previous && $previous->codi !== $version->codi
+        ? (new \SebastianBergmann\Diff\Differ(new \SebastianBergmann\Diff\Output\UnifiedDiffOutputBuilder("--- v{$previous->versio}\n+++ v{$version->versio}\n")))->diff($previous->codi, $version->codi)
+        : null;
+@endphp
+@include('filament.partials.detail-styles')
+<div class="he-detail" x-data="{ tab: 'codi' }">
+    <dl>
+        <dt>Creat per</dt><dd>{{ $version->author?->nom ?? 'seeder' }}</dd>
+        <dt>Data</dt><dd>{{ $version->created_at?->format('d/m/Y H:i') }}</dd>
+        <dt>Temps màxim</dt><dd>{{ $version->temps_max_seg }} s</dd>
+        <dt>Checks de verificació</dt><dd>{{ $checks->implode(', ') ?: 'cap' }}</dd>
+    </dl>
+
+    @if ($version->parametres)
+        <h4>Paràmetres</h4>
+        <pre>@foreach ($version->parametres as $param){{ $param['name'] }}{{ filled($param['label'] ?? null) ? " ({$param['label']})" : '' }} = {{ $param['default'] ?? '(sense valor per defecte)' }}
+@endforeach</pre>
+    @endif
+
+    <div class="tabs">
+        <x-filament::button size="xs" x-on:click="tab = 'codi'">Codi</x-filament::button>
+        @if ($diff)
+            <x-filament::button size="xs" color="gray" x-on:click="tab = 'diff'">Canvis respecte v{{ $previous->versio }}</x-filament::button>
+        @elseif ($previous)
+            <span style="opacity: .6; align-self: center;">El codi és igual que a v{{ $previous->versio }}.</span>
+        @endif
+    </div>
+    <pre x-show="tab === 'codi'">{{ $version->codi }}</pre>
+    @if ($diff)
+        <pre x-show="tab === 'diff'" x-cloak>@foreach (explode("\n", $diff) as $line)<span @class(['add' => str_starts_with($line, '+'), 'del' => str_starts_with($line, '-'), 'hunk' => str_starts_with($line, '@@')])>{{ $line }}</span>
+@endforeach</pre>
+    @endif
+</div>

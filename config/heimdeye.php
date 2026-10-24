@@ -3,12 +3,27 @@
 return [
 
     /*
-    | Primer usuari administrador que crea el seeder. El login real es fa amb
-    | Cloudflare Access, que identifica l'usuari pel correu.
+    | Primer usuari administrador que crea el seeder. En producció entra amb
+    | Cloudflare Access, que l'identifica pel correu.
     */
     'admin' => [
         'name' => env('HEIMDEYE_ADMIN_NAME', 'Administrador'),
         'email' => env('HEIMDEYE_ADMIN_EMAIL', 'admin@example.com'),
+    ],
+
+    /*
+    | Autenticació:
+    | - local: formulari de correu i contrasenya (desenvolupament).
+    | - cloudflare: l'app és darrere Cloudflare Access (login de Google Workspace); es valida
+    |   el JWT de la capçalera Cf-Access-Jwt-Assertion i l'usuari es busca pel correu.
+    | En tots dos casos només entren els usuaris que ja són a la taula usuaris.
+    */
+    'auth' => [
+        'mode' => env('HEIMDEYE_AUTH', 'local'),
+        'cloudflare' => [
+            'team_domain' => env('CF_ACCESS_TEAM_DOMAIN'), // equip.cloudflareaccess.com
+            'aud' => env('CF_ACCESS_AUD'),
+        ],
     ],
 
     /*

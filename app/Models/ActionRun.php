@@ -39,6 +39,11 @@ class ActionRun extends Model
         return $this->belongsTo(Action::class, 'accio_id');
     }
 
+    public function version(): BelongsTo
+    {
+        return $this->belongsTo(ActionVersion::class, 'versio_accio_id');
+    }
+
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class, 'alumne_id');

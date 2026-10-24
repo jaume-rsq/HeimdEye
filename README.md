@@ -6,8 +6,9 @@ contra els equips dels alumnes. El disseny complet és al document de disseny de
 
 ## Estat
 
-Fase 3: base de dades, seeders, runner de checks (executors `local`, `ssh` i `ansible`) i accions
-del professor. Encara no hi ha vistes.
+Fase 4: base de dades, seeders, runner de checks (executors `local`, `ssh` i `ansible`), accions
+del professor i la primera part de la interfície web (Filament): la gestió d'accions. Els checks,
+el leaderboard i els CRUD surten al menú com a «aviat».
 
 ## Posada en marxa (desenvolupament)
 
@@ -20,7 +21,46 @@ php artisan key:generate
 # Edita .env: credencials de la BBDD, HEIMDEYE_ADMIN_NAME i HEIMDEYE_ADMIN_EMAIL
 php artisan migrate --seed
 php artisan test
+php artisan serve      # http://localhost:8000/admin
 ```
+
+En local (`APP_ENV=local`), el seeder crea l'usuari de prova `admin@heimdeye.test` amb
+contrasenya `password`.
+
+### Autenticació
+
+`HEIMDEYE_AUTH` tria com s'entra al panell `/admin`. En els dos casos només hi entren els
+administradors i professors actius de la taula `usuaris` (no hi ha autoregistre).
+
+- `local`: formulari de correu i contrasenya. Per a desenvolupament.
+- `cloudflare`: l'app és darrere un túnel de Cloudflare amb una aplicació de Cloudflare Access
+  que fa el login de Google Workspace. HeimdEye valida el JWT de la capçalera
+  `Cf-Access-Jwt-Assertion` amb les claus de l'equip (`CF_ACCESS_TEAM_DOMAIN`, p. ex.
+  `equip.cloudflareaccess.com`) i l'audiència de l'aplicació (`CF_ACCESS_AUD`), i busca
+  l'usuari pel correu. Convé que el tallafoc només deixi arribar al port 80 el `cloudflared`.
+
+### Cua
+
+Les accions llançades des del panell van a la cua (`HEIMDEYE_QUEUE`, per defecte `checks`).
+En producció cal un worker en marxa, p. ex. amb systemd:
+
+```ini
+# /etc/systemd/system/heimdeye-queue.service
+[Unit]
+Description=HeimdEye: worker de la cua
+After=network.target postgresql.service
+
+[Service]
+User=www-data
+WorkingDirectory=/var/www/heimdeye
+ExecStart=/usr/bin/php artisan queue:work --queue=checks,default --sleep=3 --tries=1
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
+```
+
+En desenvolupament n'hi ha prou amb `QUEUE_CONNECTION=sync` o amb `php artisan queue:work --queue=checks`.
 
 ### Alumnes
 
@@ -195,3 +235,18 @@ php artisan heimdeye:action 4 --queue          # tots els alumnes, a la cua
 - `--host` limita els tipus d'equip (a l'inventari d'Ansible o als de `# hosts:`); `--param`
   dona valor als paràmetres declarats.
 - Si la versió té `checks_verificacio`, després de l'execució real es llancen aquests checks.
+
+### Al panell
+
+Menú Accions → Llista d'accions (`/admin/accions`):
+
+- Filtres per curs (per defecte l'actual), mòdul, executor, nom i estat de la darrera execució
+  real per a tots o algun alumne.
+- Icona d'estat segons la darrera execució real (les simulacions no compten) de cada alumne
+  actiu: verd = tots ok/changed, blau = encara falten alumnes, taronja = ha fallat per a algun,
+  vermell = ha fallat per a tots, gris = mai executada.
+- Botons Versions, Historial, Editar darrera versió i Llançar (Simular, només Ansible, i Executar).
+- Editar no modifica mai una versió: si canvia el codi, els paràmetres, el temps màxim o els
+  checks de verificació, es crea la versió següent. L'executor i el mòdul no es poden canviar.
+- En llançar per a un sol alumne, els paràmetres es mostren calculats amb les seves variables
+  (`{{num_taula}}`...) i es poden modificar. Només s'envien els que difereixen del valor per defecte.

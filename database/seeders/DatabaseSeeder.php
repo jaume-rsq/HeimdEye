@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             StudentSeeder::class,
             HostsSeeder::class,
             Block02ProxmoxSeeder::class,
+            DevUserSeeder::class,
         ]);
     }
 }
