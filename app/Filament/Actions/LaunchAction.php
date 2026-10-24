@@ -69,10 +69,12 @@ class LaunchAction
                 Notification::make()
                     ->success()
                     ->title(($simulate ? 'Simulació' : 'Execució').' a la cua per a '.count($ids).' alumnes')
-                    ->body("Versió {$version->versio}. El resultat apareix a l'historial quan acaba.")
+                    ->body($simulate
+                        ? "Versió {$version->versio}. El resultat apareix aquí quan acaba; no queda a l'historial."
+                        : "Versió {$version->versio}. El resultat apareix a l'historial quan acaba.")
                     ->send();
 
-                $action->redirect(ActionResource::getUrl('runs', ['record' => $record]));
+                $action->redirect(ActionResource::getUrl('runs', ['record' => $record, ...($simulate ? ['simulacio' => 1] : [])]));
             });
     }
 

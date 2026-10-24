@@ -19,9 +19,10 @@ class CreateAction extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         return DB::transaction(function () use ($data) {
-            $action = Action::create(array_diff_key($data, array_flip(ActionForm::VERSION_FIELDS)));
+            $action = Action::create(array_diff_key($data, array_flip([...ActionForm::VERSION_FIELDS, 'comentari'])));
             $action->versions()->create([
                 ...ActionForm::versionData($data),
+                'comentari' => $data['comentari'] ?? null,
                 'versio' => 1,
                 'creat_per' => auth()->id(),
             ]);

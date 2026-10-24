@@ -85,6 +85,12 @@ class ActionForm
                             ->minValue(1)
                             ->default(300)
                             ->required(),
+                        TextInput::make('comentari')
+                            ->label('Comentari de la versió')
+                            ->helperText(fn (string $operation) => $operation === 'edit'
+                                ? 'Què canvia respecte de la versió anterior. Només es desa si es crea una versió nova.'
+                                : null)
+                            ->maxLength(1000),
                         Select::make('checks_verificacio')
                             ->label('Checks de verificació')
                             ->helperText('Es llancen després d\'executar l\'acció (no en simular).')

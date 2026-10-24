@@ -64,13 +64,14 @@ class EditAction extends EditRecord
     {
         /** @var Action $record */
         return DB::transaction(function () use ($record, $data) {
-            $record->update(array_diff_key($data, array_flip([...ActionForm::VERSION_FIELDS, 'executor', 'modul_id'])));
+            $record->update(array_diff_key($data, array_flip([...ActionForm::VERSION_FIELDS, 'comentari', 'executor', 'modul_id'])));
 
             $current = $record->currentVersion;
             $new = ActionForm::versionData($data);
             if ($current === null || $new !== ActionForm::versionData($current->only(ActionForm::VERSION_FIELDS))) {
                 $version = $record->versions()->create([
                     ...$new,
+                    'comentari' => $data['comentari'] ?? null,
                     'versio' => ($current->versio ?? 0) + 1,
                     'creat_per' => auth()->id(),
                 ]);

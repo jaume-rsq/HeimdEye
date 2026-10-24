@@ -13,6 +13,11 @@
         <dt>Checks de verificació</dt><dd>{{ $checks->implode(', ') ?: 'cap' }}</dd>
     </dl>
 
+    @if (filled($version->comentari))
+        <h4>Comentari</h4>
+        <div>{{ $version->comentari }}</div>
+    @endif
+
     @if ($version->parametres)
         <h4>Paràmetres</h4>
         <pre>@foreach ($version->parametres as $param){{ $param['name'] }}{{ filled($param['label'] ?? null) ? " ({$param['label']})" : '' }} = {{ $param['default'] ?? '(sense valor per defecte)' }}
