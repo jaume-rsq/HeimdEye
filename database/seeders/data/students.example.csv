@@ -1,0 +1,11 @@
+xarxa,taula,alumne,email,alum
+198.51.100.16/28,Taula01,"Cognom01 Cognom, Nom01",alumne01@example.com,usuari01
+198.51.100.32/28,Taula02,"Cognom02 Cognom, Nom02",alumne02@example.com,usuari02
+198.51.100.48/28,Taula03,"Cognom03 Cognom, Nom03",alumne03@example.com,usuari03
+198.51.100.64/28,Taula04,"Cognom04 Cognom, Nom04",alumne04@example.com,usuari04
+198.51.100.80/28,Taula05,"Cognom05 Cognom, Nom05",alumne05@example.com,usuari05
+198.51.100.96/28,Taula06,"Cognom06 Cognom, Nom06",alumne06@example.com,usuari06
+198.51.100.112/28,Taula07,"Cognom07 Cognom, Nom07",alumne07@example.com,usuari07
+198.51.100.128/28,Taula08,"Cognom08 Cognom, Nom08",alumne08@example.com,usuari08
+198.51.100.144/28,Taula09,"Cognom09 Cognom, Nom09",alumne09@example.com,usuari09
+198.51.100.160/28,Taula10,"Cognom10 Cognom, Nom10",alumne10@example.com,usuari10

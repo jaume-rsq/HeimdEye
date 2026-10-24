@@ -62,6 +62,7 @@ class AcademicStructureSeeder extends Seeder
                 'variables_derivades' => [
                     'lan' => '172.{{x}}.0.0/22',
                     'dmz' => '10.{{x}}.0.0/22',
+                    'estacio_ip' => '{{ aula_net | host(2) }}',
                     'pve_ip' => '{{ aula_net | host(3) }}',
                     'router_ip' => '{{ aula_net | host(-1) }}',
                     'dns_ip' => '10.{{x}}.0.11',

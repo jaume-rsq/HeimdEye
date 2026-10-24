@@ -47,10 +47,11 @@ class Block02ProxmoxSeeder extends Seeder
                     echo "SSH correcte a $HE_PVE_IP"
                     SH,
             ],
+            // El router és un MikroTik: RouterOS no té `true`.
             [
                 'nom' => 'SSH al router',
                 'codi' => self::SSH."\n".<<<'SH'
-                    ssh "${opts[@]}" "$HE_SSH_USER@$HE_ROUTER_IP" true || exit 1
+                    ssh "${opts[@]}" "$HE_SSH_USER@$HE_ROUTER_IP" ':put ok' || exit 1
                     echo "SSH correcte a $HE_ROUTER_IP"
                     SH,
             ],

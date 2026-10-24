@@ -12,7 +12,7 @@ class RunActionCommand extends Command
 {
     protected $signature = 'heimdeye:action
         {action : Id o nom de l\'acció}
-        {--student=* : Usuari de l\'alumne (per defecte, tots els matriculats)}
+        {--student=* : Usuari o número de taula de l\'alumne (per defecte, tots els matriculats)}
         {--host=* : Tipus d\'equip (per defecte, tots)}
         {--param=* : Paràmetre clau=valor}
         {--simulate : Simula amb --check --diff, sense canviar res}
@@ -33,7 +33,9 @@ class RunActionCommand extends Command
 
         $students = $action->module->students()
             ->where('es_actiu', true)
-            ->when($this->option('student'), fn ($q, $usernames) => $q->whereIn('usuari', $usernames))
+            ->when($this->option('student'), fn ($q, $keys) => $q->where(fn ($q) => $q
+                ->whereIn('usuari', $keys)
+                ->orWhereIn('num_taula', array_filter($keys, 'ctype_digit'))))
             ->orderBy('num_taula')
             ->get();
 
