@@ -2,6 +2,5 @@
 
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', function () {
-    return view('welcome');
-});
+// De moment, tota l'app és al panell; el leaderboard públic vindrà més endavant.
+Route::redirect('/', '/admin');
