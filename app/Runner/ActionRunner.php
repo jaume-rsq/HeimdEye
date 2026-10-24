@@ -9,6 +9,7 @@ use App\Enums\RunOrigin;
 use App\Jobs\RunCheck;
 use App\Models\Action;
 use App\Models\ActionRun;
+use App\Models\ActionVersion;
 use App\Models\Check;
 use App\Models\HostType;
 use App\Models\RunBatch;
@@ -43,7 +44,7 @@ class ActionRunner
     public function run(Action $action, Collection $students, array $hostTypes = [], array $params = [], bool $checkMode = false, ?User $user = null): RunBatch
     {
         $version = $action->currentVersion ?? throw new InvalidArgumentException("L'acció no té codi");
-        $params = $this->params($action, $params);
+        $params = Params::values($version->parametres, $params);
         if ($checkMode && $action->executor !== Executor::Ansible) {
             throw new InvalidArgumentException('Només es poden simular les accions d\'Ansible');
         }
@@ -83,12 +84,12 @@ class ActionRunner
         $builder = new ContextBuilder($this->resolver);
         try {
             if ($action->executor === Executor::Ansible) {
-                $this->runAnsible($builder, $action, $version->codi, $students, $types, $params, $checkMode, $record);
+                $this->runAnsible($builder, $action, $version, $students, $types, $params, $checkMode, $record);
             } else {
                 foreach ($students as $student) {
                     $startedAt = now();
                     try {
-                        $context = $builder->build($module, $student, $action->executor, $version->codi, $version->configuracio ?? [], $action->temps_max_seg, params: $params);
+                        $context = $builder->build($module, $student, $action->executor, $version->codi, $version->temps_max_seg, $params, onlyTypes: $hostTypes ?: null);
                         $result = CheckRunner::executor($action->executor)->execute($context)->masked($context->mask);
                     } catch (InvalidArgumentException $e) {
                         $result = CheckResult::error($e->getMessage());
@@ -102,8 +103,8 @@ class ActionRunner
 
         $batch->refreshTotals();
 
-        if (! $checkMode && $action->checks_verificacio) {
-            $this->verify($action, $students);
+        if (! $checkMode && $version->checks_verificacio) {
+            $this->verify($action, $version->checks_verificacio, $students);
         }
 
         return $batch;
@@ -114,19 +115,19 @@ class ActionRunner
      * @param  Collection<int, HostType>  $types
      * @param  array<string, string>  $params
      */
-    private function runAnsible(ContextBuilder $builder, Action $action, string $code, Collection $students, Collection $types, array $params, bool $checkMode, callable $record): void
+    private function runAnsible(ContextBuilder $builder, Action $action, ActionVersion $version, Collection $students, Collection $types, array $params, bool $checkMode, callable $record): void
     {
         $startedAt = now();
         $inventory = new InventoryBuilder($this->resolver, $builder->files);
-        $secrets = $builder->secretsFor($action->module, $code);
+        $secrets = $builder->secretsFor($action->module, $version->codi);
 
         $result = $this->ansible->run(
             $builder->files,
-            $code,
+            $version->codi,
             $inventory->build($action->module, $students, $types),
             [...$params, ...$secrets],
             $checkMode,
-            $action->temps_max_seg,
+            $version->temps_max_seg,
         );
         $mask = [...array_values($secrets), ...$inventory->mask()];
 
@@ -143,31 +144,6 @@ class ActionRunner
         }
     }
 
-    /**
-     * Valors dels paràmetres declarats, amb els valors per defecte.
-     *
-     * @param  array<string, string>  $given
-     * @return array<string, string>
-     */
-    private function params(Action $action, array $given): array
-    {
-        $declared = collect($action->parametres ?? [])->keyBy('name');
-        if ($unknown = array_diff(array_keys($given), $declared->keys()->all())) {
-            throw new InvalidArgumentException('Paràmetre desconegut: '.implode(', ', $unknown));
-        }
-
-        $values = [];
-        foreach ($declared as $name => $param) {
-            $value = $given[$name] ?? $param['default'] ?? null;
-            if ($value === null) {
-                throw new InvalidArgumentException("Falta el paràmetre {$name}");
-            }
-            $values[$name] = (string) $value;
-        }
-
-        return $values;
-    }
-
     private function statusFor(CheckStatus $status): ActionStatus
     {
         return match ($status) {
@@ -179,10 +155,14 @@ class ActionRunner
         };
     }
 
-    /** Llança els checks vinculats sobre els mateixos alumnes per confirmar l'efecte. */
-    private function verify(Action $action, Collection $students): void
+    /**
+     * Llança els checks vinculats sobre els mateixos alumnes per confirmar l'efecte.
+     *
+     * @param  list<int>  $checkIds
+     */
+    private function verify(Action $action, array $checkIds, Collection $students): void
     {
-        $checks = Check::whereIn('id', $action->checks_verificacio)->get();
+        $checks = Check::whereIn('id', $checkIds)->get();
         if ($checks->isEmpty()) {
             return;
         }

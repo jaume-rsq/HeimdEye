@@ -8,11 +8,14 @@ use App\Jobs\RunCheck;
 use App\Models\Check;
 use App\Models\CheckRun;
 use App\Models\CheckStudent;
+use App\Models\Credential;
+use App\Models\Module;
 use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\Task;
 use App\Runner\CheckResult;
 use App\Runner\CheckRunner;
+use App\Runner\CodeHeaders;
 use App\Runner\ResultRecorder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -24,17 +27,28 @@ class RunnerTest extends TestCase
 
     protected bool $seed = true;
 
-    private function check(string $code, Executor $executor = Executor::Local, array $config = [], int $timeout = 10): Check
+    private function check(string $code, Executor $executor = Executor::Local, int $timeout = 10, ?array $params = null): Check
     {
         $check = Task::firstOrFail()->checks()->create([
             'nom' => 'Prova',
             'executor' => $executor,
             'es_actiu' => true,
-            'temps_max_seg' => $timeout,
         ]);
-        $check->versions()->create(['versio' => 1, 'codi' => $code, 'configuracio' => $config]);
+        $check->versions()->create(['versio' => 1, 'codi' => $code, 'temps_max_seg' => $timeout, 'parametres' => $params]);
 
         return $check->fresh();
+    }
+
+    /** Tipus d'equip que no respon: SSH a un port tancat. */
+    private function closedHostType(string $name = 'tancat'): void
+    {
+        Module::where('codi', '9991')->sole()->hostTypes()->create([
+            'nom' => $name,
+            'grup_ansible' => "{$name}s",
+            'nom_host' => "{$name}{{num_taula}}",
+            'adreca' => '127.0.0.1',
+            'variables_connexio' => ['ansible_port' => 1],
+        ]);
     }
 
     private function execute(Check $check, string $username = 'alumne01'): CheckResult
@@ -69,18 +83,82 @@ class RunnerTest extends TestCase
 
     public function test_ssh_to_an_unreachable_host_is_unavailable(): void
     {
-        $result = $this->execute($this->check('true', Executor::Ssh, ['host' => '127.0.0.1', 'port' => 1]));
+        $this->closedHostType();
+
+        $result = $this->execute($this->check("# hosts: tancats\ntrue", Executor::Ssh));
 
         $this->assertSame(CheckStatus::Unavailable, $result->status);
         $this->assertSame(255, $result->exitCode);
     }
 
-    public function test_missing_variable_in_config_is_an_error(): void
+    public function test_ssh_runs_on_every_host_of_the_groups(): void
     {
-        $result = $this->execute($this->check('true', Executor::Ssh, ['host' => '{{ no_existeix }}']));
+        $this->closedHostType('tancat');
+        $this->closedHostType('tapiat');
 
-        $this->assertSame(CheckStatus::Error, $result->status);
-        $this->assertStringContainsString('no_existeix', $result->message);
+        $result = $this->execute($this->check("# hosts: tancats:tapiat\ntrue", Executor::Ssh));
+
+        $this->assertSame(CheckStatus::Unavailable, $result->status);
+        $this->assertStringStartsWith('tancat01: ', $result->message);
+        $this->assertStringContainsString('== tancat01: unavailable', $result->output);
+        $this->assertStringContainsString('== tapiat01: unavailable', $result->output);
+    }
+
+    public function test_ssh_needs_a_known_hosts_header(): void
+    {
+        $missing = $this->execute($this->check('true', Executor::Ssh));
+        $this->assertSame(CheckStatus::Error, $missing->status);
+        $this->assertStringContainsString('# hosts:', $missing->message);
+
+        $unknown = $this->execute($this->check("# hosts: no_existeix\ntrue", Executor::Ssh));
+        $this->assertSame(CheckStatus::Error, $unknown->status);
+        $this->assertStringContainsString('no_existeix', $unknown->message);
+
+        // Els Windows es connecten per WinRM: no es poden fer servir amb l'executor ssh.
+        $winrm = $this->execute($this->check("# hosts: vm_dns_windows\ntrue", Executor::Ssh));
+        $this->assertSame(CheckStatus::Error, $winrm->status);
+        $this->assertStringContainsString('winrm', $winrm->message);
+    }
+
+    public function test_credential_header_replaces_the_module_credential(): void
+    {
+        Credential::where('nom', 'API Zabbix')->sole()->update(['secret' => 'zbx-secret-1']);
+        Credential::create(['nom' => 'SSH altre', 'tipus' => 'ssh', 'nom_usuari' => 'altre']);
+
+        $ssh = $this->execute($this->check("# credencial: SSH altre\necho \"user=\$HE_SSH_USER\""));
+        $this->assertSame('user=altre', $ssh->message);
+
+        $password = $this->execute($this->check("# credencial: API Zabbix\necho \"\$HE_CRED_USER \$HE_CRED_PASSWORD\""));
+        $this->assertSame('ansible ********', $password->message);
+
+        $unknown = $this->execute($this->check("# credencial: No hi és\ntrue"));
+        $this->assertSame(CheckStatus::Error, $unknown->status);
+    }
+
+    public function test_check_parameters_use_their_defaults(): void
+    {
+        $result = $this->execute($this->check('echo "min=$HE_PARAM_MIN_VMS"', params: [['name' => 'min_vms', 'default' => 2]]));
+        $this->assertSame('min=2', $result->message);
+
+        $noDefault = $this->execute($this->check('true', params: [['name' => 'min_vms']]));
+        $this->assertSame(CheckStatus::Error, $noDefault->status);
+    }
+
+    public function test_headers_are_read_from_the_first_comment_lines(): void
+    {
+        $headers = CodeHeaders::parse("#!/bin/bash\n# Comprova les VM\n#hosts: pve, vm_router\n# Credencial: SSH jaume\n\necho hola\n# hosts: dns\n");
+
+        $this->assertSame(['pve', 'vm_router'], $headers->hosts);
+        $this->assertSame('SSH jaume', $headers->credential);
+        $this->assertSame([], CodeHeaders::parse("echo hola\n# hosts: pve")->hosts);
+    }
+
+    public function test_executor_cannot_change(): void
+    {
+        $check = $this->check('true');
+
+        $this->expectException(\LogicException::class);
+        $check->update(['executor' => Executor::Ssh]);
     }
 
     public function test_not_implemented_executor_is_an_error(): void
@@ -145,7 +223,8 @@ class RunnerTest extends TestCase
 
     public function test_job_retries_once_when_the_host_is_unavailable(): void
     {
-        $check = $this->check('true', Executor::Ssh, ['host' => '127.0.0.1', 'port' => 1]);
+        $this->closedHostType();
+        $check = $this->check("# hosts: tancats\ntrue", Executor::Ssh);
         $batch = RunBatch::create(['modul_id' => $check->task->block->modul_id, 'origen' => 'nocturna']);
 
         $job = (new RunCheck($batch, $check, Student::firstOrFail()))->withFakeQueueInteractions();

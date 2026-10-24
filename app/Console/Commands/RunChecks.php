@@ -99,7 +99,7 @@ class RunChecks extends Command
     private function checks(Module $module): Collection
     {
         $query = Check::query()
-            ->with(['currentVersion', 'credential', 'task.block.module.credential'])
+            ->with(['currentVersion', 'task.block.module.credential'])
             ->whereHas('task.block', fn (Builder $q) => $q
                 ->where('modul_id', $module->id)
                 ->when($this->option('block'), fn (Builder $q, $number) => $q->where('numero', $number)));

@@ -32,5 +32,7 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <!-- Els tests sempre carreguen els alumnes ficticis, mai la llista real de l'aula. -->
+        <env name="HEIMDEYE_STUDENTS_CSV" value="tests/fixtures/students.csv"/>
     </php>
 </phpunit>

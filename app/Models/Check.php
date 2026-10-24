@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\CheckKind;
 use App\Enums\Executor;
+use App\Models\Concerns\HasFixedExecutor;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
@@ -14,12 +15,13 @@ use Illuminate\Support\Carbon;
 
 class Check extends Model
 {
+    use HasFixedExecutor;
+
     protected $table = 'checks';
 
     protected $fillable = [
         'tasca_id', 'nom', 'descripcio', 'executor', 'tipus', 'punts',
-        'es_actiu', 'actiu_des', 'actiu_fins', 'data_limit', 'bonus_puntualitat_pct',
-        'temps_max_seg', 'credencial_id', 'posicio',
+        'es_actiu', 'actiu_des', 'actiu_fins', 'data_limit', 'bonus_puntualitat_pct', 'posicio',
     ];
 
     protected function casts(): array
@@ -37,11 +39,6 @@ class Check extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class, 'tasca_id');
-    }
-
-    public function credential(): BelongsTo
-    {
-        return $this->belongsTo(Credential::class, 'credencial_id');
     }
 
     public function versions(): HasMany
