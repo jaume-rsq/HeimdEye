@@ -10,8 +10,8 @@ use App\Models\Check;
 use App\Runner\Ansible\Playbook;
 use App\Runner\CodeValidator;
 use App\Runner\Params;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 use Database\Seeders\Block06DnsSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Symfony\Component\Process\Process;
 use Tests\TestCase;
 
