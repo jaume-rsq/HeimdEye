@@ -21,7 +21,7 @@ class HostsSeeder extends Seeder
 
         $windows = Credential::firstOrCreate(
             ['nom' => 'WinRM Windows Server'],
-            ['tipus' => CredentialType::Winrm, 'nom_usuari' => 'Administrador'],
+            ['tipus' => CredentialType::Winrm, 'nom_usuari' => 'jaume'],
         );
         $zabbix = Credential::firstOrCreate(
             ['nom' => 'API Zabbix'],

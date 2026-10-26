@@ -26,6 +26,13 @@ php artisan serve      # http://localhost:8000/admin
 En local (`APP_ENV=local`), el seeder crea l'usuari de prova `admin@heimdeye.test` amb
 contrasenya `password`.
 
+`migrate --seed` només carrega el Bloc 2. Els altres blocs tenen el seu seeder, que es pot
+tornar a executar sense duplicar res (no canvia el codi dels checks que ja tenen versions):
+
+```bash
+php artisan db:seed --class=Block06DnsSeeder   # Bloc 6: DNS (i l'acció d'accés a ns1)
+```
+
 ### Autenticació
 
 `HEIMDEYE_AUTH` tria com s'entra al panell `/admin`. En els dos casos només hi entren els
