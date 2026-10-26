@@ -64,6 +64,8 @@ trait TestsDraftCheck
             ->icon(Heroicon::OutlinedBeaker)
             ->color('info')
             ->disabled(fn () => $this->draftCheck() === null)
+            // Abans de triar alumnes: si el formulari té errors, no s'obre la finestra.
+            ->beforeFormFilled(fn () => $this->validateDraft())
             ->modalHeading('Provar l\'esborrany')
             ->modalDescription('Es prova el codi del formulari, sense desar, per als alumnes triats. El resultat només es mostra en aquesta pàgina i no compta per als alumnes.')
             ->modalSubmitActionLabel('Provar')
@@ -74,8 +76,6 @@ trait TestsDraftCheck
                 return [LaunchCheck::studentPicker(LaunchCheck::students($check), $check)->required()];
             })
             ->action(function (array $data, Action $action) {
-                // Les mateixes regles que en desar (noms dels paràmetres...).
-                $this->form->validate();
                 $check = $this->draftCheck();
                 $version = $this->draftVersion();
 

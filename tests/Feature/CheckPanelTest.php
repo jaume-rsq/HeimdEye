@@ -374,15 +374,18 @@ class CheckPanelTest extends TestCase
                 'codi' => 'true', 'parametres' => [['name' => 'nom-dns', 'label' => null, 'default' => 'x']],
                 'temps_max_seg' => 10,
             ])
-            ->callAction('provar', ['alumnes' => [(string) $student->id]])
-            ->assertHasFormErrors()
+            ->mountAction('provar')
+            ->assertActionNotMounted('provar')
+            ->assertHasFormErrors(['parametres.0.name' => 'regex'])
+            ->assertNotified('No es pot provar: el formulari té errors')
             ->assertSet('testResults', []);
     }
 
     public function test_a_check_can_be_duplicated_as_the_base_of_a_new_one(): void
     {
         $this->actingAs($this->teacher);
-        $source = $this->check(params: [['name' => 'IP', 'label' => null, 'default' => '{{ip_dns}}']]);
+        // Nom en minúscules, com els checks d'abans de la regla de les majúscules.
+        $source = $this->check('echo "$HE_PARAM_IP"', [['name' => 'ip', 'label' => null, 'default' => '{{ip_dns}}']]);
         $count = Check::count();
 
         $create = Livewire::test(CreateCheck::class, ['copia' => $source->id])
@@ -395,5 +398,28 @@ class CheckPanelTest extends TestCase
 
         $create->call('create');
         $this->assertSame($count, Check::count(), 'la còpia també cal provar-la abans de desar');
+
+        $create->callAction('provar', ['alumnes' => [(string) $this->students()->first()->id]])
+            ->assertHasNoFormErrors()
+            ->assertSet('testResults.0.estat', 'pass')
+            ->call('create')
+            ->assertHasNoFormErrors();
+        $copy = Check::where('nom', "{$source->nom} (còpia)")->sole();
+        $this->assertSame('IP', $copy->currentVersion->parametres[0]['name']);
+        $this->assertSame($source->posicio + 1, $copy->posicio);
+    }
+
+    public function test_the_list_shows_the_last_modified_checks_first(): void
+    {
+        $this->actingAs($this->teacher);
+        $old = $this->check();
+        $old->forceFill(['updated_at' => now()->subWeek()])->saveQuietly();
+        $recent = $this->check();
+        $recent->forceFill(['updated_at' => now()->subDay()])->saveQuietly();
+
+        Livewire::test(ListChecks::class)->assertCanSeeTableRecords([$recent, $old], inOrder: true);
+
+        $old->versions()->create(['versio' => 2, 'codi' => 'echo nova', 'temps_max_seg' => 10]);
+        Livewire::test(ListChecks::class)->assertCanSeeTableRecords([$old->fresh(), $recent], inOrder: true);
     }
 }

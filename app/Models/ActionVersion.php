@@ -14,6 +14,9 @@ class ActionVersion extends Model
 
     protected $table = 'versions_accio';
 
+    /** Una versió nova també compta com a modificació de l'acció (llista ordenada per updated_at). */
+    protected $touches = ['action'];
+
     protected $fillable = ['accio_id', 'checks_verificacio'];
 
     protected function casts(): array

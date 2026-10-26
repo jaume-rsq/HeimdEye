@@ -33,7 +33,7 @@ class ActionsTable
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['module', 'currentVersion']))
-            ->defaultSort('posicio')
+            ->defaultSort('updated_at', 'desc')
             ->columns([
                 IconColumn::make('estat')
                     ->label('Estat')
@@ -58,6 +58,11 @@ class ActionsTable
                     ->label('Versió')
                     ->prefix('v')
                     ->placeholder('sense codi'),
+                TextColumn::make('updated_at')
+                    ->label('Modificada')
+                    ->since()
+                    ->dateTimeTooltip('d/m/Y H:i')
+                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('curs')

@@ -7,6 +7,7 @@ use App\Models\Student;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Proves de l'esborrany a l'editor (d'accions i de checks): cada alumne és un treball de la cua
@@ -48,6 +49,26 @@ trait QueuesEditorTests
             ->persistent()
             ->send();
         $this->halt();
+    }
+
+    /**
+     * Valida el formulari amb les mateixes regles que en desar. Els errors surten sota cada camp,
+     * que pot quedar lluny del botó Provar: per això també es diuen en una notificació.
+     */
+    protected function validateDraft(): void
+    {
+        try {
+            $this->form->validate();
+        } catch (ValidationException $e) {
+            Notification::make()
+                ->danger()
+                ->title('No es pot provar: el formulari té errors')
+                ->body(implode("\n", array_unique($e->validator->errors()->all())))
+                ->persistent()
+                ->send();
+
+            throw $e;
+        }
     }
 
     public function clearTestResults(): void

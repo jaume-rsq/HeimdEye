@@ -82,6 +82,8 @@ trait TestsDraftVersion
             ->icon($simulate ? Heroicon::OutlinedBeaker : Heroicon::OutlinedPlay)
             ->visible(fn () => ! $simulate || $this->draftAction()?->executor === Executor::Ansible)
             ->disabled(fn () => $this->draftAction() === null)
+            // Abans de triar alumnes: si el formulari té errors, no s'obre la finestra.
+            ->beforeFormFilled(fn () => $this->validateDraft())
             ->modalHeading($simulate ? 'Simular l\'esborrany' : 'Executar l\'esborrany')
             ->modalDescription($simulate
                 ? 'Es prova el codi del formulari, sense desar, amb --check --diff. El resultat només es mostra en aquesta pàgina.'
@@ -91,8 +93,6 @@ trait TestsDraftVersion
             ->schema(fn () => LaunchAction::schema($this->draftAction(), $this->draftVersion()->parametres ?? []))
             ->fillForm(fn () => LaunchAction::fill($this->draftVersion()->parametres ?? []))
             ->action(function (array $data, Action $action) use ($simulate) {
-                // Les mateixes regles que en desar (noms dels paràmetres...).
-                $this->form->validate();
                 $draft = $this->draftAction();
                 $version = $this->draftVersion();
                 $hostTypes = $data['equips'] ?? [];
