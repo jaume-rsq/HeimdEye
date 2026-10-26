@@ -21,25 +21,50 @@ class VariableResolver
     /** @return array<string, string> */
     public function resolve(Student $student, Module $module): array
     {
-        $own = array_merge(
-            array_filter([
-                'usuari' => $student->usuari,
-                'nom_complet' => $student->nom_complet,
-                'num_taula' => $student->num_taula === null ? null : sprintf('%02d', $student->num_taula),
-                'x' => $student->x,
-                'email' => $student->user?->email,
-            ], fn ($value) => $value !== null),
-            $student->variables ?? [],
-        );
+        return array_map(fn (array $v) => $v['valor'], $this->detailed($student, $module));
+    }
 
-        $base = array_merge(GlobalVar::query()->pluck('valor', 'clau')->all(), $own);
+    /**
+     * Les mateixes variables que resolve(), amb d'on surt cada valor:
+     * global, modul (plantilla derivada), alumne (camp fix) o propia (variables lliures de l'alumne).
+     * «tapa» indica que el valor amaga el d'una capa inferior.
+     *
+     * @return array<string, array{valor: string, origen: string, tapa: bool}>
+     */
+    public function detailed(Student $student, Module $module): array
+    {
+        $fields = array_filter([
+            'usuari' => $student->usuari,
+            'nom_complet' => $student->nom_complet,
+            'num_taula' => $student->num_taula === null ? null : sprintf('%02d', $student->num_taula),
+            'x' => $student->x,
+            'email' => $student->user?->email,
+        ], fn ($value) => $value !== null);
+        $own = array_merge($fields, $student->variables ?? []);
+
+        $globals = GlobalVar::query()->pluck('valor', 'clau')->all();
+        $base = array_merge($globals, $own);
 
         $derived = array_map(
             fn (string $template) => $this->render($template, $base),
             $module->variables_derivades ?? [],
         );
 
-        return array_map('strval', array_merge($base, $derived, $own));
+        $layers = [
+            'global' => $globals,
+            'modul' => $derived,
+            'alumne' => $fields,
+            'propia' => $student->variables ?? [],
+        ];
+
+        $result = [];
+        foreach ($layers as $origin => $vars) {
+            foreach ($vars as $key => $value) {
+                $result[$key] = ['valor' => (string) $value, 'origen' => $origin, 'tapa' => isset($result[$key])];
+            }
+        }
+
+        return $result;
     }
 
     /**
