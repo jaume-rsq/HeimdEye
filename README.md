@@ -219,6 +219,11 @@ sempre se sap quin codi exacte va córrer.
 
 - **Resultat:** el codi de sortida 0 vol dir assolit (`pass`); qualsevol altre, `fail`.
   El missatge és la línia `HEIMDEYE_MSG: ...` si n'hi ha, o la primera línia de la sortida.
+- **Omès:** amb `local` i `ssh`, un check que escriu una línia `HEIMDEYE_OMES: motiu` dona
+  `omes`, surti com surti: ara no s'aplica (per exemple, l'alumne fa servir el router MikroTik i
+  el check és del router Linux, que té la mateixa IP i està apagat). L'execució queda a
+  l'historial en gris, però l'estat de l'alumne, les dates d'assoliment i els punts no canvien, i
+  no compta com a darrera execució a les graelles ni als filtres.
 - **Variables de l'alumne:** arriben com a entorn `HE_<NOM>` en majúscules: `HE_X`,
   `HE_NUM_TAULA`, `HE_USUARI`, `HE_IP_PVE`, `HE_IP_ROUTER`... Són totes les variables de
   l'alumne (vegeu «Variables» i `App\Support\VariableResolver`). A Ansible són variables de
@@ -306,9 +311,10 @@ php artisan queue:work --queue=checks          # worker que executa la cua
 La nocturna la llança el scheduler (`HEIMDEYE_NIGHTLY_AT`, per defecte 02:00); cal el cron de Laravel:
 `* * * * * cd /ruta/heimdeye && php artisan schedule:run >> /dev/null 2>&1`.
 
-- Estats: `pass` (sortida 0), `fail`, `error` (el check no es pot executar), `timeout` i
-  `unavailable` (ssh no connecta: codi 255). A la cua, `unavailable` i `timeout` es reintenten
-  un cop al cap de `HEIMDEYE_RETRY_AFTER` segons (180).
+- Estats: `pass` (sortida 0), `fail`, `error` (el check no es pot executar), `timeout`,
+  `unavailable` (ssh no connecta: codi 255) i `omes` (no s'aplica ara; vegeu el contracte del
+  codi). A la cua, `unavailable` i `timeout` es reintenten un cop al cap de
+  `HEIMDEYE_RETRY_AFTER` segons (180).
 - Cada execució es desa a `execucions_check`; `check_alumne` guarda l'estat actual i la primera
   data d'assoliment, que no es torna a tocar.
 - Cada check i alumne és una execució a part (un script o un `ansible-playbook`) i un treball de

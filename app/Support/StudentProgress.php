@@ -42,7 +42,8 @@ class StudentProgress
 
         $rows = $checks->map(function (Check $check) use ($states, $runs) {
             /** @var Collection<int, CheckRun> $history */
-            $history = $runs->get($check->id, collect());
+            // Les omeses no canvien res per a l'alumne: ni són la darrera execució ni un canvi d'estat.
+            $history = $runs->get($check->id, collect())->reject(fn (CheckRun $run) => $run->estat === CheckStatus::Skipped)->values();
             $state = $states->get($check->id);
 
             return [

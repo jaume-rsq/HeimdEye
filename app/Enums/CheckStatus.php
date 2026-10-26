@@ -8,6 +8,8 @@ use Filament\Support\Contracts\HasLabel;
 /**
  * Resultat automàtic d'una execució. Només pass compta com a assolit.
  * fail vol dir que l'alumne encara no ho té; error, unavailable i timeout, que no s'ha pogut comprovar.
+ * omes vol dir que ara el check no s'aplica (el codi ho diu amb HEIMDEYE_OMES:): queda a l'historial,
+ * però no canvia l'estat de l'alumne ni compta com a darrera execució.
  */
 enum CheckStatus: string implements HasColor, HasLabel
 {
@@ -16,6 +18,7 @@ enum CheckStatus: string implements HasColor, HasLabel
     case Error = 'error';
     case Unavailable = 'unavailable';
     case Timeout = 'timeout';
+    case Skipped = 'omes';
 
     /** Tot el que no és pass: l'alumne no el té assolit. */
     public function isFailure(): bool
@@ -46,6 +49,7 @@ enum CheckStatus: string implements HasColor, HasLabel
             self::Pass => 'success',
             self::Fail => 'danger',
             self::Error, self::Unavailable, self::Timeout => 'warning',
+            self::Skipped => 'gray',
         };
     }
 }

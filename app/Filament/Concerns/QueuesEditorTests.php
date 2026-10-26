@@ -132,7 +132,7 @@ trait QueuesEditorTests
         if (! $notify || $finished === [] || $pending > 0) {
             return;
         }
-        $failures = collect($finished)->whereNotIn('estat', ['ok', 'changed', 'pass'])->count();
+        $failures = collect($finished)->whereNotIn('estat', ['ok', 'changed', 'pass', 'omes'])->count();
         Notification::make()
             ->{$failures ? 'warning' : 'success'}()
             ->title($failures ? "Prova acabada: {$failures} amb errors" : 'Prova acabada')

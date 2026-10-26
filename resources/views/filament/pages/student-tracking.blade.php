@@ -4,7 +4,7 @@
         $statusColor = fn ($estat) => match ($estat?->value) {
             'pass' => 'rgb(22,163,74)',
             'fail' => 'rgb(220,38,38)',
-            null => 'rgb(156,163,175)',
+            null, 'omes' => 'rgb(156,163,175)',
             default => 'rgb(217,119,6)',
         };
         $student = $this->student;
