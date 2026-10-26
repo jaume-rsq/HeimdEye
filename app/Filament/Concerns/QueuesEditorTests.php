@@ -76,6 +76,7 @@ trait QueuesEditorTests
                 'color' => RunEditorTest::hex('gray'),
                 'resum' => null,
                 'parametres' => null,
+                'comanda' => null,
                 'sortida' => null,
                 'hora' => now()->format('H:i:s'),
             ];

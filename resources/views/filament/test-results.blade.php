@@ -23,6 +23,12 @@
             @if (isset($result['clau']))
                 <div style="margin-top: .5rem; opacity: .7;">A la cua o executant-se. Si no avança, comprova que el worker de la cua estigui en marxa.</div>
             @else
+                @if ($result['comanda'] ?? null)
+                    <details style="margin-top: .5rem;">
+                        <summary style="cursor: pointer; opacity: .8;">Codi executat per a aquest alumne (amb variables i paràmetres substituïts)</summary>
+                        <pre style="margin-top: .25rem;">{{ $result['comanda'] }}</pre>
+                    </details>
+                @endif
                 <pre style="margin-top: .5rem;">{{ $result['sortida'] ?: '(sense sortida)' }}</pre>
             @endif
         </details>

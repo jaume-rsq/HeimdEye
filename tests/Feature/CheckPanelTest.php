@@ -151,6 +151,7 @@ class CheckPanelTest extends TestCase
         $create->callAction('provar', ['alumnes' => [(string) $student->id]])
             ->assertSet('testResults.0.estat', 'pass')
             ->assertSet('testResults.0.resum', 'hola x')
+            ->assertSet('testResults.0.comanda', "# bash al servidor HeimdEye\necho \"hola x\"")
             ->call('create')
             ->assertHasNoFormErrors();
         $this->assertSame(0, CheckRun::count(), 'les proves no es desen');
@@ -160,6 +161,7 @@ class CheckPanelTest extends TestCase
         $this->assertSame(3, $check->punts);
         $this->assertSame([1], $check->versions()->pluck('versio')->all());
         $this->assertSame($this->teacher->id, $check->currentVersion->creat_per);
+        $this->assertSame('NOM', $check->currentVersion->parametres[0]['name'], 'els noms dels paràmetres van en majúscules');
 
         Livewire::test(EditCheck::class, ['record' => $check->id])
             ->fillForm(['punts' => 5, 'descripcio' => 'Només canvien dades del check'])
@@ -359,5 +361,21 @@ class CheckPanelTest extends TestCase
         $this->assertSame(0, CheckRun::count());
         $this->assertSame(0, CheckStudent::count());
         $this->assertNotNull(Action::find($action->id));
+    }
+
+    public function test_the_draft_test_validates_the_form_like_saving(): void
+    {
+        $this->actingAs($this->teacher);
+        $student = $this->students()->first();
+
+        Livewire::test(CreateCheck::class)
+            ->fillForm([
+                'nom' => 'Nou', 'modul_id' => $this->module->id, 'tasca_id' => $this->task()->id, 'executor' => 'local',
+                'codi' => 'true', 'parametres' => [['name' => 'nom-dns', 'label' => null, 'default' => 'x']],
+                'temps_max_seg' => 10,
+            ])
+            ->callAction('provar', ['alumnes' => [(string) $student->id]])
+            ->assertHasFormErrors()
+            ->assertSet('testResults', []);
     }
 }
