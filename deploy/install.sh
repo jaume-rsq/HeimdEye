@@ -7,6 +7,8 @@ set -euo pipefail
 
 [[ $EUID -eq 0 ]] || { echo "Cal executar-ho amb sudo"; exit 1; }
 SRC=$(cd "$(dirname "$0")" && pwd)
+# Des de /: l'usuari heimdeye potser no pot entrar a la carpeta on som (p. ex. /home/jaume).
+cd /
 BASE=/var/www/heimdeye
 HOME_DIR=/var/lib/heimdeye
 
@@ -18,7 +20,7 @@ id heimdeye >/dev/null 2>&1 || useradd --system --home-dir "$HOME_DIR" --create-
 install -d -o heimdeye -g heimdeye -m 700 "$HOME_DIR/.ssh"
 
 echo "== Col·lecció ansible.windows"
-sudo -u heimdeye -H ansible-galaxy collection install -q ansible.windows
+sudo -u heimdeye -H ansible-galaxy collection install ansible.windows
 
 echo "== Carpetes a $BASE"
 install -d -o heimdeye -g heimdeye "$BASE" "$BASE/releases" "$BASE/backups" "$BASE/shared"
