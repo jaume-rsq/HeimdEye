@@ -3,16 +3,16 @@
 namespace Tests\Feature;
 
 use App\Enums\CheckStatus;
+use App\Enums\VariableScope;
+use App\Models\AcademicYear;
 use App\Models\Check;
 use App\Models\CheckStudent;
 use App\Models\Module;
 use App\Models\Student;
+use App\Models\Variable;
 use App\Runner\Ansible\InventoryBuilder;
 use App\Runner\TempFiles;
 use App\Support\VariableResolver;
-use App\Enums\VariableScope;
-use App\Models\AcademicYear;
-use App\Models\Variable;
 use Database\Seeders\StudentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
