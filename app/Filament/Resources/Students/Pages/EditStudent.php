@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Students\Pages;
 
 use App\Filament\Pages\InventoryOverview;
+use App\Filament\Pages\StudentTracking;
 use App\Filament\Resources\Students\StudentResource;
 use App\Models\ActionRun;
 use App\Models\Module;
@@ -52,6 +53,11 @@ class EditStudent extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('seguiment')
+                ->label('Seguiment')
+                ->icon(Heroicon::OutlinedPresentationChartLine)
+                ->color('gray')
+                ->url(fn () => StudentTracking::getUrl(['alumne' => $this->record->id])),
             Action::make('conjunt')
                 ->label('Vista de conjunt')
                 ->icon(Heroicon::OutlinedSquares2x2)

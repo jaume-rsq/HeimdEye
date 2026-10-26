@@ -362,6 +362,21 @@ una regla de Bypass per a aquest camí), on només surt l'àlies de l'alumne o �
 - Columnes: punts, % d'obligatoris assolits, progrés per bloc i data del darrer assoliment.
 - En cas d'empat, va davant qui hi va arribar abans (darrer assoliment més antic).
 
+### Seguiment
+
+Detall d'un alumne per a professors i admins (menú Seguiment, `/admin/seguiment`). S'hi arriba clicant
+el nom al leaderboard del panell, des de la fitxa de l'alumne o des d'una cel·la de la graella d'alumnes
+d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
+
+- Un admin veu tots els mòduls; un professor només els que imparteix (i els alumnes d'aquests mòduls).
+- Una targeta per mòdul amb punts, posició, % d'obligatoris, progrés per bloc i dates.
+- Taula del mòdul agrupada per bloc i tasca, filtrable per bloc, tasca, estat i només obligatoris:
+  estat (amb la correcció del professor), darrera execució, missatge, primer assoliment, punts i comentari.
+- Clicant una fila es veu la sortida de la darrera execució i l'historial reduït als canvis d'estat
+  (amb la data de cada canvi i quantes execucions hi ha hagut amb aquell estat).
+- Botons per verificar ara un check, una tasca o tot el mòdul (per a aquest alumne) i per corregir:
+  forçar assolit / no assolit o tornar a automàtic, i deixar un comentari que veurà l'alumne.
+
 ## Accions
 
 Les accions són scripts o playbooks que llança el professor (no puntuen): posar contrasenya,
