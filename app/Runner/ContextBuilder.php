@@ -99,6 +99,9 @@ class ContextBuilder
         $inventory = null;
         $hosts = [];
         if ($executor === Executor::Ansible) {
+            if (Playbook::mentions($code, 'heimdeye_ssh_pubkey_file') && ! config('heimdeye.runner.ssh_pubkey_path')) {
+                throw new InvalidArgumentException('El codi fa servir heimdeye_ssh_pubkey_file, però no hi ha HEIMDEYE_SSH_PUBKEY_PATH ni HEIMDEYE_SSH_KEY_PATH al .env');
+            }
             $builder = new InventoryBuilder($this->resolver, $this->files);
             $inventory = $builder->build($module, [$student], $types);
             $hosts = array_keys($builder->hostMap());
@@ -128,10 +131,13 @@ class ContextBuilder
      */
     public function secretsFor(Module $module, string $code): array
     {
-        return $module->secrets
-            ->filter(fn ($secret) => $secret->valor !== null && Playbook::mentions($code, $secret->clau))
-            ->mapWithKeys(fn ($secret) => [$secret->clau => $secret->valor])
-            ->all();
+        $secrets = $module->secrets->filter(fn ($secret) => Playbook::mentions($code, $secret->clau));
+        $empty = $secrets->filter(fn ($secret) => $secret->valor === null || $secret->valor === '');
+        if ($empty->isNotEmpty()) {
+            throw new InvalidArgumentException('El secret '.$empty->pluck('clau')->implode(', ')." no té valor: omple'l a l'inventari del mòdul, pestanya Secrets");
+        }
+
+        return $secrets->mapWithKeys(fn ($secret) => [$secret->clau => $secret->valor])->all();
     }
 
     public function cleanup(): void
