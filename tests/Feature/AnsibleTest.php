@@ -72,9 +72,9 @@ class AnsibleTest extends TestCase
             - hosts: locals
               gather_facts: false
               tasks:
-                - ansible.builtin.command: echo "{{ taula }} {{ xarxa }}"
+                - ansible.builtin.command: echo "{{ nom_taula }} {{ xarxa_aula }}"
                 - ansible.builtin.fail:
-                    msg: "Falla la {{ taula }}"
+                    msg: "Falla la {{ nom_taula }}"
                   when: num_taula == '02'
             YAML);
 
@@ -103,8 +103,8 @@ class AnsibleTest extends TestCase
               gather_facts: false
               tasks:
                 - ansible.builtin.copy:
-                    content: "hola {{ taula }}\n"
-                    dest: "{{ dir }}/{{ taula }}.txt"
+                    content: "hola {{ nom_taula }}\n"
+                    dest: "{{ dir }}/{{ nom_taula }}.txt"
             YAML, [['name' => 'dir', 'label' => 'Directori']]);
 
         app(ActionRunner::class)->run($action, $this->students(), ['local'], ['dir' => $dir], checkMode: true);

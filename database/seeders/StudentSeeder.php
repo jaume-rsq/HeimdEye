@@ -49,8 +49,8 @@ class StudentSeeder extends Seeder
                     'num_taula' => $tableNo,
                     'x' => 20 + $tableNo,
                     'variables' => [
-                        'aula_net' => $row['xarxa'],
-                        'alum' => $row['alum'],
+                        'xarxa_aula' => $row['xarxa'],
+                        'nom_alum' => $row['alum'],
                     ],
                 ],
             );

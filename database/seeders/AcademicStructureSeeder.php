@@ -5,12 +5,13 @@ namespace Database\Seeders;
 use App\Enums\CredentialType;
 use App\Enums\ModuleKind;
 use App\Enums\Role;
+use App\Enums\VariableScope;
 use App\Models\AcademicYear;
 use App\Models\Credential;
 use App\Models\Cycle;
-use App\Models\GlobalVar;
 use App\Models\Module;
 use App\Models\User;
+use App\Models\Variable;
 use Illuminate\Database\Seeder;
 
 /**
@@ -30,14 +31,14 @@ class AcademicStructureSeeder extends Seeder
         Cycle::updateOrCreate(['codi' => 'ASIX'], ['nom' => 'Administració de Sistemes Informàtics en Xarxa']);
 
         foreach ([
-            'pve' => '192.168.20.7',
-            'dns_aula' => '192.168.20.11',
-            'heimdeye' => '192.168.20.12',
-            'zabbix' => '192.168.20.12',
-            'zentyal' => '192.168.20.254',
-            'domini' => 'smix2.julioantonio.cat',
+            'ip_pve_aula' => '192.168.20.7',
+            'ip_dns_aula' => '192.168.20.11',
+            'ip_heimdeye' => '192.168.20.12',
+            'ip_zabbix' => '192.168.20.12',
+            'ip_zentyal' => '192.168.20.254',
+            'nom_domini' => 'smix2.julioantonio.cat',
         ] as $key => $value) {
-            GlobalVar::updateOrCreate(['clau' => $key], ['valor' => $value]);
+            Variable::updateOrCreate(['abast' => VariableScope::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => $key], ['valor' => $value]);
         }
 
         // La clau privada no es versiona: s'afegeix des de l'administració.
@@ -59,23 +60,24 @@ class AcademicStructureSeeder extends Seeder
                 'tipus' => ModuleKind::Free,
                 'combina' => ['0227', '0226', '0228'],
                 'credencial_id' => $credential->id,
-                'variables_derivades' => [
-                    'lan' => '172.{{x}}.0.0/22',
-                    'dmz' => '10.{{x}}.0.0/22',
-                    'estacio_ip' => '{{ aula_net | host(2) }}',
-                    'pve_ip' => '{{ aula_net | host(3) }}',
-                    'router_ip' => '{{ aula_net | host(-1) }}',
-                    'dns_ip' => '10.{{x}}.0.11',
-                    'dnswin_ip' => '172.{{x}}.0.11',
-                    // Mateixos noms que l'inventari Ansible de l'aula (smix2.ini).
-                    'base' => '{{ aula_net | octet(4) }}',
-                    'xarxa' => '{{aula_net}}',
-                    'taula' => 'Taula{{num_taula}}',
-                    'alumne' => '{{nom_complet}}',
-                    'nom_dns' => '{{usuari}}',
-                ],
             ],
         );
+
+        // Variables per alumne: xarxa_aula i nom_alum venen de la llista de l'aula (StudentSeeder).
+        foreach ([
+            'xarxa_lan' => '172.{{x}}.0.0/22',
+            'xarxa_dmz' => '10.{{x}}.0.0/22',
+            'ip_estacio' => '{{ xarxa_aula | host(2) }}',
+            'ip_pve' => '{{ xarxa_aula | host(3) }}',
+            'ip_router' => '{{ xarxa_aula | host(-1) }}',
+            'ip_dns' => '10.{{x}}.0.11',
+            'ip_dnswin' => '172.{{x}}.0.11',
+            'num_base' => '{{ xarxa_aula | octet(4) }}',
+            'nom_taula' => 'Taula{{num_taula}}',
+            'nom_dns' => '{{usuari}}',
+        ] as $key => $value) {
+            $module->variables()->updateOrCreate(['abast' => VariableScope::Module, 'clau' => $key], ['valor' => $value]);
+        }
 
         $module->teachers()->syncWithoutDetaching([$admin->id]);
     }

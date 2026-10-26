@@ -2,44 +2,130 @@
 
 namespace App\Support;
 
-use App\Models\GlobalVar;
 use App\Models\Module;
 use App\Models\Student;
+use App\Models\Variable;
 use InvalidArgumentException;
 
 /**
- * Calcula les variables que rep un check per a un alumne.
+ * Calcula les variables que rep un check o una acció per a un alumne.
  *
- * Prioritat (de menys a més): variables globals, variables derivades del mòdul,
- * camps fixos de l'alumne i variables lliures de l'alumne.
+ * Prioritat (de menys a més): globals, del curs, del mòdul, camps fixos de l'alumne
+ * i variables pròpies de l'alumne. Qualsevol valor pot ser una plantilla que en fa servir
+ * d'altres ({{ xarxa_aula | host(3) }}): es calcula quan totes les capes ja s'han ajuntat.
  */
 class VariableResolver
 {
     /** {{ var }} o {{ var | filtre(n) }} */
     private const MARKER = '/\{\{\s*([A-Za-z0-9_]+)\s*(?:\|\s*([a-z_]+)\(\s*(-?\d+)\s*\))?\s*\}\}/';
 
-    /** @return array<string, string> */
+    /** Plantilles que en fan servir d'altres: com a molt tants nivells d'imbricació. */
+    private const MAX_PASSES = 5;
+
+    /**
+     * @return array<string, string>
+     *
+     * @throws InvalidArgumentException si un filtre no es pot aplicar
+     */
     public function resolve(Student $student, Module $module): array
     {
-        $own = array_merge(
-            array_filter([
-                'usuari' => $student->usuari,
-                'nom_complet' => $student->nom_complet,
-                'num_taula' => $student->num_taula === null ? null : sprintf('%02d', $student->num_taula),
-                'x' => $student->x,
-                'email' => $student->user?->email,
-            ], fn ($value) => $value !== null),
-            $student->variables ?? [],
-        );
+        $vars = $this->detailed($student, $module);
+        foreach ($vars as $var) {
+            if ($var['error'] !== null) {
+                throw new InvalidArgumentException($var['error']);
+            }
+        }
 
-        $base = array_merge(GlobalVar::query()->pluck('valor', 'clau')->all(), $own);
+        return array_map(fn (array $v) => $v['valor'], $vars);
+    }
 
-        $derived = array_map(
-            fn (string $template) => $this->render($template, $base),
-            $module->variables_derivades ?? [],
-        );
+    /**
+     * Les variables que no depenen de cap alumne (globals i del curs), per als equips globals.
+     *
+     * @return array<string, string>
+     */
+    public function common(Module $module): array
+    {
+        return array_map(fn (array $v) => $v['valor'], $this->compute(array_slice($this->layers($module), 0, 2)));
+    }
 
-        return array_map('strval', array_merge($base, $derived, $own));
+    /**
+     * Les mateixes variables que resolve(), amb d'on surt cada valor (global, curs, modul,
+     * alumne o propia), si amaga el d'una capa inferior i l'error, si n'hi ha.
+     *
+     * @return array<string, array{valor: string, origen: string, tapa: bool, error: ?string}>
+     */
+    public function detailed(Student $student, Module $module): array
+    {
+        $fields = array_filter([
+            'usuari' => $student->usuari,
+            'nom_complet' => $student->nom_complet,
+            'num_taula' => $student->num_taula === null ? null : sprintf('%02d', $student->num_taula),
+            'x' => $student->x,
+            'email' => $student->user?->email,
+        ], fn ($value) => $value !== null);
+
+        return $this->compute([
+            ...$this->layers($module),
+            'alumne' => $fields,
+            'propia' => $student->variables ?? [],
+        ]);
+    }
+
+    /** @return array{global: array<string, string>, curs: array<string, string>, modul: array<string, string>} */
+    private function layers(Module $module): array
+    {
+        $rows = Variable::query()->visibleFrom($module)->get();
+
+        $layers = ['global' => [], 'curs' => [], 'modul' => []];
+        foreach ($rows as $row) {
+            $layers[$row->abast->value][$row->clau] = $row->valor;
+        }
+
+        return $layers;
+    }
+
+    /**
+     * Ajunta les capes i calcula les plantilles contra el resultat.
+     *
+     * @param  array<string, array<string, mixed>>  $layers
+     * @return array<string, array{valor: string, origen: string, tapa: bool, error: ?string}>
+     */
+    private function compute(array $layers): array
+    {
+        $result = [];
+        foreach ($layers as $origin => $vars) {
+            foreach ($vars as $key => $value) {
+                $result[$key] = ['valor' => (string) $value, 'origen' => $origin, 'tapa' => isset($result[$key]), 'error' => null];
+            }
+        }
+
+        for ($pass = 0; $pass < self::MAX_PASSES; $pass++) {
+            $values = array_map(fn (array $v) => $v['valor'], $result);
+            $changed = false;
+            foreach ($result as $key => $var) {
+                if (! str_contains($var['valor'], '{{')) {
+                    continue;
+                }
+                try {
+                    $rendered = $this->render($var['valor'], $values);
+                } catch (InvalidArgumentException $e) {
+                    $result[$key]['error'] = "{$key}: {$e->getMessage()}";
+
+                    continue;
+                }
+                $result[$key]['error'] = null;
+                if ($rendered !== $var['valor']) {
+                    $result[$key]['valor'] = $rendered;
+                    $changed = true;
+                }
+            }
+            if (! $changed) {
+                break;
+            }
+        }
+
+        return $result;
     }
 
     /**
