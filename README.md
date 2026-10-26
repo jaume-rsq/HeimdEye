@@ -158,9 +158,10 @@ cd /var/www/heimdeye/current && sudo -u heimdeye php artisan db:seed --force
 sudo systemctl enable --now heimdeye-queue@{1..4} heimdeye-schedule.timer heimdeye-deploy.timer
 ```
 
-Al Cloudflare: el túnel envia el nom de HeimdEye a `http://192.168.20.12:8080`, i l'aplicació
-d'Access fa el login de Google Workspace amb una regla Bypass per a `/leaderboard`. Al
-tallafoc de la VM, el port 8080 només ha d'acceptar 192.168.20.7. `HEIMDEYE_TRUSTED_PROXIES`
+Al Cloudflare: el túnel envia `heimdeye.julioantonio.cat` a `http://192.168.20.12:8080`, i l'aplicació
+d'Access fa el login de Google Workspace amb una regla Bypass per a `/leaderboard`. El lloc
+d'Apache del port 8080 només accepta 192.168.20.7 i la mateixa màquina (`Require ip`), perquè la
+VM no té tallafoc actiu. `HEIMDEYE_TRUSTED_PROXIES`
 fa que Laravel cregui la capçalera `X-Forwarded-Proto` (HTTPS) només si ve del `cloudflared`.
 
 ## Variables
