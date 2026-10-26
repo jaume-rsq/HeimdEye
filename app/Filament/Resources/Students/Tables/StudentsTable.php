@@ -4,13 +4,16 @@ namespace App\Filament\Resources\Students\Tables;
 
 use App\Models\Module;
 use App\Models\Student;
+use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
+use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 class StudentsTable
 {
@@ -46,6 +49,20 @@ class StudentsTable
             ])
             ->recordActions([
                 EditAction::make()->label('Fitxa'),
+            ])
+            ->toolbarActions([
+                BulkAction::make('desactivar')
+                    ->label('Marcar inactius')
+                    ->icon(Heroicon::OutlinedPauseCircle)
+                    ->requiresConfirmation()
+                    ->modalDescription('Deixen de sortir a les execucions i al leaderboard. No s\'esborra res.')
+                    ->action(fn (Collection $records) => Student::whereKey($records->modelKeys())->update(['es_actiu' => false]))
+                    ->deselectRecordsAfterCompletion(),
+                BulkAction::make('activar')
+                    ->label('Marcar actius')
+                    ->icon(Heroicon::OutlinedPlayCircle)
+                    ->action(fn (Collection $records) => Student::whereKey($records->modelKeys())->update(['es_actiu' => true]))
+                    ->deselectRecordsAfterCompletion(),
             ]);
     }
 }

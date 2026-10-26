@@ -343,4 +343,18 @@ class ActionPanelTest extends TestCase
             ->assertSet('testResults.0.sortida', fn ($out) => str_contains($out, 'hola'));
         $this->assertSame(0, ActionRun::count());
     }
+
+    public function test_the_list_shows_the_last_modified_actions_first(): void
+    {
+        $this->actingAs($this->teacher);
+        $old = $this->action();
+        $old->forceFill(['updated_at' => now()->subWeek()])->saveQuietly();
+        $recent = $this->action();
+        $recent->forceFill(['updated_at' => now()->subDay()])->saveQuietly();
+
+        Livewire::test(ListActions::class)->assertCanSeeTableRecords([$recent, $old], inOrder: true);
+
+        $old->versions()->create(['versio' => 2, 'codi' => 'echo nova', 'temps_max_seg' => 60]);
+        Livewire::test(ListActions::class)->assertCanSeeTableRecords([$old->fresh(), $recent], inOrder: true);
+    }
 }
