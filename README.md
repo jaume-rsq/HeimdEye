@@ -77,9 +77,27 @@ L'usuari és la part del correu abans de l'`@`, i X = 20 + número de taula. Si 
 existeix, es carrega `students.example.csv` (si és buit, no es crea cap alumne). Els tests
 sempre fan servir els 10 alumnes ficticis de `tests/fixtures/students.csv`.
 
-Variables derivades del mòdul 9991: `lan` = 172.X.0.0/22, `dmz` = 10.X.0.0/22,
-`pve_ip` = tercera adreça útil de la xarxa d'aula, `router_ip` = darrera adreça útil.
-Les plantilles admeten `{{ aula_net | host(3) }}` i `{{ aula_net | host(-1) }}`.
+Cada alumne rep `xarxa_aula` (columna Xarxa) i `nom_alum` (columna alum) com a variables pròpies.
+
+## Variables
+
+Totes les variables són a la taula `variables`, amb un àmbit (`abast`): `global`, `curs`
+(`curs_id`) o `modul` (`modul_id`). El valor pot ser una plantilla que en fa servir d'altres:
+`{{x}}`, `{{ xarxa_aula | host(3) }}` (tercera adreça útil), `{{ xarxa_aula | host(-1) }}`
+(darrera), `{{ ip_pve | octet(4) }}`.
+
+Prioritat, de menys a més: global, curs, mòdul, camps de l'alumne (`usuari`, `nom_complet`,
+`num_taula`, `x`, `email`) i variables pròpies de l'alumne (`alumnes.variables`). Una variable
+pròpia amb el mateix nom que una de mòdul és la manera de fer una excepció per a un alumne.
+
+Els noms segueixen un prefix segons el tipus:
+
+| Prefix | Per a | Exemples |
+| --- | --- | --- |
+| `xarxa_` | xarxes CIDR | `xarxa_aula`, `xarxa_lan` (172.X.0.0/22), `xarxa_dmz` (10.X.0.0/22) |
+| `ip_` | adreces | `ip_pve`, `ip_router`, `ip_dns`, `ip_zabbix` |
+| `nom_` | noms | `nom_taula` (Taula01), `nom_dns`, `nom_domini`, `nom_alum` |
+| `num_` | números | `num_base` |
 
 ## Model de dades
 
@@ -87,8 +105,8 @@ Curs (`cursos`) → Cicle (`cicles`) → Mòdul (`moduls`) → Bloc (`blocs`) �
 Els noms de taules i camps són en català (sense accents); les classes PHP es mantenen en anglès
 (`Module`, `Student`...) i cada model declara la seva `$table`.
 
-- `moduls`: oficial o lliure (`combina` llista els mòduls oficials que agrupa), amb les
-  variables derivades (`variables_derivades`, plantilles `{{x}}`) i la credencial per defecte.
+- `moduls`: oficial o lliure (`combina` llista els mòduls oficials que agrupa), amb la
+  credencial per defecte. Les variables són a `variables` (vegeu «Variables»).
 - `alumnes` pertanyen a un curs i un cicle i es matriculen a mòduls (`modul_alumne`).
   Els professors s'assignen a mòduls (`modul_professor`).
 - `checks`: tipus obligatori/opcional, punts, `es_actiu` (null = segueix `actiu_des`/`actiu_fins`),
@@ -117,9 +135,9 @@ sempre se sap quin codi exacte va córrer.
 - **Resultat:** el codi de sortida 0 vol dir assolit (`pass`); qualsevol altre, `fail`.
   El missatge és la línia `HEIMDEYE_MSG: ...` si n'hi ha, o la primera línia de la sortida.
 - **Variables de l'alumne:** arriben com a entorn `HE_<NOM>` en majúscules: `HE_X`,
-  `HE_NUM_TAULA`, `HE_USUARI`, `HE_PVE_IP`, `HE_ROUTER_IP`... Són les variables globals, les
-  derivades del mòdul i les de l'alumne (vegeu `App\Support\VariableResolver`). A Ansible són
-  variables de grup de l'alumne (`{{ pve_ip }}`, `{{ taula }}`...).
+  `HE_NUM_TAULA`, `HE_USUARI`, `HE_IP_PVE`, `HE_IP_ROUTER`... Són totes les variables de
+  l'alumne (vegeu «Variables» i `App\Support\VariableResolver`). A Ansible són variables de
+  grup de l'alumne (`{{ ip_pve }}`, `{{ nom_taula }}`...).
 - **Paràmetres:** `HE_PARAM_<NOM>` a `local` i `ssh`; a Ansible, una variable amb el seu nom.
 - **Secrets del mòdul:** el codi només rep els que esmenta pel nom (`HE_SECRET_<NOM>` o la
   variable Ansible), i a la sortida desada surten com a `********`.
@@ -146,7 +164,7 @@ out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
 
 | Executor | On s'executa | Equips | Credencial |
 | --- | --- | --- | --- |
-| `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_ROUTER_IP`...). | La de `# credencial:` o la del mòdul. Una credencial SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); una de contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). |
+| `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | La de `# credencial:` o la del mòdul. Una credencial SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); una de contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). |
 | `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els globals, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | La de `# credencial:`, o la del tipus d'equip, o la del mòdul. Port i usuari de `variables_connexio` (`ansible_port`, `ansible_user`) si n'hi ha. |
 | `ansible` | `ansible-playbook` al servidor, amb l'inventari generat a partir dels tipus d'equip. | Els tria el `hosts:` del playbook. | La de cada tipus d'equip (o la del mòdul). |
 

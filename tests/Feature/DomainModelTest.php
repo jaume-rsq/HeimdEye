@@ -10,6 +10,9 @@ use App\Models\Student;
 use App\Runner\Ansible\InventoryBuilder;
 use App\Runner\TempFiles;
 use App\Support\VariableResolver;
+use App\Enums\VariableScope;
+use App\Models\AcademicYear;
+use App\Models\Variable;
 use Database\Seeders\StudentSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -87,16 +90,52 @@ class DomainModelTest extends TestCase
         $vars = $resolver->resolve($student, $student->modules()->firstOrFail());
 
         $this->assertSame('23', $vars['x']);
-        $this->assertSame('172.23.0.0/22', $vars['lan']);
-        $this->assertSame('10.23.0.0/22', $vars['dmz']);
-        $this->assertSame('198.51.100.51', $vars['pve_ip']);
-        $this->assertSame('198.51.100.62', $vars['router_ip']);
-        $this->assertSame('198.51.100.51', $resolver->toEnv($vars)['HE_PVE_IP']);
+        $this->assertSame('172.23.0.0/22', $vars['xarxa_lan']);
+        $this->assertSame('10.23.0.0/22', $vars['xarxa_dmz']);
+        $this->assertSame('198.51.100.51', $vars['ip_pve']);
+        $this->assertSame('198.51.100.62', $vars['ip_router']);
+        $this->assertSame('198.51.100.51', $resolver->toEnv($vars)['HE_IP_PVE']);
 
-        $student->variables = [...$student->variables, 'router_ip' => '198.51.100.61'];
-        $this->assertSame('198.51.100.61', $resolver->resolve($student, $student->modules()->first())['router_ip']);
+        $student->variables = [...$student->variables, 'ip_router' => '198.51.100.61'];
+        $this->assertSame('198.51.100.61', $resolver->resolve($student, $student->modules()->first())['ip_router']);
 
         $this->assertSame(['missing_var'], $resolver->missing('{{ x }} {{ missing_var | host(1) }}', $vars));
+    }
+
+    public function test_variables_by_scope_module_beats_course_beats_global(): void
+    {
+        $student = Student::where('usuari', 'alumne03')->firstOrFail();
+        $module = $student->modules()->firstOrFail();
+        $resolver = new VariableResolver;
+
+        Variable::create(['abast' => VariableScope::Global, 'clau' => 'nom_prova', 'valor' => 'global']);
+        $this->assertSame('global', $resolver->resolve($student, $module)['nom_prova']);
+
+        Variable::create(['abast' => VariableScope::Course, 'curs_id' => $module->curs_id, 'clau' => 'nom_prova', 'valor' => 'curs']);
+        Variable::create(['abast' => VariableScope::Course, 'curs_id' => AcademicYear::create(['nom' => '2099/00', 'data_inici' => '2099-09-01', 'data_fi' => '2100-06-30'])->id, 'clau' => 'nom_prova', 'valor' => 'altre curs']);
+        $this->assertSame('curs', $resolver->resolve($student, $module)['nom_prova']);
+
+        // Una plantilla global pot fer servir variables de l'alumne o d'altres plantilles.
+        $module->variables()->create(['abast' => VariableScope::Module, 'clau' => 'nom_prova', 'valor' => '{{nom_taula}}-{{ ip_pve | octet(4) }}']);
+        $vars = $resolver->detailed($student, $module);
+        $this->assertSame('Taula03-51', $vars['nom_prova']['valor']);
+        $this->assertSame('modul', $vars['nom_prova']['origen']);
+        $this->assertTrue($vars['nom_prova']['tapa']);
+
+        $this->assertSame('192.168.20.12', $resolver->common($module)['ip_zabbix']);
+        $this->assertArrayNotHasKey('ip_pve', $resolver->common($module));
+    }
+
+    public function test_a_filter_that_cannot_be_applied_is_an_error(): void
+    {
+        $student = Student::where('usuari', 'alumne03')->firstOrFail();
+        $module = $student->modules()->firstOrFail();
+        $module->variables()->create(['abast' => VariableScope::Module, 'clau' => 'ip_dolenta', 'valor' => '{{ xarxa_aula | host(99) }}']);
+
+        $this->assertStringContainsString('ip_dolenta', (new VariableResolver)->detailed($student, $module)['ip_dolenta']['error']);
+
+        $this->expectException(\InvalidArgumentException::class);
+        (new VariableResolver)->resolve($student, $module);
     }
 
     public function test_host_filter(): void
