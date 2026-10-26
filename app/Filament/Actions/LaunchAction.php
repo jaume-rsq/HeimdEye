@@ -4,19 +4,21 @@ namespace App\Filament\Actions;
 
 use App\Enums\ActionStatus;
 use App\Enums\Executor;
+use App\Filament\Forms\RowPicker;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Jobs\RunAction;
 use App\Models\Action as ActionModel;
+use App\Models\HostType;
 use App\Models\Student;
 use App\Runner\Params;
 use App\Support\VariableResolver;
 use Filament\Actions\Action;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Fieldset;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 
@@ -79,12 +81,7 @@ class LaunchAction
         $students = $record->module->students()->where('es_actiu', true)->orderBy('num_taula')->get();
 
         return [
-            CheckboxList::make('alumnes')
-                ->label('Alumnes')
-                ->options($students->mapWithKeys(fn (Student $s) => [$s->id => sprintf('%02d · %s', $s->num_taula, $s->nom_complet)]))
-                ->searchable()
-                ->bulkToggleable()
-                ->columns(3)
+            self::studentPicker($students, $record)
                 ->required()
                 ->live()
                 ->hintAction(
@@ -94,11 +91,13 @@ class LaunchAction
                         ->action(fn (Set $set) => $set('alumnes', self::failedStudentIds($record))),
                 )
                 ->afterStateUpdated(fn (?array $state, Set $set) => self::fillParams($record, $declared, $state ?? [], $set)),
-            CheckboxList::make('equips')
+            RowPicker::make('equips')
                 ->label('Tipus d\'equip')
                 ->helperText('Cap marcat = tots els de l\'alumne.')
-                ->options($record->module->hostTypes->pluck('nom', 'nom'))
-                ->columns(4)
+                ->headers(['Tipus', 'Grup Ansible', 'Abast', 'Nom de host', 'Adreça', 'Credencial'])
+                ->rows($record->module->hostTypes->sortBy('posicio')->mapWithKeys(fn (HostType $t) => [$t->nom => [
+                    $t->nom, $t->grup_ansible, $t->abast->value, $t->nom_host, $t->adreca, $t->credential?->nom ?? '—',
+                ]])->all())
                 ->visible($record->module->hostTypes->isNotEmpty()),
             Fieldset::make('Paràmetres')
                 ->visible($declared !== [])
@@ -155,6 +154,37 @@ class LaunchAction
         foreach (self::defaults($declared) as $name => $default) {
             $set("parametres.{$name}", $vars === null ? $default : $resolver->render($default, $vars));
         }
+    }
+
+    /**
+     * Taula d'alumnes per triar: taula, usuari, nom, X i, si l'acció ja existeix, el darrer estat real.
+     *
+     * @param  Collection<int, Student>  $students
+     */
+    public static function studentPicker(Collection $students, ?ActionModel $record = null): RowPicker
+    {
+        $last = [];
+        if ($record?->exists) {
+            $latest = DB::table('execucions_accio')
+                ->where('accio_id', $record->id)
+                ->where('es_simulacio', false)
+                ->groupBy('alumne_id')
+                ->selectRaw('max(id)');
+            $last = $record->runs()->whereIn('id', $latest)->get()->mapWithKeys(fn ($run) => [
+                $run->alumne_id => $run->estat->value.' · '.$run->data_inici?->format('d/m H:i'),
+            ])->all();
+        }
+
+        return RowPicker::make('alumnes')
+            ->label('Alumnes')
+            ->headers(['Taula', 'Usuari', 'Nom', 'X', ...($record?->exists ? ['Darrera execució'] : [])])
+            ->rows($students->mapWithKeys(fn (Student $s) => [$s->id => [
+                sprintf('%02d', $s->num_taula),
+                $s->usuari,
+                $s->nom_complet,
+                (string) $s->x,
+                ...($record?->exists ? [$last[$s->id] ?? 'mai'] : []),
+            ]])->all());
     }
 
     /** Alumnes la darrera execució real dels quals ha fallat. */

@@ -14,7 +14,6 @@ use App\Runner\ActionRunner;
 use App\Runner\CheckRunner;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -164,13 +163,7 @@ trait TestsDraftVersion
                         ->default(fn () => $this->form->getRawState()['checks_verificacio'][0] ?? null)
                         ->searchable()
                         ->required(),
-                    CheckboxList::make('alumnes')
-                        ->label('Alumnes')
-                        ->options($students->mapWithKeys(fn (Student $s) => [$s->id => sprintf('%02d · %s', $s->num_taula, $s->nom_complet)]))
-                        ->searchable()
-                        ->bulkToggleable()
-                        ->columns(3)
-                        ->required(),
+                    LaunchAction::studentPicker($students)->required(),
                 ];
             })
             ->action(function (array $data) {
