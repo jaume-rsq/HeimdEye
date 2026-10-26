@@ -17,6 +17,7 @@ use App\Runner\CheckResult;
 use App\Runner\CheckRunner;
 use App\Runner\CodeHeaders;
 use App\Runner\ResultRecorder;
+use App\Support\CheckSummary;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Tests\TestCase;
@@ -72,6 +73,39 @@ class RunnerTest extends TestCase
         $this->assertSame(CheckStatus::Fail, $result->status);
         $this->assertSame('no hi ha cap VM', $result->message);
         $this->assertSame(3, $result->exitCode);
+    }
+
+    public function test_a_check_can_say_it_does_not_apply_now(): void
+    {
+        $result = $this->execute($this->check("echo 'HEIMDEYE_OMES: ara funciona el MikroTik'\nexit 1"));
+
+        $this->assertSame(CheckStatus::Skipped, $result->status);
+        $this->assertSame('ara funciona el MikroTik', $result->message);
+    }
+
+    public function test_a_skipped_run_is_logged_but_keeps_the_student_state(): void
+    {
+        $check = $this->check('echo bé');
+        $student = Student::where('usuari', 'alumne01')->firstOrFail();
+        app(CheckRunner::class)->launch($check, collect([$student]), sync: true);
+        $keys = ['estat_actual', 'data_primer_assoliment', 'data_ultim_assoliment', 'data_darrera_execucio'];
+        $before = CheckStudent::sole()->only($keys);
+
+        $check->versions()->create(['versio' => 2, 'codi' => 'echo "HEIMDEYE_OMES: apagat"', 'temps_max_seg' => 10]);
+        $this->travel(1)->days();
+        app(CheckRunner::class)->launch($check->fresh(), collect([$student]), sync: true);
+
+        $this->assertSame(['pass', 'omes'], CheckRun::orderBy('id')->pluck('estat')->map->value->all());
+        $this->assertEquals($before, CheckStudent::sole()->only($keys));
+        $this->assertSame(1, CheckSummary::for($check)->passed());
+        $this->assertSame(CheckStatus::Pass, collect(CheckSummary::students($check))->firstWhere('id', $student->id)['estat']);
+    }
+
+    public function test_only_a_run_that_finished_can_be_skipped(): void
+    {
+        $this->assertSame(CheckStatus::Skipped, (new CheckResult(CheckStatus::Fail, 'x', "HEIMDEYE_OMES: no\n"))->skippedIfAsked()->status);
+        $this->assertSame(CheckStatus::Timeout, (new CheckResult(CheckStatus::Timeout, 'x', "HEIMDEYE_OMES: no\n"))->skippedIfAsked()->status);
+        $this->assertSame(CheckStatus::Pass, (new CheckResult(CheckStatus::Pass, 'x', "echo HEIMDEYE_OMES: no\n"))->skippedIfAsked()->status);
     }
 
     public function test_timeout(): void

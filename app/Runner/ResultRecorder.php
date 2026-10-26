@@ -12,7 +12,10 @@ use App\Models\Student;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
-/** Desa una execució al log (amb la versió que s'ha executat) i actualitza l'estat del check per a l'alumne. */
+/**
+ * Desa una execució al log (amb la versió que s'ha executat) i actualitza l'estat del check per a
+ * l'alumne. Una execució omesa només queda al log: l'estat, les dates i els punts no canvien.
+ */
 class ResultRecorder
 {
     public function record(RunBatch $batch, Check $check, Student $student, CheckResult $result, ?CheckVersion $version = null): CheckRun
@@ -32,6 +35,10 @@ class ResultRecorder
                 'durada_ms' => $result->durationMs,
                 'data_execucio' => $now,
             ]);
+
+            if ($result->status === CheckStatus::Skipped) {
+                return $run;
+            }
 
             $state = CheckStudent::firstOrNew(['check_id' => $check->id, 'alumne_id' => $student->id]);
             $state->estat_actual = $result->status;

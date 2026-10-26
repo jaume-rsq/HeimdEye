@@ -108,7 +108,12 @@ class CheckRunner
                 Params::values($version->parametres),
             );
 
-            return $executor->execute($context)->masked($context->mask);
+            $result = $executor->execute($context);
+            if ($check->executor !== ExecutorType::Ansible) {
+                $result = $result->skippedIfAsked();
+            }
+
+            return $result->masked($context->mask);
         } catch (InvalidArgumentException $e) {
             return CheckResult::error($e->getMessage());
         } finally {

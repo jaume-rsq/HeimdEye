@@ -116,7 +116,8 @@ class ChecksTable
                     ->schema([
                         Select::make('estat')
                             ->label('Darrera execució en estat')
-                            ->options(collect(CheckStatus::cases())->mapWithKeys(fn (CheckStatus $s) => [$s->value => $s->value])),
+                            ->options(collect(CheckStatus::cases())->reject(fn (CheckStatus $s) => $s === CheckStatus::Skipped)
+                                ->mapWithKeys(fn (CheckStatus $s) => [$s->value => $s->value])),
                         Select::make('abast')
                             ->label('Per a')
                             ->options(['tots' => 'tots els alumnes', 'algun' => 'algun alumne'])

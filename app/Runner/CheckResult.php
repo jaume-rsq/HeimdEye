@@ -32,6 +32,21 @@ final readonly class CheckResult
         );
     }
 
+    /**
+     * Si el codi s'ha executat i ha escrit una línia «HEIMDEYE_OMES: motiu», el resultat és omes
+     * amb aquest motiu, surti com surti: el check no s'aplica ara (per exemple, el sistema que
+     * comprova està apagat perquè l'alumne fa servir l'alternatiu).
+     */
+    public function skippedIfAsked(): self
+    {
+        if (! in_array($this->status, [CheckStatus::Pass, CheckStatus::Fail], true)
+            || ! preg_match('/^HEIMDEYE_OMES:[ \t]*(.*)$/m', (string) $this->output, $m)) {
+            return $this;
+        }
+
+        return new self(CheckStatus::Skipped, mb_substr(trim($m[1]) ?: 'Omès', 0, 255), $this->output, $this->exitCode, $this->durationMs);
+    }
+
     public function passed(): bool
     {
         return $this->status === CheckStatus::Pass;

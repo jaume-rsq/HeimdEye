@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\DB;
 /**
  * Recompte per estat de la darrera execució de cada alumne actiu matriculat al mòdul del check,
  * com ActionSummary per a les accions. Una execució amb una versió anterior a la vigent compta
- * a part (outdated): encara no s'ha comprovat amb el codi corregit.
+ * a part (outdated): encara no s'ha comprovat amb el codi corregit. Les execucions omeses no compten
+ * com a darrera execució.
  */
 final class CheckSummary
 {
@@ -45,6 +46,7 @@ final class CheckSummary
 
         $latest = DB::table('execucions_check')
             ->when($checkIds !== null, fn ($q) => $q->whereIn('check_id', $checkIds))
+            ->where('estat', '!=', CheckStatus::Skipped->value)
             ->groupBy('check_id', 'alumne_id')
             ->selectRaw('max(id)');
 
@@ -86,6 +88,7 @@ final class CheckSummary
         $current = $check->currentVersion?->id;
         $latest = DB::table('execucions_check')
             ->where('check_id', $check->id)
+            ->where('estat', '!=', CheckStatus::Skipped->value)
             ->groupBy('alumne_id')
             ->selectRaw('max(id)');
         $runs = $check->runs()->whereIn('id', $latest)->with('checkVersion')->get()->keyBy('alumne_id');
