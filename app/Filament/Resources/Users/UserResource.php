@@ -104,7 +104,8 @@ class UserResource extends Resource
                     ->helperText(fn (?User $record) => $record ? 'Deixa-ho buit per no canviar-la.' : 'Només per al login local.'),
                 Select::make('modules')
                     ->label('Mòduls que imparteix')
-                    ->relationship('modules', 'nom')
+                    // Sense moduls.*: el "select distinct" falla a Postgres per la columna json.
+                    ->relationship('modules', 'nom', fn (Builder $query) => $query->select('moduls.id', 'moduls.codi', 'moduls.nom'))
                     ->getOptionLabelFromRecordUsing(fn (Module $m) => trim("{$m->codi} {$m->nom}"))
                     ->multiple()
                     ->preload()

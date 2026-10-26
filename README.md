@@ -26,6 +26,16 @@ php artisan serve      # http://localhost:8000/admin
 En local (`APP_ENV=local`), el seeder crea l'usuari de prova `admin@heimdeye.test` amb
 contrasenya `password`.
 
+### CI
+
+Cada PR i cada push a `main` passa els tests a GitHub Actions (`.github/workflows/ci.yml`) dues
+vegades: amb SQLite en memòria i amb PostgreSQL 16, perquè hi ha errors que només surten a
+Postgres. També hi corre Pint, de moment només com a avís. Per provar Postgres en local:
+
+```bash
+DB_CONNECTION=pgsql DB_HOST=127.0.0.1 DB_DATABASE=heimdeye_test DB_USERNAME=heimdeye DB_PASSWORD=heimdeye php artisan test
+```
+
 ### Autenticació
 
 `HEIMDEYE_AUTH` tria com s'entra al panell `/admin`. En els dos casos només hi entren els
