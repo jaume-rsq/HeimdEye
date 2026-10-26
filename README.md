@@ -38,7 +38,8 @@ DB_CONNECTION=pgsql DB_HOST=127.0.0.1 DB_DATABASE=heimdeye_test DB_USERNAME=heim
 tornar a executar sense duplicar res (no canvia el codi dels checks que ja tenen versions):
 
 ```bash
-php artisan db:seed --class=Block06DnsSeeder   # Bloc 6: DNS (i l'acció d'accés a ns1)
+php artisan db:seed --class=Block05FirewallSeeder   # Bloc 5: tallafocs Linux o MikroTik
+php artisan db:seed --class=Block06DnsSeeder        # Bloc 6: DNS (i l'acció d'accés a ns1)
 ```
 
 ### Autenticació
