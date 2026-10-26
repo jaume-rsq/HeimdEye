@@ -1,4 +1,4 @@
-{{-- Detall d'una versió d'acció i diferències amb l'anterior. Estils en línia: el tema de Filament no compila classes noves. --}}
+{{-- Detall d'una versió d'acció o de check i diferències amb l'anterior ($checks: checks de verificació, null en un check). Estils en línia: el tema de Filament no compila classes noves. --}}
 @php
     $diff = $previous && $previous->codi !== $version->codi
         ? (new \SebastianBergmann\Diff\Differ(new \SebastianBergmann\Diff\Output\UnifiedDiffOutputBuilder("--- v{$previous->versio}\n+++ v{$version->versio}\n")))->diff($previous->codi, $version->codi)
@@ -10,7 +10,9 @@
         <dt>Creat per</dt><dd>{{ $version->author?->nom ?? 'seeder' }}</dd>
         <dt>Data</dt><dd>{{ $version->created_at?->format('d/m/Y H:i') }}</dd>
         <dt>Temps màxim</dt><dd>{{ $version->temps_max_seg }} s</dd>
-        <dt>Checks de verificació</dt><dd>{{ $checks->implode(', ') ?: 'cap' }}</dd>
+        @if ($checks !== null)
+            <dt>Checks de verificació</dt><dd>{{ $checks->implode(', ') ?: 'cap' }}</dd>
+        @endif
     </dl>
 
     @if (filled($version->comentari))

@@ -4,12 +4,12 @@ namespace App\Filament\Resources\Actions\Pages\Concerns;
 
 use App\Enums\Executor;
 use App\Filament\Actions\LaunchAction;
+use App\Filament\Concerns\QueuesEditorTests;
 use App\Filament\Resources\Actions\Schemas\ActionForm;
 use App\Jobs\RunEditorTest;
 use App\Models\Action as ActionModel;
 use App\Models\ActionVersion;
 use App\Models\Check;
-use App\Models\Student;
 use App\Runner\ActionRunner;
 use App\Runner\CodeValidator;
 use Filament\Actions\Action;
@@ -17,24 +17,16 @@ use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
-use Illuminate\Support\Facades\Cache;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
  * Proves de l'esborrany a l'editor d'accions: simular o executar el codi del formulari sense
- * desar-lo i verificar amb un check. Cada alumne és un treball de la cua (RunEditorTest), perquè
- * una prova llarga no talli la petició web, i la pàgina en recull els resultats a mesura que
- * acaben. Només es mostren a la pàgina; no queden enlloc. Una versió nova no es pot desar
- * sense haver provat abans el codi tal com està.
+ * desar-lo i verificar amb un check. Van per la cua com totes les proves de l'editor
+ * (QueuesEditorTests).
  */
 trait TestsDraftVersion
 {
-    /** @var list<array<string, string|null>> resultats de les proves, el més nou primer */
-    public array $testResults = [];
-
-    /** Empremta dels camps de versió de l'últim esborrany provat. */
-    public ?string $testedHash = null;
+    use QueuesEditorTests;
 
     /** L'acció tal com és al formulari (pot no estar desada). */
     abstract protected function draftAction(): ?ActionModel;
@@ -47,28 +39,6 @@ trait TestsDraftVersion
     protected function draftHash(): string
     {
         return md5(json_encode(ActionForm::versionData($this->form->getRawState())));
-    }
-
-    protected function draftIsTested(): bool
-    {
-        return $this->testedHash === $this->draftHash();
-    }
-
-    /** Atura el desament si el codi no és vàlid o si l'esborrany no s'ha provat tal com està. */
-    protected function requireTestedDraft(): void
-    {
-        $this->requireValidCode();
-        if ($this->draftIsTested()) {
-            return;
-        }
-
-        Notification::make()
-            ->warning()
-            ->title('Prova els canvis abans de desar')
-            ->body('Simula o executa l\'esborrany (botó Provar) amb el codi tal com està ara.')
-            ->persistent()
-            ->send();
-        $this->halt();
     }
 
     /** Atura el desament si el codi no es pot executar així (grups d'equips, secrets en clar). */
@@ -90,11 +60,6 @@ trait TestsDraftVersion
                 ->send();
             $this->halt();
         }
-    }
-
-    public function clearTestResults(): void
-    {
-        $this->testResults = [];
     }
 
     protected function testActionGroup(): ActionGroup
@@ -149,68 +114,6 @@ trait TestsDraftVersion
                     checkMode: $simulate,
                 ));
             });
-    }
-
-    /**
-     * Posa a la cua una prova per alumne i en deixa la fila «en cua» a la secció Proves;
-     * refreshTestResults() hi posa el resultat quan arriba.
-     *
-     * @param  list<int|string>  $studentIds
-     * @param  callable(string, string, int): RunEditorTest  $job
-     */
-    private function queueTests(string $title, array $studentIds, callable $job): void
-    {
-        $rows = [];
-        foreach (Student::whereKey($studentIds)->orderBy('num_taula')->get() as $student) {
-            $key = (string) Str::uuid();
-            dispatch($job($key, $title, $student->id));
-            $rows[] = [
-                'clau' => $key,
-                'titol' => $title,
-                'alumne' => sprintf('%02d · %s', $student->num_taula, $student->nom_complet),
-                'estat' => 'en cua',
-                'color' => RunEditorTest::hex('gray'),
-                'resum' => null,
-                'parametres' => null,
-                'sortida' => null,
-                'hora' => now()->format('H:i:s'),
-            ];
-        }
-        $this->testResults = [...$rows, ...$this->testResults];
-        $this->refreshTestResults(notify: false);
-
-        Notification::make()
-            ->info()
-            ->title('Prova a la cua per a '.count($rows).' alumnes')
-            ->body('Els resultats apareixen a la secció Proves, a sota del formulari, a mesura que acaben.')
-            ->send();
-    }
-
-    /** Recull els resultats de les proves que ja han acabat (la vista ho crida cada 2 s mentre n'hi ha a la cua). */
-    public function refreshTestResults(bool $notify = true): void
-    {
-        $finished = [];
-        foreach ($this->testResults as $i => $row) {
-            if (! isset($row['clau'])) {
-                continue;
-            }
-            $result = Cache::pull(RunEditorTest::cacheKey($row['clau']));
-            if ($result !== null) {
-                unset($row['clau']);
-                $this->testResults[$i] = [...$row, ...$result];
-                $finished[] = $this->testResults[$i];
-            }
-        }
-
-        $pending = collect($this->testResults)->filter(fn (array $row) => isset($row['clau']))->count();
-        if (! $notify || $finished === [] || $pending > 0) {
-            return;
-        }
-        $failures = collect($finished)->whereNotIn('estat', ['ok', 'changed', 'pass'])->count();
-        Notification::make()
-            ->{$failures ? 'warning' : 'success'}()
-            ->title($failures ? "Prova acabada: {$failures} amb errors" : 'Prova acabada')
-            ->send();
     }
 
     private function draftCheckAction(): Action

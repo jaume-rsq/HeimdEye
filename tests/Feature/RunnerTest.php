@@ -321,4 +321,14 @@ class RunnerTest extends TestCase
         $this->assertSame($first->id, $run->versio_check_id);
         $this->assertSame(70, $job->timeout);
     }
+
+    public function test_run_now_has_no_retries_and_records_unavailable(): void
+    {
+        $this->closedHostType();
+        $check = $this->check("# hosts: tancats\ntrue", Executor::Ssh);
+
+        app(CheckRunner::class)->launch($check, Student::where('usuari', 'alumne01')->get(), sync: true);
+
+        $this->assertSame(CheckStatus::Unavailable, CheckRun::sole()->estat);
+    }
 }

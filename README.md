@@ -7,8 +7,8 @@ contra els equips dels alumnes. El disseny complet és al document de disseny de
 ## Estat
 
 Fase 4: base de dades, seeders, runner de checks (executors `local`, `ssh` i `ansible`), accions
-del professor i la primera part de la interfície web (Filament): la gestió d'accions. Els checks,
-el leaderboard i els CRUD surten al menú com a «aviat».
+del professor i la primera part de la interfície web (Filament): la gestió d'accions i de checks.
+El leaderboard i els CRUD surten al menú com a «aviat».
 
 ## Posada en marxa (desenvolupament)
 
@@ -237,6 +237,10 @@ La nocturna la llança el scheduler (`HEIMDEYE_NIGHTLY_AT`, per defecte 02:00); 
   un cop al cap de `HEIMDEYE_RETRY_AFTER` segons (180).
 - Cada execució es desa a `execucions_check`; `check_alumne` guarda l'estat actual i la primera
   data d'assoliment, que no es torna a tocar.
+- Cada check i alumne és una execució a part (un script o un `ansible-playbook`) i un treball de
+  la cua propi (`RunCheck`), amb la versió vigent quan es posa a la cua: és la que s'executa i
+  la que queda registrada. Si el treball falla abans de tenir resultat, queda una execució en
+  estat `error` amb el motiu. Executat a mà (sense `--queue`) no hi ha reintents.
 - Clau SSH: la de la credencial (vegeu la taula d'executors) si en té una de desada; si no,
   `HEIMDEYE_SSH_KEY_PATH`; si tampoc, la clau per defecte de l'usuari que executa el worker.
 - Aïllament: `HEIMDEYE_RUNNER_WRAPPER` embolcalla cada execució, per exemple
@@ -244,6 +248,35 @@ La nocturna la llança el scheduler (`HEIMDEYE_NIGHTLY_AT`, per defecte 02:00); 
   Amb `systemd-run` s'hi afegeixen `RuntimeMaxSec` i les variables (`--setenv`). L'usuari del
   sandbox ha de poder llegir la clau SSH i els fitxers temporals que crea el runner (inventari,
   playbook, claus), que són al directori temporal del sistema amb permisos 0700/0600.
+
+### Checks al panell
+
+Menú Checks → Llista de checks (`/admin/checks`), Nou check i Històric de checks. Funcionen com
+les accions (vegeu [Accions](#accions)), amb aquestes diferències:
+
+- Una versió només corregeix el codi (codi, paràmetres i temps màxim). Els assoliments no es
+  recalculen mai i no hi ha botó per fer-ho: per comprovar una cosa nova, es crea un check nou.
+  Els punts, les dates, la tasca i el tipus són del check i canviar-los no crea cap versió.
+- Icona d'estat a la llista, segons la darrera execució de cada alumne actiu: verd = tots `pass`
+  amb la versió vigent, blau = n'hi ha que encara no l'han assolit, no s'han comprovat o s'han
+  comprovat amb una versió anterior, vermell = cap alumne l'ha assolit, taronja = algun
+  `error`, `unavailable` o `timeout` (no s'ha pogut comprovar), gris = mai executat. Filtres per
+  curs, mòdul, bloc, executor, actiu avui i estat de la darrera execució per a tots o algun alumne.
+- **Verificar ara** posa el check a la cua per als alumnes triats (per defecte tots), un treball
+  per alumne amb la versió vigent. El resultat compta igual que el de la nit. No hi ha simulació
+  (un check només llegeix) ni paràmetres per execució: sempre els valors per defecte, calculats
+  per a cada alumne.
+- A l'historial del check, la graella per alumne: verd si està assolit amb la versió vigent, verd
+  clar amb el número si ho està amb una d'anterior, vermell si `fail`, taronja si no s'ha pogut
+  comprovar, gris si no s'ha executat mai. «Verificar amb la vN» surt només si hi ha alumnes
+  comprovats amb una versió anterior, i els porta marcats tots, també els que fallaven: la
+  versió corregida els pot donar per bons.
+- A l'editor, **Provar** executa el codi del formulari sense desar-lo per als alumnes triats,
+  per la cua. No es desa ni compta per als alumnes. Una versió nova no es pot desar sense
+  haver-la provada tal com és, ni si no passa les comprovacions de `hosts:` i de secrets.
+- Esborrar un check l'esborra del tot (no hi ha paperera): versions, execucions, estat dels
+  alumnes i assoliments. L'avís diu quant es perd i quines accions el fan servir per verificar.
+  Esborrar una acció també avisa de les versions i execucions que es perden.
 
 ## Equips, inventari Ansible i secrets
 

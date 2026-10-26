@@ -2,10 +2,10 @@
 
 namespace App\Jobs;
 
-use App\Enums\CheckStatus;
 use App\Models\Action;
 use App\Models\ActionVersion;
 use App\Models\Check;
+use App\Models\CheckVersion;
 use App\Models\Student;
 use App\Runner\ActionRunner;
 use App\Runner\CheckRunner;
@@ -15,8 +15,8 @@ use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 /**
- * Prova de l'editor d'accions per a un alumne: l'esborrany (simulat o executat) o un check
- * de verificació. Va per la cua perquè la petició web no es talli (Cloudflare talla als 100 s);
+ * Prova de l'editor per a un alumne: l'esborrany d'una acció (simulat o executat), l'esborrany
+ * d'un check ($check) o un check desat, amb la seva versió vigent ($checkId). Va per la cua perquè la petició web no es talli (Cloudflare talla als 100 s);
  * el resultat es deixa a la memòria cau amb la clau $key i la pàgina el recull. No es desa enlloc.
  */
 class RunEditorTest implements ShouldQueue
@@ -31,9 +31,10 @@ class RunEditorTest implements ShouldQueue
 
     /**
      * @param  array{modul_id: int, nom: string, executor: string, id: ?int}  $action  l'acció del formulari (pot no estar desada)
-     * @param  array<string, mixed>  $version  camps de la versió de l'esborrany
+     * @param  array<string, mixed>  $version  camps de la versió de l'esborrany (d'acció o de check)
      * @param  list<string>  $hostTypes
      * @param  array<string, string>  $params
+     * @param  array{tasca_id: int, nom: string, executor: string, id: ?int}|array{}  $check  el check del formulari (pot no estar desat)
      */
     public function __construct(
         public string $key,
@@ -45,6 +46,7 @@ class RunEditorTest implements ShouldQueue
         public array $params = [],
         public bool $checkMode = false,
         public ?int $checkId = null,
+        public array $check = [],
     ) {
         $this->onQueue(config('heimdeye.runner.queue'));
         $this->timeout = (int) ($version['temps_max_seg'] ?? 60) + 60;
@@ -60,7 +62,11 @@ class RunEditorTest implements ShouldQueue
     {
         $student = Student::findOrFail($this->studentId);
 
-        $this->put($this->checkId === null ? $this->runDraft($student) : $this->runCheck($student));
+        $this->put(match (true) {
+            $this->checkId !== null => $this->runCheck(Check::findOrFail($this->checkId), $student),
+            $this->check !== [] => $this->runCheck($this->draftCheck(), $student, new CheckVersion($this->version)),
+            default => $this->runDraft($student),
+        });
     }
 
     public function failed(?Throwable $e): void
@@ -90,18 +96,23 @@ class RunEditorTest implements ShouldQueue
         ];
     }
 
-    /** @return array<string, ?string> */
-    private function runCheck(Student $student): array
+    /** El check del formulari (pot no estar desat). */
+    private function draftCheck(): Check
     {
-        $result = app(CheckRunner::class)->run(Check::findOrFail($this->checkId), $student);
+        $check = (new Check)->forceFill($this->check);
+        $check->exists = $this->check['id'] !== null;
+
+        return $check;
+    }
+
+    /** @return array<string, ?string> */
+    private function runCheck(Check $check, Student $student, ?CheckVersion $version = null): array
+    {
+        $result = app(CheckRunner::class)->run($check, $student, $version);
 
         return [
             'estat' => $result->status->value,
-            'color' => self::hex(match ($result->status) {
-                CheckStatus::Pass => 'success',
-                CheckStatus::Fail => 'danger',
-                default => 'warning',
-            }),
+            'color' => self::hex($result->status->getColor()),
             'resum' => $result->message,
             'parametres' => null,
             'sortida' => $result->output,
