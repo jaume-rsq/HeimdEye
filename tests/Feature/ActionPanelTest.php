@@ -70,7 +70,7 @@ class ActionPanelTest extends TestCase
     public function test_only_active_teachers_enter_the_panel(): void
     {
         $this->get('/admin/accions')->assertRedirect('/admin/login');
-        $this->actingAs($this->teacher)->get('/admin/accions')->assertOk();
+        $this->actingAs($this->teacher)->get('/admin/accions')->assertOk()->assertSee('.dark select { color-scheme: dark; }', false);
 
         $student = User::create(['nom' => 'Alumne', 'email' => 'alumne@example.com', 'rol' => Role::Student, 'es_actiu' => true]);
         $this->actingAs($student)->get('/admin/accions')->assertForbidden();

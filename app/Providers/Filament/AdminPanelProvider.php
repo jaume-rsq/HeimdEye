@@ -67,6 +67,7 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
             ])
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.partials.native-controls'))
             ->renderHook(PanelsRenderHook::PAGE_START, fn () => view('filament.queue-warning'))
             ->renderHook(PanelsRenderHook::PAGE_END, fn () => view('filament.back-button'))
             ->middleware([
