@@ -79,7 +79,7 @@ set -a
 # shellcheck disable=SC1090
 source <(grep -E '^DB_(HOST|PORT|DATABASE|USERNAME|PASSWORD)=' "$BASE/shared/.env")
 set +a
-PGPASSWORD=$DB_PASSWORD pg_dump -h "${DB_HOST:-127.0.0.1}" -p "${DB_PORT:-5432}" -U "$DB_USERNAME" -Fc "$DB_DATABASE" \
+PGPASSWORD=$DB_PASSWORD pg_dump -w -h "${DB_HOST:-127.0.0.1}" -p "${DB_PORT:-5432}" -U "$DB_USERNAME" -Fc "$DB_DATABASE" \
     >"$BASE/backups/$(date +%Y%m%d-%H%M%S)-abans-de-${sha:0:7}.dump" || { rm -rf "$release"; fail "pg_dump"; }
 ls -1t "$BASE"/backups/*.dump | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -f
 
