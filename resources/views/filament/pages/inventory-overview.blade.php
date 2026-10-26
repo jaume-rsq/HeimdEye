@@ -14,7 +14,7 @@
         }
     @endphp
 
-    <div class="he-inv" x-data="{ search: '' }">
+    <div class="he-inv" x-data="{ search: '' }" @if ($provesPendents) wire:poll.2s="refreshConnection" @endif>
         <div class="he-inv-bar">
             <select wire:model.live="modul" aria-label="Mòdul">
                 @foreach ($this->modules as $id => $name)
@@ -46,6 +46,7 @@
                     @foreach ($grid['globals'] as $host)
                         <span @class(['chip', 'bad' => $host['problemes']]) title="{{ implode("\n", $host['problemes']) }}">
                             <strong>{{ $host['tipus']->nom }}</strong> · {{ $host['nom'] }} · <span class="mono">{{ $host['adreca'] }}</span>
+                            @include('filament.partials.connection-dot', ['studentId' => null, 'type' => $host['tipus'], 'title' => 'Provar la connexió amb aquest equip'])
                         </span>
                     @endforeach
                 </div>
@@ -58,7 +59,10 @@
                             <th class="fix">Alumne</th>
                             @if ($vista === 'equips')
                                 @foreach ($grid['types'] as $type)
-                                    <th>{{ $type->nom }} <span class="sub">{{ $type->grup_ansible }}</span></th>
+                                    <th>
+                                        {{ $type->nom }} <span class="sub">{{ $type->grup_ansible }}</span>
+                                        <button type="button" class="he-try" wire:click="testConnection(null, {{ $type->id }})" title="Provar aquest equip a tots els alumnes">▶</button>
+                                    </th>
                                 @endforeach
                             @else
                                 @foreach ($columns as [$key, $group])
@@ -88,14 +92,21 @@
                                     @if ($row['problemes'])
                                         <span class="chip bad" style="margin-left: .4rem">{{ $row['problemes'] }}</span>
                                     @endif
+                                    @if ($vista === 'equips')
+                                        <button type="button" class="he-try" wire:click.stop="testConnection({{ $student->id }})" title="Provar tots els equips d'aquest alumne">▶</button>
+                                    @endif
                                     <div class="sub">{{ $student->nom_complet }}</div>
                                 </td>
                                 @if ($vista === 'equips')
                                     @foreach ($grid['types'] as $type)
                                         @php $host = $row['hosts'][$type->nom]; @endphp
                                         <td @class(['bad' => $host['problemes']]) title="{{ implode("\n", $host['problemes']) }}">
-                                            <div>{{ $host['nom'] }}</div>
+                                            @php $dot = $this->connectionDot($student->id, $type); @endphp
+                                            <div>{{ $host['nom'] }} @include('filament.partials.connection-dot', ['studentId' => $student->id, 'type' => $type, 'title' => 'Provar la connexió amb aquest equip'])</div>
                                             <div class="mono sub">{{ $host['adreca'] }}</div>
+                                            @if ($dot && ! in_array($dot['estat'], ['ok', 'pendent']))
+                                                <div class="he-msg" style="color: {{ $dot['color'] }}">{{ \Illuminate\Support\Str::limit($dot['missatge'], 90) }}</div>
+                                            @endif
                                         </td>
                                     @endforeach
                                 @else
@@ -122,6 +133,13 @@
                 </div>
             @else
                 <div class="legend"><span class="bad" style="padding: 0 .4rem">vermell</span> = falta una variable o la plantilla no es pot calcular (passa el ratolí per sobre per veure-ho)</div>
+                <div class="legend">
+                    <span>▶ prova la connexió (una casella, una columna, un alumne o un equip global); no es desa res</span>
+                    <span><span class="he-dot" style="background: rgb(22,163,74)"></span> respon</span>
+                    <span><span class="he-dot" style="background: rgb(220,38,38)"></span> no respon</span>
+                    <span><span class="he-dot" style="background: rgb(234,88,12)"></span> respon però falla</span>
+                    <span><span class="he-dot" style="background: rgb(107,114,128)"></span> no s'ha pogut provar</span>
+                </div>
             @endif
         @endif
     </div>
