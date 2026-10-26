@@ -2,16 +2,23 @@
 
 namespace App\Jobs;
 
+use App\Enums\Executor;
 use App\Models\Action;
 use App\Models\ActionVersion;
 use App\Models\Check;
 use App\Models\CheckVersion;
+use App\Models\Module;
 use App\Models\Student;
 use App\Runner\ActionRunner;
 use App\Runner\CheckRunner;
+use App\Runner\CommandPreview;
+use App\Runner\ContextBuilder;
+use App\Runner\Params;
+use App\Support\VariableResolver;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Cache;
+use InvalidArgumentException;
 use Throwable;
 
 /**
@@ -76,6 +83,7 @@ class RunEditorTest implements ShouldQueue
             'color' => self::hex('danger'),
             'resum' => null,
             'parametres' => null,
+            'comanda' => null,
             'sortida' => "No s'ha pogut executar: ".($e?->getMessage() ?: 'error desconegut'),
         ]);
     }
@@ -92,6 +100,7 @@ class RunEditorTest implements ShouldQueue
             'color' => self::hex($run->estat->getColor()),
             'resum' => $run->ok === null ? null : "ok={$run->ok} changed={$run->changed} failed={$run->failed}",
             'parametres' => $run->parametres ? collect($run->parametres)->map(fn ($v, $k) => "{$k}={$v}")->implode(' ') : null,
+            'comanda' => $this->preview($action->module, $action->executor, $student, $this->version['codi'] ?? '', $this->params, $this->hostTypes ?: null),
             'sortida' => $run->sortida,
         ];
     }
@@ -109,14 +118,41 @@ class RunEditorTest implements ShouldQueue
     private function runCheck(Check $check, Student $student, ?CheckVersion $version = null): array
     {
         $result = app(CheckRunner::class)->run($check, $student, $version);
+        $version ??= $check->currentVersion;
+        try {
+            $params = Params::values($version?->parametres);
+        } catch (InvalidArgumentException) {
+            $params = null;
+        }
 
         return [
             'estat' => $result->status->value,
             'color' => self::hex($result->status->getColor()),
             'resum' => $result->message,
             'parametres' => null,
+            'comanda' => $version && $params !== null ? $this->preview($check->module, $check->executor, $student, $version->codi, $params) : null,
             'sortida' => $result->output,
         ];
+    }
+
+    /**
+     * El codi amb les variables i els paràmetres de l'alumne ja substituïts (null si no es pot calcular).
+     *
+     * @param  array<string, string>  $params
+     * @param  list<string>|null  $hostTypes
+     */
+    private function preview(Module $module, Executor $executor, Student $student, string $code, array $params, ?array $hostTypes = null): ?string
+    {
+        $builder = new ContextBuilder(app(VariableResolver::class));
+        try {
+            $context = $builder->build($module, $student, $executor, $code, 1, $params, $this->checkMode, $hostTypes);
+
+            return CommandPreview::describe($executor, $context);
+        } catch (InvalidArgumentException) {
+            return null;
+        } finally {
+            $builder->cleanup();
+        }
     }
 
     /** @param  array<string, ?string>  $result */

@@ -74,6 +74,8 @@ trait TestsDraftCheck
                 return [LaunchCheck::studentPicker(LaunchCheck::students($check), $check)->required()];
             })
             ->action(function (array $data, Action $action) {
+                // Les mateixes regles que en desar (noms dels paràmetres...).
+                $this->form->validate();
                 $check = $this->draftCheck();
                 $version = $this->draftVersion();
 

@@ -91,6 +91,8 @@ trait TestsDraftVersion
             ->schema(fn () => LaunchAction::schema($this->draftAction(), $this->draftVersion()->parametres ?? []))
             ->fillForm(fn () => LaunchAction::fill($this->draftVersion()->parametres ?? []))
             ->action(function (array $data, Action $action) use ($simulate) {
+                // Les mateixes regles que en desar (noms dels paràmetres...).
+                $this->form->validate();
                 $draft = $this->draftAction();
                 $version = $this->draftVersion();
                 $hostTypes = $data['equips'] ?? [];

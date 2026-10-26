@@ -6,6 +6,7 @@ use App\Enums\CheckKind;
 use App\Enums\Executor;
 use App\Models\Block;
 use App\Models\Module;
+use App\Runner\Params;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CodeEditor;
 use Filament\Forms\Components\CodeEditor\Enums\Language;
@@ -107,7 +108,13 @@ class CheckForm
                                 TableColumn::make('Valor per defecte'),
                             ])
                             ->schema([
-                                TextInput::make('name')->required()->regex('/^[a-z_][a-z0-9_]*$/'),
+                                TextInput::make('name')
+                                    ->required()
+                                    ->regex(Params::NAME_RULE)
+                                    ->validationMessages(['regex' => 'Només majúscules, xifres i _ (p. ex. NOM_DNS).'])
+                                    ->extraInputAttributes(['style' => 'text-transform: uppercase'])
+                                    ->live(onBlur: true)
+                                    ->afterStateUpdated(fn (?string $state, Set $set) => $set('name', Params::name($state))),
                                 TextInput::make('label'),
                                 TextInput::make('default')->required(),
                             ])
@@ -155,7 +162,7 @@ class CheckForm
         $version['codi'] = str_replace("\r\n", "\n", (string) ($version['codi'] ?? ''));
         $version['temps_max_seg'] = (int) ($version['temps_max_seg'] ?? 15);
         $version['parametres'] = array_values(array_map(fn (array $p) => [
-            'name' => $p['name'],
+            'name' => Params::name($p['name'] ?? null),
             'label' => filled($p['label'] ?? null) ? $p['label'] : null,
             'default' => filled($p['default'] ?? null) ? (string) $p['default'] : null,
         ], $version['parametres'] ?? [])) ?: null;

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Students\Tables;
 
+use App\Models\Module;
 use App\Models\Student;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
@@ -9,6 +10,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class StudentsTable
 {
@@ -31,7 +33,15 @@ class StudentsTable
             ])
             ->filters([
                 TernaryFilter::make('es_actiu')->label('Actiu')->default(true),
-                SelectFilter::make('modul')->label('Mòdul')->relationship('modules', 'nom'),
+                // Sense relationship(): Filament hi fa un "select distinct moduls.*" i Postgres no
+                // sap comparar la columna json "combina".
+                SelectFilter::make('modul')
+                    ->label('Mòdul')
+                    ->options(fn () => Module::orderBy('nom')->pluck('nom', 'id'))
+                    ->query(fn (Builder $query, array $data) => $query->when(
+                        $data['value'],
+                        fn (Builder $query, $id) => $query->whereHas('modules', fn (Builder $query) => $query->whereKey($id)),
+                    )),
                 SelectFilter::make('curs_id')->label('Curs')->relationship('academicYear', 'nom'),
             ])
             ->recordActions([

@@ -3,14 +3,16 @@
 namespace Tests\Feature;
 
 use App\Enums\Role;
-use App\Filament\Pages\InventoryOverview;
-use App\Filament\Resources\Students\Pages\EditStudent;
-use App\Models\Credential;
 use App\Enums\VariableScope;
-use App\Models\Variable;
+use App\Filament\Pages\InventoryOverview;
+use App\Filament\Resources\Modules\ModuleResource;
+use App\Filament\Resources\Students\Pages\EditStudent;
+use App\Filament\Resources\Students\Pages\ListStudents;
+use App\Models\Credential;
 use App\Models\Module;
 use App\Models\Student;
 use App\Models\User;
+use App\Models\Variable;
 use App\Support\InventoryGrid;
 use App\Support\VariableResolver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -113,5 +115,21 @@ class InventoryPanelTest extends TestCase
 
         $this->assertSame('Fènix', $this->student->fresh()->alies);
         $this->assertSame('198.51.100.99', $this->student->fresh()->variables['ip_router']);
+    }
+
+    public function test_students_can_be_filtered_by_module(): void
+    {
+        $module = Module::where('codi', '9991')->sole();
+
+        Livewire::test(ListStudents::class)
+            ->filterTable('modul', $module->id)
+            ->assertCanSeeTableRecords([$this->student]);
+    }
+
+    public function test_the_menu_opens_the_only_module_of_the_current_year(): void
+    {
+        $module = Module::where('codi', '9991')->sole();
+
+        $this->get(ModuleResource::getUrl())->assertRedirect(ModuleResource::getUrl('edit', ['record' => $module]));
     }
 }

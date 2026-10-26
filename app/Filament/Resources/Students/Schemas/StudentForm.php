@@ -10,6 +10,7 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
+use Illuminate\Database\Eloquent\Builder;
 
 class StudentForm
 {
@@ -33,7 +34,10 @@ class StudentForm
                             ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
                             ->required(),
                         Select::make('cicle_id')->label('Cicle')->relationship('cycle', 'codi')->required(),
-                        Select::make('modules')->label('Mòduls')->relationship('modules', 'nom')->multiple()->preload(),
+                        Select::make('modules')->label('Mòduls')
+                            // Només id i nom: amb moduls.* el "select distinct" falla a Postgres per la columna json.
+                            ->relationship('modules', 'nom', fn (Builder $query) => $query->select('moduls.id', 'moduls.nom'))
+                            ->multiple()->preload(),
                     ]),
                 Section::make('Variables pròpies')
                     ->description('Tapen les globals i les derivades del mòdul amb el mateix nom. Serveixen per a les excepcions d\'un alumne.')
