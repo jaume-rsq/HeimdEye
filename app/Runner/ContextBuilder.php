@@ -9,13 +9,16 @@ use App\Models\HostType;
 use App\Models\Module;
 use App\Models\Student;
 use App\Runner\Ansible\InventoryBuilder;
+use App\Runner\Ansible\Playbook;
 use App\Support\VariableResolver;
+use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
 /**
  * Prepara el context d'execució d'un script (check o acció) per a un alumne: variables,
- * paràmetres, secrets referenciats, credencial i equips de destinació (capçaleres
- * "# credencial:" i "# hosts:") i, per a Ansible, l'inventari.
+ * paràmetres calculats per a l'alumne, secrets referenciats, credencial i equips de destinació
+ * (capçaleres "# credencial:" i "# hosts:", o el "hosts:" dels plays) i, per a Ansible,
+ * l'inventari amb només aquests equips. Abans comprova el codi amb CodeValidator.
  * Els fitxers temporals que crea s'esborren amb cleanup().
  */
 class ContextBuilder
@@ -47,14 +50,25 @@ class ContextBuilder
         ?array $onlyTypes = null,
     ): ExecutionContext {
         $this->mask = [];
+        $validator = new CodeValidator;
+        $validator->assertNoLeakedSecrets($module, $executor, $code);
+        $types = $validator->hostTypes($module, $executor, $code);
+        if ($types !== null && $onlyTypes !== null) {
+            $types = $types->whereIn('nom', $onlyTypes)->values();
+            if ($types->isEmpty()) {
+                throw new InvalidArgumentException('Cap dels tipus d\'equip triats no és dels que fa servir el codi');
+            }
+        }
+
         $headers = CodeHeaders::parse($code);
         $override = $headers->credential === null ? null : $this->credentialNamed($headers->credential);
         $vars = $this->resolver->resolve($student, $module);
+        $params = $this->renderParams($params, $vars);
 
         $secrets = $this->secretsFor($module, $code);
         $env = $this->resolver->toEnv($vars);
         foreach ($params as $name => $value) {
-            $env[$this->envName('HE_PARAM_', $name)] = (string) $value;
+            $env[$this->envName('HE_PARAM_', $name)] = $value;
         }
         foreach ($secrets as $name => $value) {
             $env[$this->envName('HE_SECRET_', $name)] = $value;
@@ -73,15 +87,21 @@ class ContextBuilder
             $sshUser = $credential->nom_usuari;
             $sshKey = $this->keyFor($credential);
         }
+        if ($executor === Executor::Local) {
+            // Opcions per als ssh que facin els scripts locals: veure SshOptions.
+            $env['HE_SSH_OPTS'] = implode(' ', SshOptions::HOST_KEYS);
+        }
 
         $targets = $executor === Executor::Ssh
-            ? $this->targets($module, $vars, $headers, $override, $onlyTypes)
+            ? $this->targets($vars, $types, $override)
             : [];
 
         $inventory = null;
+        $hosts = [];
         if ($executor === Executor::Ansible) {
             $builder = new InventoryBuilder($this->resolver, $this->files);
-            $inventory = $builder->build($module, [$student], $module->hostTypes);
+            $inventory = $builder->build($module, [$student], $types);
+            $hosts = array_keys($builder->hostMap());
             $this->mask = [...$this->mask, ...$builder->mask()];
         }
 
@@ -93,6 +113,7 @@ class ContextBuilder
             sshKey: $sshKey,
             targets: $targets,
             inventory: $inventory,
+            hosts: $hosts,
             extraVars: [...$params, ...$secrets],
             mask: array_values(array_unique(array_filter($this->mask))),
             checkMode: $checkMode,
@@ -108,7 +129,7 @@ class ContextBuilder
     public function secretsFor(Module $module, string $code): array
     {
         return $module->secrets
-            ->filter(fn ($secret) => $secret->valor !== null && str_contains(strtolower($code), strtolower($secret->clau)))
+            ->filter(fn ($secret) => $secret->valor !== null && Playbook::mentions($code, $secret->clau))
             ->mapWithKeys(fn ($secret) => [$secret->clau => $secret->valor])
             ->all();
     }
@@ -119,34 +140,39 @@ class ContextBuilder
     }
 
     /**
-     * Equips de l'alumne dels grups de la capçalera "# hosts:" (grup Ansible o nom del tipus d'equip).
+     * Valors dels paràmetres calculats amb les variables de l'alumne ({{ip_pve}}...).
+     *
+     * @param  array<string, string>  $params
+     * @param  array<string, string>  $vars
+     * @return array<string, string>
+     */
+    private function renderParams(array $params, array $vars): array
+    {
+        foreach ($params as $name => $value) {
+            if ($missing = $this->resolver->missing((string) $value, $vars)) {
+                throw new InvalidArgumentException("El paràmetre {$name} fa servir una variable que no existeix: ".implode(', ', $missing));
+            }
+            $params[$name] = $this->resolver->render((string) $value, $vars);
+        }
+
+        return $params;
+    }
+
+    /**
+     * Un destí SSH per a cada tipus d'equip de la capçalera "# hosts:".
      *
      * @param  array<string, string>  $vars
-     * @param  list<string>|null  $onlyTypes
+     * @param  Collection<int, HostType>  $types
      * @return list<SshTarget>
      */
-    private function targets(Module $module, array $vars, CodeHeaders $headers, ?Credential $override, ?array $onlyTypes): array
+    private function targets(array $vars, Collection $types, ?Credential $override): array
     {
-        if ($headers->hosts === []) {
-            throw new InvalidArgumentException('Falta la capçalera "# hosts:" amb els equips on executar el codi');
-        }
-
-        $matches = fn (HostType $type, string $group) => $type->grup_ansible === $group || $type->nom === $group;
-        $types = $module->hostTypes->filter(fn (HostType $type) => collect($headers->hosts)->contains(fn ($group) => $matches($type, $group)));
-        $unknown = array_filter($headers->hosts, fn ($group) => ! $types->contains(fn (HostType $type) => $matches($type, $group)));
-        if ($unknown) {
-            throw new InvalidArgumentException('No existeix el grup d\'equips '.implode(', ', $unknown));
-        }
-        if ($onlyTypes !== null) {
-            $types = $types->whereIn('nom', $onlyTypes);
-        }
-
-        return $types->map(function (HostType $type) use ($module, $vars, $override) {
+        return $types->map(function (HostType $type) use ($vars, $override) {
             $connection = $type->variables_connexio ?? [];
             if (($connection['ansible_connection'] ?? 'ssh') !== 'ssh') {
                 throw new InvalidArgumentException("L'equip {$type->nom} es connecta per {$connection['ansible_connection']}, no per SSH");
             }
-            $credential = $override ?? $type->credential ?? $module->credential;
+            $credential = $override ?? $type->credential ?? $type->module->credential;
             if ($this->isPassword($credential)) {
                 throw new InvalidArgumentException("La credencial {$credential->nom} no és una credencial SSH");
             }

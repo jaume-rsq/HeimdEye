@@ -8,6 +8,7 @@ use App\Enums\Executor;
 use App\Models\Action;
 use App\Models\ActionRun;
 use App\Models\Module;
+use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\Task;
 use App\Runner\ActionRunner;
@@ -58,6 +59,16 @@ class AnsibleTest extends TestCase
         return Student::whereIn('usuari', ['alumne01', 'alumne02'])->orderBy('num_taula')->get();
     }
 
+    /**
+     * Llança l'acció per a alumne01 i alumne02 i l'executa ara (sense cua).
+     *
+     * @param  list<string>  $hostTypes
+     */
+    private function launch(Action $action, array $hostTypes = [], array $params = [], bool $checkMode = false): RunBatch
+    {
+        return app(ActionRunner::class)->launch($action, $this->students(), $hostTypes, $params, $checkMode, sync: true);
+    }
+
     private function runFor(Action $action, string $username): ActionRun
     {
         return ActionRun::where('accio_id', $action->id)
@@ -66,7 +77,7 @@ class AnsibleTest extends TestCase
             ->firstOrFail();
     }
 
-    public function test_one_playbook_run_is_split_by_student(): void
+    public function test_each_student_is_a_separate_run(): void
     {
         $action = $this->action(<<<'YAML'
             - hosts: locals
@@ -78,7 +89,7 @@ class AnsibleTest extends TestCase
                   when: num_taula == '02'
             YAML);
 
-        $batch = app(ActionRunner::class)->run($action, $this->students(), ['local']);
+        $batch = $this->launch($action, ['local']);
 
         $ok = $this->runFor($action, 'alumne01');
         $this->assertSame(ActionStatus::Changed, $ok->estat);
@@ -107,7 +118,7 @@ class AnsibleTest extends TestCase
                     dest: "{{ dir }}/{{ nom_taula }}.txt"
             YAML, [['name' => 'dir', 'label' => 'Directori']]);
 
-        app(ActionRunner::class)->run($action, $this->students(), ['local'], ['dir' => $dir], checkMode: true);
+        $this->launch($action, ['local'], ['dir' => $dir], checkMode: true);
 
         $run = $this->runFor($action, 'alumne01');
         $this->assertTrue($run->es_simulacio);
@@ -116,7 +127,7 @@ class AnsibleTest extends TestCase
         $this->assertStringContainsString('hola Taula01', $run->sortida); // diff
         $this->assertFileDoesNotExist("$dir/Taula01.txt");
 
-        app(ActionRunner::class)->run($action, $this->students(), ['local'], ['dir' => $dir]);
+        $this->launch($action, ['local'], ['dir' => $dir]);
         $this->assertFileExists("$dir/Taula01.txt");
         array_map('unlink', glob("$dir/*"));
         rmdir($dir);
@@ -131,9 +142,10 @@ class AnsibleTest extends TestCase
               tasks:
                 - ansible.builtin.debug:
                     msg: "La contrasenya és {{ jaume_password }}"
+                  delegate_to: localhost
             YAML);
 
-        app(ActionRunner::class)->run($action, $this->students(), ['local']);
+        $this->launch($action, ['local']);
 
         $run = $this->runFor($action, 'alumne01');
         $this->assertSame(ActionStatus::Ok, $run->estat);
@@ -152,7 +164,7 @@ class AnsibleTest extends TestCase
         ]);
         $action = $this->action("- hosts: tancats\n  gather_facts: false\n  tasks:\n    - ansible.builtin.ping:\n");
 
-        app(ActionRunner::class)->run($action, $this->students(), ['tancat']);
+        $this->launch($action, ['tancat']);
 
         $this->assertSame(ActionStatus::Unavailable, $this->runFor($action, 'alumne01')->estat);
     }
@@ -162,7 +174,75 @@ class AnsibleTest extends TestCase
         $action = $this->action("- hosts: locals\n  tasks: []\n", [['name' => 'dir']]);
 
         $this->expectException(InvalidArgumentException::class);
-        app(ActionRunner::class)->run($action, $this->students(), ['local'], ['altre' => 'x']);
+        $this->launch($action, ['local'], ['altre' => 'x']);
+    }
+
+    public function test_a_secret_that_would_reach_the_student_host_is_refused(): void
+    {
+        $this->module->secrets()->updateOrCreate(['clau' => 'jaume_password'], ['valor' => 'molt-secreta-123']);
+        $action = $this->action("- hosts: locals\n  tasks:\n    - ansible.builtin.debug:\n        msg: \"{{ jaume_password }}\"\n");
+
+        $this->expectExceptionMessage('jaume_password');
+        $this->launch($action, ['local']);
+    }
+
+    public function test_a_playbook_that_touches_no_host_of_the_student_is_an_error(): void
+    {
+        $action = $this->action("- hosts: locals:!locals\n  gather_facts: false\n  tasks:\n    - ansible.builtin.ping:\n");
+
+        $this->launch($action, ['local']);
+
+        $run = $this->runFor($action, 'alumne01');
+        $this->assertSame(ActionStatus::Error, $run->estat);
+        $this->assertStringContainsString('Cap equip de l\'alumne', $run->sortida);
+    }
+
+    public function test_hosts_all_is_not_allowed(): void
+    {
+        $action = $this->action("- hosts: all\n  tasks: []\n");
+
+        $this->expectExceptionMessage('all');
+        $this->launch($action);
+    }
+
+    public function test_template_params_are_computed_for_each_student(): void
+    {
+        $action = $this->action(<<<'YAML'
+            - hosts: locals
+              gather_facts: false
+              tasks:
+                - ansible.builtin.debug:
+                    msg: "ip={{ ip }}"
+            YAML, [['name' => 'ip', 'default' => '{{ xarxa_aula | host(3) }}']]);
+
+        $this->launch($action, ['local']);
+
+        $run = $this->runFor($action, 'alumne01');
+        $this->assertStringContainsString('ip=198.51.100.19', $run->sortida);
+        $this->assertSame(['ip' => '198.51.100.19'], $run->parametres);
+        $this->assertStringNotContainsString('ip=198.51.100.19', $this->runFor($action, 'alumne02')->sortida);
+    }
+
+    public function test_a_student_with_broken_variables_does_not_stop_the_others(): void
+    {
+        Student::where('usuari', 'alumne02')->sole()->update(['variables' => ['xarxa_aula' => 'no-és-una-xarxa']]);
+        $action = $this->action("- hosts: locals\n  gather_facts: false\n  tasks:\n    - ansible.builtin.ping:\n");
+
+        $this->launch($action, ['local']);
+
+        $this->assertSame(ActionStatus::Ok, $this->runFor($action, 'alumne01')->estat);
+        $this->assertSame(ActionStatus::Error, $this->runFor($action, 'alumne02')->estat);
+    }
+
+    public function test_an_ansible_check_that_changes_something_is_an_error(): void
+    {
+        $check = Task::firstOrFail()->checks()->create(['nom' => 'Canvia', 'executor' => Executor::Ansible, 'es_actiu' => true]);
+        $check->versions()->create(['versio' => 1, 'temps_max_seg' => 60, 'codi' => "- hosts: locals\n  gather_facts: false\n  tasks:\n    - ansible.builtin.command: 'true'\n"]);
+
+        $result = app(CheckRunner::class)->run($check->fresh(), Student::where('usuari', 'alumne01')->sole());
+
+        $this->assertSame(CheckStatus::Error, $result->status);
+        $this->assertStringContainsString('changed_when', $result->message);
     }
 
     public function test_ansible_check(): void

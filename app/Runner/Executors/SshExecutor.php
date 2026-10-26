@@ -6,6 +6,7 @@ use App\Enums\CheckStatus;
 use App\Runner\CheckResult;
 use App\Runner\ExecutionContext;
 use App\Runner\ProcessRunner;
+use App\Runner\SshOptions;
 use App\Runner\SshTarget;
 
 /**
@@ -41,7 +42,7 @@ class SshExecutor implements Executor
             'ssh',
             '-o', 'BatchMode=yes',
             '-o', 'ConnectTimeout='.min(10, $context->timeout),
-            '-o', 'StrictHostKeyChecking=accept-new',
+            ...SshOptions::HOST_KEYS,
         ];
         if ($target->key) {
             array_push($command, '-i', $target->key);

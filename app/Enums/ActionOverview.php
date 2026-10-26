@@ -41,7 +41,7 @@ enum ActionOverview: string
     {
         return match ($this) {
             self::Ok => 'Executada per a tots els alumnes',
-            self::Partial => 'Encara no executada per a tots els alumnes',
+            self::Partial => 'Encara no executada per a tots els alumnes amb la versió vigent',
             self::SomeFailed => 'Ha fallat per a algun alumne',
             self::AllFailed => 'Ha fallat per a tots els alumnes',
             self::Never => 'No s\'ha executat mai',

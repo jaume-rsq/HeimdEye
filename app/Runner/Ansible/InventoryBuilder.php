@@ -15,7 +15,7 @@ use Illuminate\Support\Collection;
  * Genera l'inventari Ansible d'una execució, amb els mateixos noms de host i de grup
  * que l'inventari de l'aula: un host per alumne i tipus d'equip (pve01-alumne01, router01...),
  * un grup per tipus (pve, vm_router...), un grup per alumne (taula01...) dins d'"alumnes",
- * i els equips globals (zbx).
+ * i els equips globals (zbx). Només hi entren els tipus d'equip que demana el codi.
  */
 class InventoryBuilder
 {
@@ -32,7 +32,7 @@ class InventoryBuilder
 
     /**
      * @param  iterable<Student>  $students
-     * @param  Collection<int, HostType>  $hostTypes  tipus per alumne seleccionats (els globals s'hi afegeixen sempre)
+     * @param  Collection<int, HostType>  $hostTypes  tipus d'equip on va el playbook (globals inclosos, si n'hi ha)
      * @return array<string, mixed>
      */
     public function build(Module $module, iterable $students, Collection $hostTypes): array
@@ -42,7 +42,7 @@ class InventoryBuilder
         $children = [];
         $studentGroups = [];
 
-        foreach ($module->hostTypes->filter->isGlobal() as $type) {
+        foreach ($hostTypes->filter->isGlobal() as $type) {
             $name = $this->resolver->render($type->nom_host, $globals);
             $children[$type->grup_ansible]['hosts'][$name] = $this->hostVars($type, $globals);
             $this->hostMap[$name] = null;

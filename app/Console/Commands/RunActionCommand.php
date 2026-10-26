@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Jobs\RunAction;
 use App\Models\Action;
 use App\Runner\ActionRunner;
 use Illuminate\Console\Command;
@@ -45,19 +44,18 @@ class RunActionCommand extends Command
             $params[$key] = $value;
         }
 
-        if ($this->option('queue')) {
-            RunAction::dispatch($action, $students->modelKeys(), $this->option('host'), $params, (bool) $this->option('simulate'));
-            $this->info("Acció a la cua per a {$students->count()} alumnes");
-
-            return self::SUCCESS;
-        }
-
         try {
-            $batch = $runner->run($action, $students, $this->option('host'), $params, (bool) $this->option('simulate'));
+            $batch = $runner->launch($action, $students, $this->option('host'), $params, (bool) $this->option('simulate'), sync: ! $this->option('queue'));
         } catch (InvalidArgumentException $e) {
             $this->error($e->getMessage());
 
             return self::FAILURE;
+        }
+
+        if ($this->option('queue')) {
+            $this->info("Acció a la cua per a {$students->count()} alumnes");
+
+            return self::SUCCESS;
         }
 
         $this->table(

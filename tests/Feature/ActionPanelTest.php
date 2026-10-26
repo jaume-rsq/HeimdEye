@@ -12,6 +12,7 @@ use App\Filament\Resources\Actions\Pages\EditAction;
 use App\Filament\Resources\Actions\Pages\ListActions;
 use App\Filament\Resources\Actions\Pages\ManageActionRuns;
 use App\Jobs\RunAction;
+use App\Jobs\RunEditorTest;
 use App\Models\Action;
 use App\Models\ActionRun;
 use App\Models\Check;
@@ -20,6 +21,7 @@ use App\Models\Module;
 use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\User;
+use App\Runner\ActionRunner;
 use App\Support\ActionSummary;
 use App\Support\VariableResolver;
 use Firebase\JWT\JWT;
@@ -226,14 +228,33 @@ class ActionPanelTest extends TestCase
 
     public function test_a_failing_job_leaves_an_error_in_the_history(): void
     {
-        $action = $this->action([['name' => 'obligatori', 'label' => 'Obligatori', 'default' => null]]);
+        $action = $this->action();
         $student = $this->module->students()->firstOrFail();
+        $batch = RunBatch::create(['modul_id' => $this->module->id, 'origen' => RunOrigin::Action, 'totals' => ['expected' => 1]]);
 
-        RunAction::dispatchSync($action, [$student->id]);
+        // P. ex. el worker l'atura per temps màxim abans que hagi desat res.
+        (new RunAction($batch, $action, $action->currentVersion, $student))->failed(new \RuntimeException('temps màxim superat'));
 
         $run = $action->runs()->sole();
         $this->assertSame(ActionStatus::Error, $run->estat);
-        $this->assertStringContainsString('obligatori', $run->sortida);
+        $this->assertSame($action->currentVersion->id, $run->versio_accio_id);
+        $this->assertStringContainsString('temps màxim superat', $run->sortida);
+        $this->assertNotNull($batch->fresh()->data_fi);
+    }
+
+    public function test_missing_parameter_stops_the_launch(): void
+    {
+        Queue::fake();
+        $action = $this->action([['name' => 'obligatori', 'label' => 'Obligatori', 'default' => null]]);
+
+        try {
+            app(ActionRunner::class)->launch($action, $this->module->students()->get());
+            $this->fail('Calia una excepció');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('obligatori', $e->getMessage());
+        }
+        Queue::assertNothingPushed();
+        $this->assertSame(0, RunBatch::count());
     }
 
     public function test_execute_for_one_student_sends_the_values_computed_for_that_student(): void
@@ -251,9 +272,75 @@ class ActionPanelTest extends TestCase
             ->callMountedAction()
             ->assertHasNoActionErrors();
 
-        Queue::assertPushed(RunAction::class, fn (RunAction $job) => $job->studentIds === [$student->id]
+        Queue::assertPushed(RunAction::class, fn (RunAction $job) => $job->student->is($student)
+            && $job->version->versio === 1
             && $job->params === ['usuari_pve' => $expected]
             && ! $job->checkMode
             && $job->user->is($this->teacher));
+    }
+
+    public function test_students_with_an_older_version_are_shown_and_can_be_updated(): void
+    {
+        $this->actingAs($this->teacher);
+        $action = $this->action();
+        $students = $this->module->students()->where('es_actiu', true)->orderBy('num_taula')->get();
+        foreach ($students as $student) {
+            $this->record($action, $student, ActionStatus::Ok);
+        }
+        $this->assertSame(ActionOverview::Ok, ActionSummary::for($action)->overview());
+
+        $action->versions()->create(['versio' => 2, 'codi' => 'echo hola v2', 'temps_max_seg' => 60]);
+        $action = $action->fresh();
+        $this->record($action, $students[0], ActionStatus::Changed);
+
+        $summary = ActionSummary::for($action);
+        $this->assertSame(ActionOverview::Partial, $summary->overview());
+        $this->assertStringContainsString(($students->count() - 1).' amb una versió anterior', $summary->describe());
+        $grid = collect(ActionSummary::students($action))->keyBy('id');
+        $this->assertTrue($grid[$students[0]->id]['vigent']);
+        $this->assertFalse($grid[$students[1]->id]['vigent']);
+        $this->assertSame(1, $grid[$students[1]->id]['versio']);
+        $this->assertSame($students->skip(1)->values()->modelKeys(), ActionSummary::outdatedStudentIds($action));
+
+        Livewire::test(ManageActionRuns::class, ['record' => $action->id])
+            ->assertSee('Estat per alumne')
+            ->assertActionVisible('actualitzar')
+            ->mountAction('actualitzar')
+            ->assertActionDataSet(['alumnes' => array_map('strval', $students->skip(1)->values()->modelKeys())]);
+    }
+
+    public function test_update_button_is_hidden_when_everyone_has_the_current_version(): void
+    {
+        $this->actingAs($this->teacher);
+        $action = $this->action();
+        $this->record($action, $this->module->students()->firstOrFail(), ActionStatus::Ok);
+
+        Livewire::test(ManageActionRuns::class, ['record' => $action->id])
+            ->assertActionHidden('actualitzar');
+    }
+
+    public function test_editor_tests_go_through_the_queue(): void
+    {
+        Queue::fake();
+        $this->actingAs($this->teacher);
+        $action = $this->action();
+        $student = $this->module->students()->orderBy('num_taula')->firstOrFail();
+
+        $edit = Livewire::test(EditAction::class, ['record' => $action->id])
+            ->callAction('provarExecutar', ['alumnes' => [(string) $student->id]])
+            ->assertSet('testResults.0.estat', 'en cua');
+
+        $job = null;
+        Queue::assertPushed(RunEditorTest::class, function (RunEditorTest $pushed) use (&$job, $student) {
+            $job = $pushed;
+
+            return $pushed->studentId === $student->id && $pushed->version['codi'] === 'echo hola';
+        });
+        $job->handle();
+
+        $edit->call('refreshTestResults')
+            ->assertSet('testResults.0.estat', 'ok')
+            ->assertSet('testResults.0.sortida', fn ($out) => str_contains($out, 'hola'));
+        $this->assertSame(0, ActionRun::count());
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Runner\Ansible;
 
 use App\Runner\ProcessRunner;
+use App\Runner\SshOptions;
 use App\Runner\TempFiles;
 
 /** Executa un playbook amb un inventari generat i en llegeix el resultat del callback heimdeye. */
@@ -31,7 +32,8 @@ class AnsibleRunner
             'ANSIBLE_CALLBACK_PLUGINS' => resource_path('ansible/callback_plugins'),
             'ANSIBLE_NOCOLOR' => '1',
             'ANSIBLE_RETRY_FILES_ENABLED' => '0',
-            'ANSIBLE_SSH_ARGS' => '-o StrictHostKeyChecking=accept-new -o ControlMaster=auto -o ControlPersist=60s',
+            'ANSIBLE_HOST_KEY_CHECKING' => 'False',
+            'ANSIBLE_SSH_ARGS' => implode(' ', [...SshOptions::HOST_KEYS, '-o', 'ControlMaster=auto', '-o', 'ControlPersist=60s']),
         ], '', $timeout);
 
         $report = null;

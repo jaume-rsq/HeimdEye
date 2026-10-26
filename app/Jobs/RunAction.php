@@ -3,9 +3,10 @@
 namespace App\Jobs;
 
 use App\Enums\ActionStatus;
-use App\Enums\RunOrigin;
 use App\Models\Action;
 use App\Models\ActionRun;
+use App\Models\ActionVersion;
+use App\Models\Check;
 use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\User;
@@ -15,9 +16,9 @@ use Illuminate\Foundation\Queue\Queueable;
 use Throwable;
 
 /**
- * Executa (o simula) una acció en segon pla. Sense reintents: una acció canvia els equips.
- * Si falla abans de tenir resultat, l'error es desa com a execució en estat error per a
- * cada alumne (i al log), perquè es vegi a l'historial.
+ * Executa (o simula) una versió d'una acció per a un alumne i en desa el resultat.
+ * Sense reintents: una acció canvia els equips. Si falla o s'atura per temps màxim abans
+ * de tenir resultat, es desa una execució en estat error perquè es vegi a l'historial.
  */
 class RunAction implements ShouldQueue
 {
@@ -25,59 +26,64 @@ class RunAction implements ShouldQueue
 
     public int $tries = 1;
 
+    /** Marge sobre el temps màxim de la versió: Ansible o l'script ja s'aturen sols abans. */
+    public int $timeout;
+
+    public bool $failOnTimeout = true;
+
     /**
-     * @param  list<int>  $studentIds
      * @param  list<string>  $hostTypes
      * @param  array<string, string>  $params
      */
     public function __construct(
+        public RunBatch $batch,
         public Action $action,
-        public array $studentIds,
+        public ActionVersion $version,
+        public Student $student,
         public array $hostTypes = [],
         public array $params = [],
         public bool $checkMode = false,
         public ?User $user = null,
+        public ?RunBatch $verification = null,
     ) {
         $this->onQueue(config('heimdeye.runner.queue'));
+        $this->timeout = $version->temps_max_seg + 60;
     }
 
     public function handle(ActionRunner $runner): void
     {
-        $students = Student::whereIn('id', $this->studentIds)->orderBy('num_taula')->get();
+        $this->save($runner->runFor($this->action, $this->version, $this->student, $this->hostTypes, $this->params, $this->checkMode));
 
-        try {
-            $runner->run($this->action, $students, $this->hostTypes, $this->params, $this->checkMode, $this->user);
-        } catch (Throwable $e) {
-            report($e);
-            $this->recordError($students->modelKeys(), $e);
+        if ($this->verification) {
+            foreach (Check::whereIn('id', $this->version->checks_verificacio ?? [])->get() as $check) {
+                RunCheck::dispatch($this->verification, $check, $this->student);
+            }
         }
     }
 
-    /** @param  list<int>  $studentIds */
-    private function recordError(array $studentIds, Throwable $e): void
+    public function failed(?Throwable $e): void
     {
-        $batch = RunBatch::create([
-            'modul_id' => $this->action->modul_id,
-            'origen' => RunOrigin::Action,
-            'llancat_per' => $this->user?->id,
-            'data_inici' => now(),
-            'totals' => ['expected' => count($studentIds), 'es_simulacio' => $this->checkMode],
-        ]);
-        foreach ($studentIds as $id) {
-            ActionRun::create([
-                'execucio_id' => $batch->id,
-                'accio_id' => $this->action->id,
-                'versio_accio_id' => $this->action->currentVersion?->id,
-                'alumne_id' => $id,
-                'llancat_per' => $this->user?->id,
-                'es_simulacio' => $this->checkMode,
-                'estat' => ActionStatus::Error,
-                'parametres' => $this->params ?: null,
-                'sortida' => "No s'ha pogut executar: {$e->getMessage()}",
-                'data_inici' => now(),
-                'data_fi' => now(),
-            ]);
+        $saved = ActionRun::where('execucio_id', $this->batch->id)->where('alumne_id', $this->student->id)->exists();
+        if ($saved) {
+            return;
         }
-        $batch->refreshTotals();
+
+        $this->save(new ActionRun([
+            'accio_id' => $this->action->id,
+            'versio_accio_id' => $this->version->id,
+            'alumne_id' => $this->student->id,
+            'es_simulacio' => $this->checkMode,
+            'estat' => ActionStatus::Error,
+            'parametres' => $this->params ?: null,
+            'sortida' => "No s'ha pogut executar: ".($e?->getMessage() ?: 'error desconegut'),
+            'data_inici' => now(),
+            'data_fi' => now(),
+        ]));
+    }
+
+    private function save(ActionRun $run): void
+    {
+        $run->fill(['execucio_id' => $this->batch->id, 'llancat_per' => $this->user?->id])->save();
+        $this->batch->refreshTotals();
     }
 }

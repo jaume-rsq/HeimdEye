@@ -66,7 +66,7 @@ class ActionForm
                             ->label('Codi')
                             ->language(fn (Get $get) => $get('executor') === Executor::Ansible->value ? Language::Yaml : null)
                             ->required()
-                            ->helperText('Capçaleres opcionals a dalt de tot: "# hosts: pve, vm_router" (ssh) i "# credencial: Nom" (local).'),
+                            ->helperText('Amb ssh, cal la capçalera "# hosts: pve, vm_router" a dalt de tot; amb Ansible, el hosts: de cada play (mai "all"). Amb local, capçalera opcional "# credencial: Nom". Cap secret pot arribar en clar a un equip d\'alumne: amb Ansible, només amb password_hash o delegate_to: localhost.'),
                         Repeater::make('parametres')
                             ->label('Paràmetres')
                             ->table([
@@ -85,6 +85,8 @@ class ActionForm
                             ->label('Temps màxim (s)')
                             ->numeric()
                             ->minValue(1)
+                            ->maxValue(3600)
+                            ->helperText('Per alumne: cada alumne és una execució a part.')
                             ->default(300)
                             ->required(),
                         TextInput::make('comentari')

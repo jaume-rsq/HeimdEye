@@ -262,4 +262,63 @@ class RunnerTest extends TestCase
         $this->assertSame(CheckStatus::Pass, $result->status);
         $this->assertSame('x=21', $result->message);
     }
+
+    public function test_ssh_code_cannot_use_secrets(): void
+    {
+        $this->closedHostType();
+        Module::where('codi', '9991')->sole()->secrets()->updateOrCreate(['clau' => 'jaume_password'], ['valor' => 'molt-secreta-123']);
+
+        $result = $this->execute($this->check("# hosts: tancats\necho \"\$HE_SECRET_JAUME_PASSWORD\"", Executor::Ssh));
+
+        $this->assertSame(CheckStatus::Error, $result->status);
+        $this->assertStringContainsString('jaume_password', $result->message);
+    }
+
+    public function test_secrets_are_matched_by_whole_name(): void
+    {
+        Module::where('codi', '9991')->sole()->secrets()->updateOrCreate(['clau' => 'pass'], ['valor' => 'secret-curt']);
+
+        // "password" no és el secret "pass": no se n'entrega cap.
+        $result = $this->execute($this->check('echo "password: $(env | grep -c ^HE_SECRET_)"'));
+
+        $this->assertSame('password: 0', $result->message);
+    }
+
+    public function test_ssh_hosts_all_is_not_allowed(): void
+    {
+        $result = $this->execute($this->check("# hosts: all\ntrue", Executor::Ssh));
+
+        $this->assertSame(CheckStatus::Error, $result->status);
+        $this->assertStringContainsString('all', $result->message);
+    }
+
+    public function test_template_params_are_computed_for_the_student(): void
+    {
+        $result = $this->execute($this->check('echo "ip=$HE_PARAM_IP"', params: [['name' => 'ip', 'default' => '{{ xarxa_aula | host(3) }}']]));
+
+        $this->assertSame('ip=198.51.100.19', $result->message);
+    }
+
+    public function test_local_scripts_get_ssh_options_that_do_not_store_host_keys(): void
+    {
+        $result = $this->execute($this->check('echo "$HE_SSH_OPTS"'));
+
+        $this->assertStringContainsString('UserKnownHostsFile=/dev/null', $result->message);
+    }
+
+    public function test_job_runs_and_records_the_version_queued(): void
+    {
+        $check = $this->check('echo v1');
+        $batch = RunBatch::create(['modul_id' => $check->task->block->modul_id, 'origen' => 'nocturna', 'totals' => ['expected' => 1]]);
+        $job = new RunCheck($batch, $check, Student::firstOrFail());
+        $first = $check->currentVersion;
+        $check->versions()->create(['versio' => 2, 'codi' => 'echo v2', 'temps_max_seg' => 10]);
+
+        $job->handle(app(CheckRunner::class), app(ResultRecorder::class));
+
+        $run = CheckRun::sole();
+        $this->assertSame('v1', $run->missatge);
+        $this->assertSame($first->id, $run->versio_check_id);
+        $this->assertSame(70, $job->timeout);
+    }
 }

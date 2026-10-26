@@ -6,6 +6,7 @@ use App\Enums\RunOrigin;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class RunBatch extends Model
 {
@@ -43,17 +44,24 @@ class RunBatch extends Model
         return $this->hasMany(ActionRun::class, 'execucio_id');
     }
 
-    /** Recompte per estat; tanca el lot quan ja hi ha tantes execucions com s'esperaven. */
+    /**
+     * Recompte per estat; tanca el lot quan ja hi ha tantes execucions com s'esperaven.
+     * Amb la fila bloquejada, perquè els treballs de la cua acaben alhora.
+     */
     public function refreshTotals(): void
     {
-        $runs = $this->origen === RunOrigin::Action ? $this->actionRuns() : $this->runs();
-        $counts = $runs->toBase()->selectRaw('estat, count(*) as n')->groupBy('estat')->pluck('n', 'estat');
-        $totals = [...array_intersect_key($this->totals ?? [], array_flip(['expected', 'es_simulacio'])), ...$counts->map(fn ($n) => (int) $n)->all()];
+        DB::transaction(function () {
+            $batch = static::whereKey($this->id)->lockForUpdate()->firstOrFail();
+            $runs = $batch->origen === RunOrigin::Action ? $batch->actionRuns() : $batch->runs();
+            $counts = $runs->toBase()->selectRaw('estat, count(*) as n')->groupBy('estat')->pluck('n', 'estat');
+            $totals = [...array_intersect_key($batch->totals ?? [], array_flip(['expected', 'es_simulacio'])), ...$counts->map(fn ($n) => (int) $n)->all()];
 
-        $this->totals = $totals;
-        if ($this->data_fi === null && $counts->sum() >= ($totals['expected'] ?? PHP_INT_MAX)) {
-            $this->data_fi = now();
-        }
-        $this->save();
+            $batch->totals = $totals;
+            if ($batch->data_fi === null && $counts->sum() >= ($totals['expected'] ?? PHP_INT_MAX)) {
+                $batch->data_fi = now();
+            }
+            $batch->save();
+            $this->setRawAttributes($batch->getAttributes(), true);
+        });
     }
 }

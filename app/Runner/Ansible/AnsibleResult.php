@@ -22,7 +22,8 @@ final readonly class AnsibleResult
     ) {}
 
     /**
-     * Resum per a un conjunt de hosts (els d'un alumne, més els globals).
+     * Resum per als hosts d'un alumne. Si cap d'ells no ha executat res, és un error:
+     * un playbook que no toca cap equip no pot donar ok (ni un check, pass).
      *
      * @param  list<string>  $hosts
      * @return array{status: ActionStatus, ok: int, changed: int, failed: int, output: string, message: ?string}
@@ -39,10 +40,12 @@ final readonly class AnsibleResult
         }
 
         $events = array_values(array_filter($this->events, fn ($e) => in_array($e['host'], $hosts, true)));
+        // Si el hosts: del playbook no coincideix amb cap equip, Ansible ho avisa però acaba bé.
+        $untouched = array_intersect($hosts, array_keys($this->stats)) === [];
 
         $status = match (true) {
             $this->timedOut => ActionStatus::Timeout,
-            $this->error !== null || ($this->stats === [] && $this->exitCode !== 0) => ActionStatus::Error,
+            $this->error !== null || ($this->stats === [] && $this->exitCode !== 0) || $untouched => ActionStatus::Error,
             $unreachable > 0 => ActionStatus::Unavailable,
             $failed > 0 => ActionStatus::Failed,
             $changed > 0 => ActionStatus::Changed,
@@ -65,7 +68,9 @@ final readonly class AnsibleResult
             'output' => $lines ? implode("\n", $lines) : $this->rawOutput,
             'message' => match (true) {
                 $this->timedOut => 'Ha superat el temps màxim',
-                $status === ActionStatus::Error => $this->error ?? strtok(trim($this->rawOutput), "\n") ?: 'Error d\'Ansible',
+                $this->error !== null => $this->error,
+                $status === ActionStatus::Error && $this->exitCode === 0 => 'Cap equip de l\'alumne s\'ha executat: el hosts: del playbook no coincideix amb cap dels seus equips',
+                $status === ActionStatus::Error => strtok(trim($this->rawOutput), "\n") ?: 'Error d\'Ansible',
                 $problem !== null => mb_substr("{$problem['task']}: {$problem['msg']}", 0, 255),
                 default => "ok={$ok} changed={$changed}",
             },
