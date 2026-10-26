@@ -235,6 +235,17 @@ desada apareixen com a `********`. Els valors s'omplen des de l'administració, 
 Els checks `ssh` fan servir aquests mateixos grups amb la capçalera `# hosts:`, i els checks
 també poden ser playbooks (`executor = ansible`).
 
+### Al panell (menú Inventari)
+
+- **Vista de conjunt** (`/admin/inventari`): alumnes × equips o alumnes × variables d'un mòdul,
+  amb l'origen de cada valor i les plantilles que no es poden calcular en vermell.
+- **Alumnes** (`/admin/alumnes`): dades, variables pròpies i l'inventari calculat de cada alumne
+  (variables, equips, inventari Ansible amb les contrasenyes emmascarades i activitat).
+- **Equips i variables** (`/admin/moduls`): tipus d'equip, variables i secrets de cada mòdul.
+  La previsualització calcula, per a l'alumne triat, el que hi ha al formulari sense desar-ho.
+  En desar, si alguna plantilla no es pot calcular per a algun alumne, ho avisa. Els secrets
+  no es tornen a mostrar: un camp buit vol dir que no canvia.
+
 ## Accions
 
 Les accions són scripts o playbooks que llança el professor (no puntuen): posar contrasenya,

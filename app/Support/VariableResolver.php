@@ -53,9 +53,12 @@ class VariableResolver
      * Les mateixes variables que resolve(), amb d'on surt cada valor (global, curs, modul,
      * alumne o propia), si amaga el d'una capa inferior i l'error, si n'hi ha.
      *
+     * $moduleVars substitueix les variables del mòdul desades (per previsualitzar un esborrany).
+     *
+     * @param  array<string, string>|null  $moduleVars
      * @return array<string, array{valor: string, origen: string, tapa: bool, error: ?string}>
      */
-    public function detailed(Student $student, Module $module): array
+    public function detailed(Student $student, Module $module, ?array $moduleVars = null): array
     {
         $fields = array_filter([
             'usuari' => $student->usuari,
@@ -65,8 +68,13 @@ class VariableResolver
             'email' => $student->user?->email,
         ], fn ($value) => $value !== null);
 
+        $layers = $this->layers($module);
+        if ($moduleVars !== null) {
+            $layers['modul'] = $moduleVars;
+        }
+
         return $this->compute([
-            ...$this->layers($module),
+            ...$layers,
             'alumne' => $fields,
             'propia' => $student->variables ?? [],
         ]);

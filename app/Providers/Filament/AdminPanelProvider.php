@@ -55,7 +55,6 @@ class AdminPanelProvider extends PanelProvider
                     ->url(fn () => ActionResource::getUrl('create'))
                     ->isActiveWhen(fn () => request()->routeIs(ActionResource::getRouteBaseName().'.create'))
                     ->sort(2),
-                self::comingSoon('Equips i variables', Heroicon::OutlinedServerStack, 'Inventari', 3),
                 self::comingSoon('Comuns', Heroicon::OutlinedKey, 'Inventari', 4),
                 self::comingSoon('Gestió d\'usuaris i rols', Heroicon::OutlinedUsers, 'Administració', 1),
                 self::comingSoon('CRUD taules', Heroicon::OutlinedTableCells, 'Administració', 2),
