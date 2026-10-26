@@ -161,6 +161,14 @@ class RunnerTest extends TestCase
         $check->update(['executor' => Executor::Ssh]);
     }
 
+    public function test_a_secret_without_value_is_an_error(): void
+    {
+        $result = $this->execute($this->check('[ -n "$HE_SECRET_JAUME_PASSWORD" ]'));
+
+        $this->assertSame(CheckStatus::Error, $result->status);
+        $this->assertStringContainsString('jaume_password no té valor', $result->message);
+    }
+
     public function test_not_implemented_executor_is_an_error(): void
     {
         $this->assertSame(CheckStatus::Error, $this->execute($this->check('GET /', Executor::Http))->status);
