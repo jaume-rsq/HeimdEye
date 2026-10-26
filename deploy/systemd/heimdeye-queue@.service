@@ -1,0 +1,23 @@
+# Worker de la cua. Executa els checks i les accions: el codi dels checks corre aquí dins,
+# amb aquests límits (sistema de fitxers de només lectura menys storage i el home).
+[Unit]
+Description=HeimdEye: worker de la cua %i
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=heimdeye
+Group=heimdeye
+WorkingDirectory=/var/www/heimdeye/current
+ExecStart=/usr/bin/php artisan queue:work --queue=checks,default --sleep=3 --tries=1 --timeout=3700
+Restart=always
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/www/heimdeye/shared/storage /var/lib/heimdeye
+MemoryMax=1G
+
+[Install]
+WantedBy=multi-user.target

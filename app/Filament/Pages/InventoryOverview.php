@@ -14,9 +14,10 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
-use Livewire\Attributes\Computed;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 use Throwable;
 use UnitEnum;
@@ -69,7 +70,7 @@ class InventoryOverview extends Page
 
     /** Mòduls del curs actual (o de tots, si no n'hi ha cap marcat com a actual). */
     #[Computed]
-    public function modules(): \Illuminate\Support\Collection
+    public function modules(): Collection
     {
         $year = AcademicYear::where('es_actual', true)->first();
 

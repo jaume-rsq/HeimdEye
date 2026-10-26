@@ -1,0 +1,10 @@
+[Unit]
+Description=HeimdEye: tasques programades (ronda nocturna)
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+User=heimdeye
+Group=heimdeye
+WorkingDirectory=/var/www/heimdeye/current
+ExecStart=/usr/bin/php artisan schedule:run

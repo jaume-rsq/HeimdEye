@@ -1,0 +1,2 @@
+# /etc/sudoers.d/heimdeye: el desplegament recarrega php-fpm per agafar el codi nou.
+heimdeye ALL=(root) NOPASSWD: /usr/bin/systemctl reload php8.5-fpm

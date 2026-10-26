@@ -11,6 +11,7 @@ use App\Models\CheckStudent;
 use App\Models\Module;
 use App\Models\Student;
 use App\Models\Task;
+use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
@@ -21,7 +22,7 @@ class StudentProgress
 {
     /**
      * @param  array{bloc?: ?int, tasca?: ?int, estat?: ?string, obligatoris?: bool}  $filters
-     *         estat: pendents (no assolits), assolits o error (la darrera execució no va poder comprovar res)
+     *                                                                                          estat: pendents (no assolits), assolits o error (la darrera execució no va poder comprovar res)
      * @return list<array{block: Block, tasks: list<array{task: Task, assolits: int, total: int, rows: list<array<string, mixed>>}>}>
      */
     public function build(Student $student, Module $module, array $filters = []): array
@@ -96,7 +97,7 @@ class StudentProgress
      * de la més recent a la més antiga: si cada dia surt el mateix, només n'hi ha una.
      *
      * @param  Collection<int, CheckRun>  $history  ordenat de la més antiga a la més recent
-     * @return list<array{estat: CheckStatus, data: \Carbon\CarbonInterface, missatge: ?string, versio: ?int, execucions: int}>
+     * @return list<array{estat: CheckStatus, data: CarbonInterface, missatge: ?string, versio: ?int, execucions: int}>
      */
     public static function changes(Collection $history): array
     {

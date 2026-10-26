@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Models\AcademicYear;
+use App\Models\Block;
 use App\Models\Check;
 use App\Models\CheckStudent;
 use App\Models\Module;
@@ -188,7 +189,7 @@ class StudentTracking extends Page
         ]);
     }
 
-    /** @return Collection<int, \App\Models\Block> */
+    /** @return Collection<int, Block> */
     #[Computed]
     public function blocks(): Collection
     {

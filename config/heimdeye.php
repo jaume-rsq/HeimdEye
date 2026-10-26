@@ -27,6 +27,19 @@ return [
     ],
 
     /*
+    | Proxies de confiança (IPs separades per comes), p. ex. la màquina del cloudflared. Calen
+    | perquè Laravel sàpiga que la petició original era HTTPS i quina IP tenia el client.
+    */
+    'trusted_proxies' => env('HEIMDEYE_TRUSTED_PROXIES'),
+
+    /*
+    | Desplegament: minuts abans de la ronda nocturna en què ja no es desplega.
+    */
+    'deploy' => [
+        'quiet_before_nightly_min' => 20,
+    ],
+
+    /*
     | Fitxer CSV amb els alumnes per al seeder. No es versiona (dades personals);
     | si no existeix, s'usa l'exemple amb dades fictícies.
     */

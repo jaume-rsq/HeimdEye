@@ -26,6 +26,14 @@ php artisan serve      # http://localhost:8000/admin
 En local (`APP_ENV=local`), el seeder crea l'usuari de prova `admin@heimdeye.test` amb
 contrasenya `password`.
 
+### CI
+
+Cada PR i cada push a `main` passa els tests a GitHub Actions (`.github/workflows/ci.yml`) dues
+vegades: amb SQLite en memòria i amb PostgreSQL, perquè hi ha errors que només surten a
+Postgres. També hi corre Pint, de moment només com a avís. Per provar Postgres en local:
+
+```bash
+DB_CONNECTION=pgsql DB_HOST=127.0.0.1 DB_DATABASE=heimdeye_test DB_USERNAME=heimdeye DB_PASSWORD=heimdeye php artisan test
 `migrate --seed` només carrega el Bloc 2. Els altres blocs tenen el seu seeder, que es pot
 tornar a executar sense duplicar res (no canvia el codi dels checks que ja tenen versions):
 
@@ -49,28 +57,8 @@ administradors i professors actius de la taula `usuaris` (no hi ha autoregistre)
 
 Les accions llançades des del panell i els checks de la nit van a la cua (`HEIMDEYE_QUEUE`,
 per defecte `checks`), un treball per alumne. En producció calen workers en marxa; amb 4 en
-paral·lel, 20 alumnes amb un playbook de 30 s acaben en uns 3 minuts. Amb systemd, una
-plantilla i 4 instàncies:
-
-```ini
-# /etc/systemd/system/heimdeye-queue@.service
-[Unit]
-Description=HeimdEye: worker de la cua %i
-After=network.target postgresql.service
-
-[Service]
-User=www-data
-WorkingDirectory=/var/www/heimdeye
-ExecStart=/usr/bin/php artisan queue:work --queue=checks,default --sleep=3 --tries=1 --timeout=3700
-Restart=always
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```bash
-sudo systemctl enable --now heimdeye-queue@{1..4}
-```
+paral·lel, 20 alumnes amb un playbook de 30 s acaben en uns 3 minuts. En producció són les
+instàncies `heimdeye-queue@{1..4}` de `deploy/systemd/` (vegeu [Producció](#producció)).
 
 Cada treball porta el seu temps màxim (el de la versió més 60 s), però el worker no pot tenir
 un `--timeout` més curt. A més, `DB_QUEUE_RETRY_AFTER` (al `.env`) ha de ser més llarg que
@@ -101,6 +89,79 @@ s'enganxa o s'arrossega el fitxer (es llegeix al navegador, no es puja), es prev
 alumnes nous, els canvis i els que ja no hi són, i només s'aplica en confirmar. Els que no hi són
 es poden marcar inactius; no s'esborra mai cap alumne. El seeder fa servir el mateix servei
 (`App\Support\StudentImporter`) però no desactiva ningú.
+
+## Producció
+
+HeimdEye corre a la VM del Zabbix (192.168.20.12, Ubuntu 26.04, PHP 8.5), amb el Postgres
+local d'aquesta màquina i darrere un túnel de Cloudflare (el `cloudflared` és a 192.168.20.7).
+Tot el que cal per a la màquina és a `deploy/`, sense cap secret.
+
+| Peça | Com |
+| --- | --- |
+| Web | Apache al port 8080 (el 80 és del Zabbix) → pool de php-fpm propi amb l'usuari `heimdeye` |
+| Workers | `heimdeye-queue@{1..4}`: usuari `heimdeye`, sistema de fitxers de només lectura menys `storage` i `/var/lib/heimdeye`, `/tmp` privat, 1 GB de memòria |
+| Ronda nocturna | `heimdeye-schedule.timer` (`schedule:run` cada minut) |
+| Desplegament | `heimdeye-deploy.timer`: cada 5 minuts, `deploy/deploy.sh` |
+| Secrets | `/var/www/heimdeye/shared/.env` (plantilla: `deploy/env.production.example`), la clau SSH a `/var/lib/heimdeye/.ssh/` |
+
+### Desplegament continu
+
+Cada commit de `main` amb els jobs `tests-sqlite` i `tests-pgsql` del CI en verd es desplega
+sol en uns 5 minuts. `deploy.sh` mira el commit de `main` (`git ls-remote`) i el CI a l'API
+pública de GitHub, i no desplega si hi ha feines a la cua o falten menys de 20 minuts per a la
+ronda nocturna. Cada versió va a `releases/<data>-<sha>`:
+
+1. `git clone` del commit, amb `.env` i `storage` enllaçats a `shared/`.
+2. `composer install --no-dev`.
+3. Còpia de la BBDD amb `pg_dump` a `/var/www/heimdeye/backups/` (se'n guarden 10).
+4. `migrate --force`, `optimize` i `filament:optimize`.
+5. `current` passa a apuntar al release nou, es recarrega php-fpm i `queue:restart`.
+6. Si `/up` no respon, torna al release anterior.
+
+Si falla, el commit queda apuntat a `failed-sha` i no es torna a provar fins que n'hi hagi un
+de nou (o amb `FORCE=1`). Ordres útils:
+
+```bash
+journalctl -u heimdeye-deploy -n 50                                  # què ha fet
+sudo systemctl start heimdeye-deploy                                 # ara, sense esperar el timer
+sudo -u heimdeye -H /var/www/heimdeye/current/deploy/rollback.sh     # torna al release anterior
+```
+
+`rollback.sh` no desfà migracions: per això convé que siguin compatibles amb la versió anterior.
+Si cal, la còpia es restaura amb `pg_restore --clean -d heimdeye <fitxer>`.
+
+### Instal·lació (una vegada)
+
+```bash
+git clone https://github.com/jaume-rsq/HeimdEye.git /tmp/HeimdEye
+sudo /tmp/HeimdEye/deploy/install.sh
+```
+
+`install.sh` instal·la els paquets (ansible-core, python3-winrm, jq...), crea l'usuari
+`heimdeye`, les carpetes, el pool de php-fpm, el lloc d'Apache, el sudoers (només
+`systemctl reload php8.5-fpm`) i les unitats de systemd. Després:
+
+```bash
+# 1. BBDD
+sudo -u postgres psql -c "create user heimdeye password 'CONTRASENYA'" -c "create database heimdeye owner heimdeye"
+# 2. Secrets: APP_KEY, DB_PASSWORD, APP_URL, CF_ACCESS_*, HEIMDEYE_ADMIN_*
+php -r "echo 'base64:'.base64_encode(random_bytes(32)).PHP_EOL;"     # valor per a APP_KEY
+sudo -u heimdeye nano /var/www/heimdeye/shared/.env
+# 3. Clau SSH dels checks i llista d'alumnes (mai al repositori)
+sudo install -o heimdeye -g heimdeye -m 600 ~/.ssh/id_ed25519 /var/lib/heimdeye/.ssh/id_ed25519
+sudo install -o heimdeye -g heimdeye -m 644 ~/.ssh/id_ed25519.pub /var/lib/heimdeye/.ssh/id_ed25519.pub
+sudo install -o heimdeye -g heimdeye -m 600 students.csv /var/lib/heimdeye/students.csv
+# 4. Primer desplegament i dades inicials
+sudo -u heimdeye -H env SKIP_CI=1 /tmp/HeimdEye/deploy/deploy.sh
+cd /var/www/heimdeye/current && sudo -u heimdeye php artisan db:seed --force
+# 5. Serveis
+sudo systemctl enable --now heimdeye-queue@{1..4} heimdeye-schedule.timer heimdeye-deploy.timer
+```
+
+Al Cloudflare: el túnel envia el nom de HeimdEye a `http://192.168.20.12:8080`, i l'aplicació
+d'Access fa el login de Google Workspace amb una regla Bypass per a `/leaderboard`. Al
+tallafoc de la VM, el port 8080 només ha d'acceptar 192.168.20.7. `HEIMDEYE_TRUSTED_PROXIES`
+fa que Laravel cregui la capçalera `X-Forwarded-Proto` (HTTPS) només si ve del `cloudflared`.
 
 ## Variables
 

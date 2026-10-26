@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +20,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        if (filled($proxies = config('heimdeye.trusted_proxies'))) {
+            TrustProxies::at(array_map('trim', explode(',', $proxies)));
+        }
     }
 }

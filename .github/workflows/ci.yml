@@ -1,0 +1,93 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: tests-${{ matrix.db }}
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        db: [sqlite, pgsql]
+
+    services:
+      postgres:
+        # Mateixa versió major que el Postgres del Zabbix (producció).
+        image: postgres:16
+        env:
+          POSTGRES_USER: heimdeye
+          POSTGRES_PASSWORD: heimdeye
+          POSTGRES_DB: heimdeye_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U heimdeye"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: intl, zip, pdo_sqlite, pdo_pgsql, mbstring, bcmath
+          coverage: none
+
+      - name: Composer cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache
+          key: composer-${{ hashFiles('composer.lock') }}
+
+      - run: composer install --no-interaction --no-progress --prefer-dist
+
+      # Sense ansible-playbook els tests d'Ansible se salten.
+      - name: Ansible
+        run: pipx install ansible-core
+
+      - name: Prepara .env
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Tests (SQLite en memòria, com a phpunit.xml)
+        if: matrix.db == 'sqlite'
+        run: php artisan test
+
+      - name: Tests (PostgreSQL)
+        if: matrix.db == 'pgsql'
+        env:
+          DB_CONNECTION: pgsql
+          DB_HOST: 127.0.0.1
+          DB_PORT: 5432
+          DB_DATABASE: heimdeye_test
+          DB_USERNAME: heimdeye
+          DB_PASSWORD: heimdeye
+        run: php artisan test
+
+  pint:
+    runs-on: ubuntu-24.04
+    # Només avís de moment: no bloqueja el merge.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+      - run: composer install --no-interaction --no-progress --prefer-dist
+      - run: vendor/bin/pint --test

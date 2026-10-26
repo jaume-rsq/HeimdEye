@@ -10,6 +10,7 @@ use Filament\Actions\Action;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
 
@@ -37,7 +38,7 @@ class LeaderboardPage extends Page
     }
 
     #[Computed]
-    public function modules(): \Illuminate\Support\Collection
+    public function modules(): Collection
     {
         return LeaderboardController::modules();
     }

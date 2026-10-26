@@ -1,0 +1,12 @@
+[Unit]
+Description=HeimdEye: desplega main si hi ha un commit nou amb el CI en verd
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=heimdeye
+Group=heimdeye
+Environment=HOME=/var/lib/heimdeye
+ExecStart=/var/www/heimdeye/current/deploy/deploy.sh
+TimeoutStartSec=15min
