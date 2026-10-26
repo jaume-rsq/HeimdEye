@@ -75,7 +75,7 @@ class ManageActionRuns extends ManageRelatedRecords
     public function content(Schema $schema): Schema
     {
         return $schema->components([
-            View::make('filament.action-students')
+            View::make('filament.students-status')
                 ->viewData(['students' => $this->simulacio ? [] : ActionSummary::students($this->getOwnerRecord())])
                 ->visible(! $this->simulacio),
             Group::make([

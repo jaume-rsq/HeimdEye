@@ -83,7 +83,7 @@ class ManageActionVersions extends ManageRelatedRecords
                     ->icon(Heroicon::OutlinedEye)
                     ->color('gray')
                     ->modalHeading(fn (ActionVersion $record) => "{$this->getOwnerRecord()->nom} · v{$record->versio}")
-                    ->modalContent(fn (ActionVersion $record) => view('filament.action-version', [
+                    ->modalContent(fn (ActionVersion $record) => view('filament.version', [
                         'version' => $record,
                         'checks' => Check::whereKey($record->checks_verificacio ?? [])->pluck('nom'),
                         'previous' => $record->action->versions()->where('versio', '<', $record->versio)->orderByDesc('versio')->first(),

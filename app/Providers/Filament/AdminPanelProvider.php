@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\ComingSoon;
 use App\Filament\Resources\Actions\ActionResource;
+use App\Filament\Resources\Checks\CheckResource;
 use App\Http\Middleware\AuthenticateWithCloudflareAccess;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -46,9 +47,12 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->navigationItems([
                 self::comingSoon('Leaderboard', Heroicon::OutlinedTrophy, null, -10),
-                self::comingSoon('Llista de checks', Heroicon::OutlinedCheckCircle, 'Checks', 1),
-                self::comingSoon('Nou check', Heroicon::OutlinedPlusCircle, 'Checks', 2),
-                self::comingSoon('Històric de checks', Heroicon::OutlinedClock, 'Checks', 3),
+                NavigationItem::make('Nou check')
+                    ->group('Checks')
+                    ->icon(Heroicon::OutlinedPlusCircle)
+                    ->url(fn () => CheckResource::getUrl('create'))
+                    ->isActiveWhen(fn () => request()->routeIs(CheckResource::getRouteBaseName().'.create'))
+                    ->sort(2),
                 NavigationItem::make('Nova acció')
                     ->group('Accions')
                     ->icon(Heroicon::OutlinedPlusCircle)

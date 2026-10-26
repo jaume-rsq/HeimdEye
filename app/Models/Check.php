@@ -7,6 +7,7 @@ use App\Enums\Executor;
 use App\Models\Concerns\HasFixedExecutor;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -39,6 +40,12 @@ class Check extends Model
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class, 'tasca_id');
+    }
+
+    /** Mòdul del check, a través de la tasca i el bloc ($check->module). */
+    protected function module(): Attribute
+    {
+        return Attribute::get(fn () => $this->task?->block?->module);
     }
 
     public function versions(): HasMany

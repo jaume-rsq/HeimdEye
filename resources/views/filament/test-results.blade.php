@@ -1,10 +1,10 @@
-{{-- Resultats de les proves de l'esborrany a l'editor d'accions. No es desen enlloc. Mentre n'hi ha a la cua, es recullen cada 2 s. --}}
+{{-- Resultats de les proves de l'esborrany a l'editor (accions i checks). No es desen enlloc. Mentre n'hi ha a la cua, es recullen cada 2 s. --}}
 @include('filament.partials.detail-styles')
 @php($results = $getLivewire()->testResults)
 @php($pending = collect($results)->contains(fn ($r) => isset($r['clau'])))
 <div class="he-detail" @if ($pending) wire:poll.2s="refreshTestResults" @endif>
     @if ($results === [])
-        <div style="opacity: .6;">Encara no has provat aquest esborrany. Fes servir el botó «Provar» de dalt: simular, executar o verificar amb un check.</div>
+        <div style="opacity: .6;">Encara no has provat aquest esborrany. Fes servir el botó «Provar» de dalt.</div>
     @endif
     @foreach ($results as $result)
         <details @if ($loop->first) open @endif style="border: 1px solid rgba(127, 127, 127, .25); border-radius: .5rem; padding: .5rem .75rem;">

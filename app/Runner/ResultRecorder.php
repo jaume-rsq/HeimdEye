@@ -10,6 +10,7 @@ use App\Models\CheckVersion;
 use App\Models\RunBatch;
 use App\Models\Student;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /** Desa una execució al log (amb la versió que s'ha executat) i actualitza l'estat del check per a l'alumne. */
 class ResultRecorder
@@ -25,7 +26,7 @@ class ResultRecorder
                 'versio_check_id' => ($version ?? $check->currentVersion)?->id,
                 'alumne_id' => $student->id,
                 'estat' => $result->status,
-                'missatge' => $result->message,
+                'missatge' => $result->message === null ? null : Str::limit($result->message, 250), // la columna és de 255
                 'sortida' => $result->output,
                 'codi_sortida' => $result->exitCode,
                 'durada_ms' => $result->durationMs,

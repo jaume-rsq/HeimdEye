@@ -6,6 +6,7 @@ use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Actions\Pages\Concerns\TestsDraftVersion;
 use App\Filament\Resources\Actions\Schemas\ActionForm;
 use App\Models\Action;
+use App\Support\DeletionImpact;
 use Filament\Actions\Action as PageAction;
 use Filament\Actions\DeleteAction;
 use Filament\Notifications\Notification;
@@ -68,7 +69,8 @@ class EditAction extends EditRecord
                 ->icon(Heroicon::OutlinedClock)
                 ->color('gray')
                 ->url(fn () => ActionResource::getUrl('runs', ['record' => $this->record])),
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->modalDescription(fn () => DeletionImpact::action($this->record)),
         ];
     }
 
