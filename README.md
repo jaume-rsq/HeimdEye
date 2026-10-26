@@ -271,6 +271,10 @@ també poden ser playbooks (`executor = ansible`).
 
 - **Vista de conjunt** (`/admin/inventari`): alumnes × equips o alumnes × variables d'un mòdul,
   amb l'origen de cada valor i les plantilles que no es poden calcular en vermell.
+  El botó ▶ prova la connexió d'un equip, d'una columna (un tipus d'equip per a tots els alumnes),
+  d'un alumne (tots els seus equips) o d'un equip global, amb el mateix inventari que les accions:
+  `ping` als Linux, `win_ping` als Windows (cal la col·lecció `ansible.windows`) i, a les API
+  (`httpapi`), només que el port sigui obert. Va per la cua i no desa res.
 - **Alumnes** (`/admin/alumnes`): dades, variables pròpies i l'inventari calculat de cada alumne
   (variables, equips, inventari Ansible amb les contrasenyes emmascarades i activitat).
   **Importar llista** (`/admin/alumnes/importar`) carrega la llista de l'aula a un mòdul.

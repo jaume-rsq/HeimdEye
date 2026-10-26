@@ -29,5 +29,12 @@
         .he-inv .o-propia { color: rgb(217,119,6); font-weight: 600; }
         .he-inv .legend { display: flex; gap: 1rem; font-size: .8rem; margin-top: .5rem; flex-wrap: wrap; }
         .he-inv .chip { display: inline-block; padding: .1rem .5rem; border-radius: 999px; border: 1px solid rgba(128,128,128,.3); margin-right: .5rem; }
+        .he-inv .he-conn { display: inline-flex; align-items: center; gap: .3rem; margin-left: .35rem; vertical-align: middle; }
+        .he-inv .he-dot { width: .6rem; height: .6rem; border-radius: 999px; display: inline-block; }
+        .he-inv .he-pending { animation: he-pulse 1s ease-in-out infinite; }
+        @keyframes he-pulse { 50% { opacity: .3; } }
+        .he-inv .he-try { font-size: .6rem; line-height: 1; padding: .2rem .3rem; border-radius: .3rem; border: 1px solid rgba(128,128,128,.3); opacity: .55; cursor: pointer; }
+        .he-inv .he-try:hover { opacity: 1; background: rgba(245,158,11,.18); }
+        .he-inv .he-msg { font-size: .7rem; max-width: 16rem; white-space: normal; }
     </style>
 @endonce
