@@ -13,6 +13,9 @@ use App\Filament\Resources\Actions\Pages\ListActions;
 use App\Filament\Resources\Actions\Pages\ManageActionRuns;
 use App\Jobs\RunAction;
 use App\Models\Action;
+use App\Models\ActionRun;
+use App\Models\Check;
+use App\Models\CheckRun;
 use App\Models\Module;
 use App\Models\RunBatch;
 use App\Models\Student;
@@ -163,15 +166,23 @@ class ActionPanelTest extends TestCase
     public function test_create_makes_version_one_and_edit_only_versions_real_changes(): void
     {
         $this->actingAs($this->teacher);
+        $student = $this->module->students()->orderBy('num_taula')->firstOrFail();
 
-        Livewire::test(CreateAction::class)
+        $create = Livewire::test(CreateAction::class)
             ->fillForm([
                 'nom' => 'Nova', 'modul_id' => $this->module->id, 'executor' => 'local',
-                'codi' => 'echo $HE_PARAM_NOM', 'parametres' => [['name' => 'nom', 'label' => 'Nom', 'default' => 'x']],
+                'codi' => 'echo hola $HE_PARAM_NOM', 'parametres' => [['name' => 'nom', 'label' => 'Nom', 'default' => 'x']],
                 'temps_max_seg' => 30,
             ])
+            ->call('create');
+        $this->assertSame(0, Action::where('nom', 'Nova')->count(), 'no es desa sense provar');
+
+        $create->callAction('provarExecutar', ['alumnes' => [(string) $student->id]])
+            ->assertSet('testResults.0.estat', 'ok')
+            ->assertSet('testResults.0.sortida', fn ($out) => str_contains($out, 'hola x'))
             ->call('create')
             ->assertHasNoFormErrors();
+        $this->assertSame(0, ActionRun::count(), 'les proves no es desen');
         $action = Action::where('nom', 'Nova')->firstOrFail();
         $this->assertSame([1], $action->versions()->pluck('versio')->all());
         $this->assertSame($this->teacher->id, $action->currentVersion->creat_per);
@@ -182,8 +193,12 @@ class ActionPanelTest extends TestCase
             ->assertHasNoFormErrors();
         $this->assertSame(1, $action->versions()->count());
 
-        Livewire::test(EditAction::class, ['record' => $action->id])
+        $edit = Livewire::test(EditAction::class, ['record' => $action->id])
             ->fillForm(['codi' => 'echo adeu', 'comentari' => 'Diu adeu'])
+            ->call('save');
+        $this->assertSame(1, $action->versions()->count(), 'una versió nova cal provar-la');
+
+        $edit->callAction('provarExecutar', ['alumnes' => [(string) $student->id]])
             ->call('save')
             ->assertHasNoFormErrors();
         $action->refresh();
@@ -191,6 +206,34 @@ class ActionPanelTest extends TestCase
         $this->assertSame('echo adeu', $action->currentVersion->codi);
         $this->assertSame('Diu adeu', $action->currentVersion->comentari);
         $this->assertSame(Executor::Local, $action->executor);
+    }
+
+    public function test_verify_with_a_check_shows_the_result_without_saving_it(): void
+    {
+        $this->actingAs($this->teacher);
+        $action = $this->action();
+        $student = $this->module->students()->firstOrFail();
+        $check = Check::whereHas('task.block', fn ($q) => $q->where('modul_id', $this->module->id))->firstOrFail();
+        $check->versions()->create(['versio' => 99, 'codi' => 'echo "verificat"', 'temps_max_seg' => 10]);
+        $check->executor === Executor::Local || $this->markTestSkipped('el primer check no és local');
+
+        Livewire::test(EditAction::class, ['record' => $action->id])
+            ->callAction('provarCheck', ['check_id' => $check->id, 'alumnes' => [(string) $student->id]])
+            ->assertSet('testResults.0.titol', "Check «{$check->nom}»")
+            ->assertSet('testResults.0.estat', 'pass');
+        $this->assertSame(0, CheckRun::count());
+    }
+
+    public function test_a_failing_job_leaves_an_error_in_the_history(): void
+    {
+        $action = $this->action([['name' => 'obligatori', 'label' => 'Obligatori', 'default' => null]]);
+        $student = $this->module->students()->firstOrFail();
+
+        RunAction::dispatchSync($action, [$student->id]);
+
+        $run = $action->runs()->sole();
+        $this->assertSame(ActionStatus::Error, $run->estat);
+        $this->assertStringContainsString('obligatori', $run->sortida);
     }
 
     public function test_execute_for_one_student_sends_the_values_computed_for_that_student(): void

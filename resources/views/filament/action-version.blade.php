@@ -26,15 +26,15 @@
 
     <div class="tabs">
         <x-filament::button size="xs" x-on:click="tab = 'codi'">Codi</x-filament::button>
-        @if ($diff)
-            <x-filament::button size="xs" color="gray" x-on:click="tab = 'diff'">Canvis respecte v{{ $previous->versio }}</x-filament::button>
-        @elseif ($previous)
-            <span style="opacity: .6; align-self: center;">El codi és igual que a v{{ $previous->versio }}.</span>
-        @endif
+        <x-filament::button size="xs" color="gray" x-on:click="tab = 'diff'">Diferències amb la versió anterior</x-filament::button>
     </div>
     <pre x-show="tab === 'codi'">{{ $version->codi }}</pre>
     @if ($diff)
         <pre x-show="tab === 'diff'" x-cloak>@foreach (explode("\n", $diff) as $line)<span @class(['add' => str_starts_with($line, '+'), 'del' => str_starts_with($line, '-'), 'hunk' => str_starts_with($line, '@@')])>{{ $line }}</span>
 @endforeach</pre>
+    @else
+        <div x-show="tab === 'diff'" x-cloak style="opacity: .7;">
+            {{ $previous ? "El codi és igual que a v{$previous->versio}: només canvien altres camps." : 'És la primera versió: no hi ha codi anterior.' }}
+        </div>
     @endif
 </div>

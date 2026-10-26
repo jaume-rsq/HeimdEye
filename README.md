@@ -251,5 +251,12 @@ Menú Accions → Llista d'accions (`/admin/accions`):
   L'executor i el mòdul no es poden canviar.
 - Les simulacions no compten per a l'estat ni surten a l'historial: després de Simular es veu
   el resultat a «Darrera simulació» de l'acció.
+- A l'editor (nova acció o editar), el botó **Provar** simula o executa el codi del formulari
+  sense desar-lo, o executa un check per verificar-ne l'efecte. Els resultats surten a la secció
+  Proves i no es desen enlloc. Una versió nova no es pot desar sense haver provat el codi tal com és.
+  Les proves s'executen dins la petició web: compte amb els temps màxims de PHP-FPM o del proxy.
+- Si una execució falla abans de tenir resultat (p. ex. falta un paràmetre), queda a l'historial
+  en estat `error` i l'excepció va al log de Laravel.
+- Si hi ha feines a la cua que cap worker no processa, el panell ho avisa a dalt de tot.
 - En llançar per a un sol alumne, els paràmetres es mostren calculats amb les seves variables
   (`{{num_taula}}`...) i es poden modificar. Només s'envien els que difereixen del valor per defecte.

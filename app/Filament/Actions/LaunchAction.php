@@ -4,14 +4,15 @@ namespace App\Filament\Actions;
 
 use App\Enums\ActionStatus;
 use App\Enums\Executor;
+use App\Filament\Forms\RowPicker;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Jobs\RunAction;
 use App\Models\Action as ActionModel;
+use App\Models\HostType;
 use App\Models\Student;
 use App\Runner\Params;
 use App\Support\VariableResolver;
 use Filament\Actions\Action;
-use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Fieldset;
@@ -24,6 +25,7 @@ use InvalidArgumentException;
 /**
  * Botons Executar i Simular d'una acció: triar alumnes, equips i paràmetres i posar-la a la cua.
  * Amb un sol alumne, els paràmetres es mostren calculats per a ell i es poden modificar.
+ * El formulari (schema, defaults, givenParams) també el fa servir l'editor per provar esborranys.
  */
 class LaunchAction
 {
@@ -41,20 +43,11 @@ class LaunchAction
                 : 'Es canviaran els equips dels alumnes triats.')
             ->modalSubmitActionLabel($simulate ? 'Simular' : 'Executar')
             ->modalWidth('4xl')
-            ->schema(fn (ActionModel $record) => self::schema($record))
-            ->fillForm(fn (ActionModel $record) => [
-                'alumnes' => [],
-                'equips' => [],
-                'parametres' => self::defaults($record),
-            ])
+            ->schema(fn (ActionModel $record) => self::schema($record, $record->currentVersion?->parametres ?? []))
+            ->fillForm(fn (ActionModel $record) => self::fill($record->currentVersion?->parametres ?? []))
             ->action(function (ActionModel $record, array $data, Action $action) use ($simulate) {
                 $version = $record->currentVersion;
-                $defaults = self::defaults($record);
-                $given = array_filter(
-                    array_map('strval', $data['parametres'] ?? []),
-                    fn (string $value, string $name) => $value !== ($defaults[$name] ?? ''),
-                    ARRAY_FILTER_USE_BOTH,
-                );
+                $given = self::givenParams($version->parametres ?? [], $data);
 
                 try {
                     Params::values($version->parametres, $given);
@@ -78,31 +71,33 @@ class LaunchAction
             });
     }
 
-    private static function schema(ActionModel $record): array
+    /**
+     * Camps per triar alumnes, equips i valors dels paràmetres declarats.
+     *
+     * @param  list<array<string, mixed>>  $declared
+     */
+    public static function schema(ActionModel $record, array $declared): array
     {
-        $students = self::students($record);
-        $declared = $record->currentVersion?->parametres ?? [];
+        $students = $record->module->students()->where('es_actiu', true)->orderBy('num_taula')->get();
 
         return [
-            CheckboxList::make('alumnes')
-                ->label('Alumnes')
-                ->options($students->mapWithKeys(fn (Student $s) => [$s->id => sprintf('%02d · %s', $s->num_taula, $s->nom_complet)]))
-                ->searchable()
-                ->bulkToggleable()
-                ->columns(3)
+            self::studentPicker($students, $record)
                 ->required()
                 ->live()
                 ->hintAction(
                     Action::make('fallats')
                         ->label('Els que han fallat')
+                        ->visible($record->exists)
                         ->action(fn (Set $set) => $set('alumnes', self::failedStudentIds($record))),
                 )
-                ->afterStateUpdated(fn (?array $state, Set $set) => self::fillParams($record, $state ?? [], $set)),
-            CheckboxList::make('equips')
+                ->afterStateUpdated(fn (?array $state, Set $set) => self::fillParams($record, $declared, $state ?? [], $set)),
+            RowPicker::make('equips')
                 ->label('Tipus d\'equip')
                 ->helperText('Cap marcat = tots els de l\'alumne.')
-                ->options($record->module->hostTypes->pluck('nom', 'nom'))
-                ->columns(4)
+                ->headers(['Tipus', 'Grup Ansible', 'Abast', 'Nom de host', 'Adreça', 'Credencial'])
+                ->rows($record->module->hostTypes->sortBy('posicio')->mapWithKeys(fn (HostType $t) => [$t->nom => [
+                    $t->nom, $t->grup_ansible, $t->abast->value, $t->nom_host, $t->adreca, $t->credential?->nom ?? '—',
+                ]])->all())
                 ->visible($record->module->hostTypes->isNotEmpty()),
             Fieldset::make('Paràmetres')
                 ->visible($declared !== [])
@@ -113,32 +108,83 @@ class LaunchAction
         ];
     }
 
-    /** Alumnes actius del mòdul de l'acció, per taula. */
-    private static function students(ActionModel $record): Collection
+    /** @param  list<array<string, mixed>>  $declared */
+    public static function fill(array $declared): array
     {
-        return $record->module->students()->where('es_actiu', true)->orderBy('num_taula')->get();
+        return ['alumnes' => [], 'equips' => [], 'parametres' => self::defaults($declared)];
     }
 
-    /** @return array<string, string> */
-    private static function defaults(ActionModel $record): array
+    /**
+     * Només els paràmetres que difereixen del valor per defecte.
+     *
+     * @param  list<array<string, mixed>>  $declared
+     * @return array<string, string>
+     */
+    public static function givenParams(array $declared, array $data): array
     {
-        return collect($record->currentVersion?->parametres ?? [])
+        $defaults = self::defaults($declared);
+
+        return array_filter(
+            array_map('strval', $data['parametres'] ?? []),
+            fn (string $value, string $name) => $value !== ($defaults[$name] ?? ''),
+            ARRAY_FILTER_USE_BOTH,
+        );
+    }
+
+    /**
+     * @param  list<array<string, mixed>>  $declared
+     * @return array<string, string>
+     */
+    private static function defaults(array $declared): array
+    {
+        return collect($declared)
             ->mapWithKeys(fn (array $p) => [$p['name'] => (string) ($p['default'] ?? '')])
             ->all();
     }
 
     /** Amb un sol alumne, valors calculats amb les seves variables; si no, els valors per defecte. */
-    private static function fillParams(ActionModel $record, array $studentIds, Set $set): void
+    private static function fillParams(ActionModel $record, array $declared, array $studentIds, Set $set): void
     {
-        $defaults = self::defaults($record);
+        $resolver = app(VariableResolver::class);
         $vars = null;
         if (count($studentIds) === 1 && $student = Student::find(reset($studentIds))) {
-            $vars = app(VariableResolver::class)->resolve($student, $record->module);
+            $vars = $resolver->resolve($student, $record->module);
         }
 
-        foreach ($defaults as $name => $default) {
-            $set("parametres.{$name}", $vars === null ? $default : app(VariableResolver::class)->render($default, $vars));
+        foreach (self::defaults($declared) as $name => $default) {
+            $set("parametres.{$name}", $vars === null ? $default : $resolver->render($default, $vars));
         }
+    }
+
+    /**
+     * Taula d'alumnes per triar: taula, usuari, nom, X i, si l'acció ja existeix, el darrer estat real.
+     *
+     * @param  Collection<int, Student>  $students
+     */
+    public static function studentPicker(Collection $students, ?ActionModel $record = null): RowPicker
+    {
+        $last = [];
+        if ($record?->exists) {
+            $latest = DB::table('execucions_accio')
+                ->where('accio_id', $record->id)
+                ->where('es_simulacio', false)
+                ->groupBy('alumne_id')
+                ->selectRaw('max(id)');
+            $last = $record->runs()->whereIn('id', $latest)->get()->mapWithKeys(fn ($run) => [
+                $run->alumne_id => $run->estat->value.' · '.$run->data_inici?->format('d/m H:i'),
+            ])->all();
+        }
+
+        return RowPicker::make('alumnes')
+            ->label('Alumnes')
+            ->headers(['Taula', 'Usuari', 'Nom', 'X', ...($record?->exists ? ['Darrera execució'] : [])])
+            ->rows($students->mapWithKeys(fn (Student $s) => [$s->id => [
+                sprintf('%02d', $s->num_taula),
+                $s->usuari,
+                $s->nom_complet,
+                (string) $s->x,
+                ...($record?->exists ? [$last[$s->id] ?? 'mai'] : []),
+            ]])->all());
     }
 
     /** Alumnes la darrera execució real dels quals ha fallat. */

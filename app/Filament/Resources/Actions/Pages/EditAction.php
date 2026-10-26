@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Actions\Pages;
 
 use App\Filament\Resources\Actions\ActionResource;
+use App\Filament\Resources\Actions\Pages\Concerns\TestsDraftVersion;
 use App\Filament\Resources\Actions\Schemas\ActionForm;
 use App\Models\Action;
 use Filament\Actions\Action as PageAction;
@@ -22,7 +23,24 @@ use Illuminate\Support\Facades\DB;
  */
 class EditAction extends EditRecord
 {
+    use TestsDraftVersion;
+
     protected static string $resource = ActionResource::class;
+
+    protected function draftAction(): Action
+    {
+        return $this->record;
+    }
+
+    /** Una versió nova només es desa si s'ha provat tal com és. */
+    protected function beforeSave(): void
+    {
+        $current = $this->record->currentVersion;
+        $draft = ActionForm::versionData($this->form->getRawState());
+        if ($current === null || $draft !== ActionForm::versionData($current->only(ActionForm::VERSION_FIELDS))) {
+            $this->requireTestedDraft();
+        }
+    }
 
     public function getTitle(): string|Htmlable
     {
@@ -39,6 +57,7 @@ class EditAction extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            $this->testActionGroup(),
             PageAction::make('versions')
                 ->label('Versions')
                 ->icon(Heroicon::OutlinedRectangleStack)

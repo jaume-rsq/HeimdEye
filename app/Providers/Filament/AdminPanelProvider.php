@@ -66,6 +66,7 @@ class AdminPanelProvider extends PanelProvider
             ->widgets([
                 AccountWidget::class,
             ])
+            ->renderHook(PanelsRenderHook::PAGE_START, fn () => view('filament.queue-warning'))
             ->renderHook(PanelsRenderHook::PAGE_END, fn () => view('filament.back-button'))
             ->middleware([
                 EncryptCookies::class,

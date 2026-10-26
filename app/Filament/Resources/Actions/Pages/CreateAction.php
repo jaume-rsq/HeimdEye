@@ -2,7 +2,9 @@
 
 namespace App\Filament\Resources\Actions\Pages;
 
+use App\Enums\Executor;
 use App\Filament\Resources\Actions\ActionResource;
+use App\Filament\Resources\Actions\Pages\Concerns\TestsDraftVersion;
 use App\Filament\Resources\Actions\Schemas\ActionForm;
 use App\Models\Action;
 use Filament\Resources\Pages\CreateRecord;
@@ -13,7 +15,34 @@ class CreateAction extends CreateRecord
 {
     protected static string $resource = ActionResource::class;
 
+    use TestsDraftVersion;
+
     protected static ?string $title = 'Nova acció';
+
+    /** L'acció encara sense desar, si ja té mòdul i executor. */
+    protected function draftAction(): ?Action
+    {
+        $state = $this->form->getRawState();
+        if (blank($state['modul_id'] ?? null) || blank($state['executor'] ?? null)) {
+            return null;
+        }
+
+        return new Action([
+            'modul_id' => $state['modul_id'],
+            'nom' => $state['nom'] ?? 'Nova acció',
+            'executor' => $state['executor'] instanceof Executor ? $state['executor'] : Executor::from($state['executor']),
+        ]);
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [$this->testActionGroup()];
+    }
+
+    protected function beforeCreate(): void
+    {
+        $this->requireTestedDraft();
+    }
 
     /** Crea l'acció i la seva versió 1. */
     protected function handleRecordCreation(array $data): Model
