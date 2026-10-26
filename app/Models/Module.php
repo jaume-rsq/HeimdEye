@@ -58,7 +58,7 @@ class Module extends Model
 
     public function hostTypes(): HasMany
     {
-        return $this->hasMany(HostType::class, 'modul_id')->orderBy('posicio');
+        return $this->hasMany(HostType::class, 'modul_id')->orderBy('posicio')->orderBy('id');
     }
 
     /** Variables pròpies del mòdul (les globals i les del curs es veuen amb Variable::visibleFrom). */
