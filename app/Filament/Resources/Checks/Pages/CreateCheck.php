@@ -10,6 +10,7 @@ use App\Models\Check;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Livewire\Attributes\Url;
 
 class CreateCheck extends CreateRecord
 {
@@ -18,6 +19,25 @@ class CreateCheck extends CreateRecord
     protected static string $resource = CheckResource::class;
 
     protected static ?string $title = 'Nou check';
+
+    /** Check que es fa servir de base (botó Duplicar): se'n copien les dades i la versió vigent. */
+    #[Url]
+    public ?int $copia = null;
+
+    public function mount(): void
+    {
+        parent::mount();
+
+        $source = $this->copia ? Check::with('currentVersion')->find($this->copia) : null;
+        if ($source !== null) {
+            $this->form->fill([
+                ...collect($source->only($source->getFillable()))->except('posicio')->all(),
+                'nom' => "{$source->nom} (còpia)",
+                'modul_id' => $source->module?->id,
+                ...($source->currentVersion?->only(CheckForm::VERSION_FIELDS) ?? []),
+            ]);
+        }
+    }
 
     /** El check encara sense desar, si ja té tasca i executor. */
     protected function draftCheck(): ?Check

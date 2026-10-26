@@ -69,6 +69,11 @@ class EditCheck extends EditRecord
                 ->icon(Heroicon::OutlinedClock)
                 ->color('gray')
                 ->url(fn () => CheckResource::getUrl('runs', ['record' => $this->record])),
+            PageAction::make('duplicar')
+                ->label('Duplicar')
+                ->icon(Heroicon::OutlinedDocumentDuplicate)
+                ->color('gray')
+                ->url(fn () => CheckResource::getUrl('create', ['copia' => $this->record->id])),
             DeleteAction::make()
                 ->modalDescription(fn () => DeletionImpact::check($this->record)),
         ];

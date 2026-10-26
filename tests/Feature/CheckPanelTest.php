@@ -378,4 +378,22 @@ class CheckPanelTest extends TestCase
             ->assertHasFormErrors()
             ->assertSet('testResults', []);
     }
+
+    public function test_a_check_can_be_duplicated_as_the_base_of_a_new_one(): void
+    {
+        $this->actingAs($this->teacher);
+        $source = $this->check(params: [['name' => 'IP', 'label' => null, 'default' => '{{ip_dns}}']]);
+        $count = Check::count();
+
+        $create = Livewire::test(CreateCheck::class, ['copia' => $source->id])
+            ->assertSchemaStateSet([
+                'nom' => "{$source->nom} (còpia)",
+                'tasca_id' => $source->tasca_id,
+                'codi' => $source->currentVersion->codi,
+            ]);
+        $this->assertSame('IP', $create->get('data.parametres')[array_key_first($create->get('data.parametres'))]['name']);
+
+        $create->call('create');
+        $this->assertSame($count, Check::count(), 'la còpia també cal provar-la abans de desar');
+    }
 }

@@ -148,6 +148,13 @@ class ChecksTable
                     ->iconButton()
                     ->tooltip('Historial d\'execucions')
                     ->url(fn (Check $record) => CheckResource::getUrl('runs', ['record' => $record])),
+                Action::make('duplicar')
+                    ->label('Duplicar')
+                    ->icon(Heroicon::OutlinedDocumentDuplicate)
+                    ->color('gray')
+                    ->iconButton()
+                    ->tooltip('Duplicar com a base d\'un check nou')
+                    ->url(fn (Check $record) => CheckResource::getUrl('create', ['copia' => $record->id])),
                 EditAction::make()
                     ->label('Editar darrera versió')
                     ->iconButton()
