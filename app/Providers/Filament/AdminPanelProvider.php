@@ -41,6 +41,7 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 NavigationGroup::make('Checks'),
                 NavigationGroup::make('Accions'),
+                NavigationGroup::make('Inventari'),
                 NavigationGroup::make('Administració'),
             ])
             ->navigationItems([
@@ -54,6 +55,7 @@ class AdminPanelProvider extends PanelProvider
                     ->url(fn () => ActionResource::getUrl('create'))
                     ->isActiveWhen(fn () => request()->routeIs(ActionResource::getRouteBaseName().'.create'))
                     ->sort(2),
+                self::comingSoon('Comuns', Heroicon::OutlinedKey, 'Inventari', 4),
                 self::comingSoon('Gestió d\'usuaris i rols', Heroicon::OutlinedUsers, 'Administració', 1),
                 self::comingSoon('CRUD taules', Heroicon::OutlinedTableCells, 'Administració', 2),
             ])
