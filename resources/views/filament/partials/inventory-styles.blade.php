@@ -22,6 +22,10 @@
         .he-inv .o-global { color: rgb(107,114,128); }
         .he-inv .o-modul { color: rgb(37,99,235); }
         .dark .he-inv .o-modul { color: rgb(96,165,250); }
+        .he-inv .o-curs { color: rgb(124,58,237); }
+        .dark .he-inv .o-curs { color: rgb(167,139,250); }
+        .he-inv .grp { border-left: 2px solid rgba(128,128,128,.3); }
+        .he-inv .grp-row td { background: rgba(128,128,128,.08); font-weight: 600; font-size: .75rem; text-transform: uppercase; letter-spacing: .03em; }
         .he-inv .o-propia { color: rgb(217,119,6); font-weight: 600; }
         .he-inv .legend { display: flex; gap: 1rem; font-size: .8rem; margin-top: .5rem; flex-wrap: wrap; }
         .he-inv .chip { display: inline-block; padding: .1rem .5rem; border-radius: 999px; border: 1px solid rgba(128,128,128,.3); margin-right: .5rem; }

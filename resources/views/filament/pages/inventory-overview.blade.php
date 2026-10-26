@@ -3,6 +3,15 @@
     @php
         $grid = $this->grid;
         $hidden = ['usuari', 'nom_complet', 'num_taula'];
+        // Columnes de variables, agrupades per prefix: [nom, etiqueta del grup si és la primera del grup].
+        $columns = [];
+        foreach ($grid['groups'] ?? [] as $label => $names) {
+            $first = true;
+            foreach (array_diff($names, $hidden) as $name) {
+                $columns[] = [$name, $first ? $label : null];
+                $first = false;
+            }
+        }
     @endphp
 
     <div class="he-inv" x-data="{ search: '' }">
@@ -52,9 +61,8 @@
                                     <th>{{ $type->nom }} <span class="sub">{{ $type->grup_ansible }}</span></th>
                                 @endforeach
                             @else
-                                @foreach ($grid['keys'] as $key)
-                                    @continue(in_array($key, $hidden, true))
-                                    <th class="mono">{{ $key }}</th>
+                                @foreach ($columns as [$key, $group])
+                                    <th @class(['mono', 'grp' => $group])><span class="sub" style="display: block; font-family: inherit">{{ $group ?? ' ' }}</span>{{ $key }}</th>
                                 @endforeach
                             @endif
                         </tr>
@@ -91,10 +99,9 @@
                                         </td>
                                     @endforeach
                                 @else
-                                    @foreach ($grid['keys'] as $key)
-                                        @continue(in_array($key, $hidden, true))
+                                    @foreach ($columns as [$key, $group])
                                         @php $var = $row['vars'][$key] ?? null; @endphp
-                                        <td @class(['mono', 'o-'.($var['origen'] ?? 'none'), 'bad' => $var && str_contains($var['valor'], '{{')]) title="{{ $var ? $var['origen'].($var['tapa'] ? ' (tapa un valor inferior)' : '') : 'no definida' }}">
+                                        <td @class(['mono', 'grp' => $group, 'o-'.($var['origen'] ?? 'none'), 'bad' => $var && ($var['error'] || str_contains($var['valor'], '{' . '{'))]) title="{{ $var ? ($var['error'] ?? $var['origen'].($var['tapa'] ? ' (tapa un valor inferior)' : '')) : 'no definida' }}">
                                             {{ $var['valor'] ?? '—' }}
                                         </td>
                                     @endforeach
@@ -108,6 +115,7 @@
             @if ($vista === 'variables')
                 <div class="legend">
                     <span class="o-global">■ global</span>
+                    <span class="o-curs">■ del curs</span>
                     <span class="o-modul">■ derivada del mòdul</span>
                     <span>■ camp de l'alumne</span>
                     <span class="o-propia">■ pròpia de l'alumne</span>

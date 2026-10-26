@@ -2,7 +2,6 @@
 
 namespace App\Support;
 
-use App\Models\GlobalVar;
 use App\Models\HostType;
 use App\Models\Module;
 use App\Models\Student;
@@ -21,8 +20,8 @@ class InventoryGrid
      * @return array{
      *     types: Collection<int, HostType>,
      *     globals: list<array{tipus: HostType, nom: string, adreca: string, problemes: list<string>}>,
-     *     rows: list<array{student: Student, vars: array<string, array{valor: string, origen: string, tapa: bool}>, hosts: array<string, array{nom: string, adreca: string, problemes: list<string>}>, problemes: int}>,
-     *     keys: list<string>,
+     *     rows: list<array{student: Student, vars: array<string, array{valor: string, origen: string, tapa: bool, error: ?string}>, hosts: array<string, array{nom: string, adreca: string, problemes: list<string>}>, problemes: int}>,
+     *     groups: array<string, list<string>>,
      * }
      */
     public function build(Module $module, ?Collection $students = null): array
@@ -30,7 +29,7 @@ class InventoryGrid
         $types = $module->hostTypes()->with('credential')->orderBy('posicio')->get();
         $students ??= $module->students()->where('es_actiu', true)->with('user')->orderBy('num_taula')->get();
 
-        $globals = GlobalVar::query()->pluck('valor', 'clau')->all();
+        $globals = $this->resolver->common($module);
         $globalHosts = $types->filter->isGlobal()->map(fn (HostType $t) => ['tipus' => $t, ...$this->host($t, $globals)])->values()->all();
 
         $rows = [];
@@ -47,7 +46,8 @@ class InventoryGrid
                 'student' => $student,
                 'vars' => $vars,
                 'hosts' => $hosts,
-                'problemes' => array_sum(array_map(fn (array $h) => count($h['problemes']), $hosts)),
+                'problemes' => array_sum(array_map(fn (array $h) => count($h['problemes']), $hosts))
+                    + count(array_filter($vars, fn (array $v) => $v['error'] !== null)),
             ];
         }
 
@@ -55,7 +55,7 @@ class InventoryGrid
             'types' => $types->reject->isGlobal()->values(),
             'globals' => $globalHosts,
             'rows' => $rows,
-            'keys' => $this->sortKeys(array_values(array_unique($keys))),
+            'groups' => self::groups(array_values(array_unique($keys))),
         ];
     }
 
@@ -83,27 +83,69 @@ class InventoryGrid
                 $rendered[$field] = $template;
                 $problems[] = $e->getMessage();
             }
-            // Sobre el resultat: una variable derivada que no s'ha pogut calcular hi deixa el seu marcador.
-            foreach ($this->resolver->missing($rendered[$field], $vars) as $name) {
+            // Sobre el resultat: una variable que no s'ha pogut calcular hi deixa el seu marcador.
+            $missing = $this->resolver->missing($rendered[$field], $vars);
+            foreach ($missing as $name) {
                 $problems[] = "Falta la variable {$name}";
+            }
+            if ($missing === [] && str_contains($rendered[$field], '{{')) {
+                $problems[] = "No s'ha pogut calcular: {$rendered[$field]}";
             }
         }
 
         return ['nom' => $rendered['nom'], 'adreca' => $rendered['adreca'], 'problemes' => array_values(array_unique($problems))];
     }
 
+    /** Grups de la nomenclatura de variables, per prefix. */
+    public const GROUPS = [
+        'alumne' => 'Alumne',
+        'xarxa_' => 'Xarxes',
+        'ip_' => 'Adreces',
+        'nom_' => 'Noms',
+        'num_' => 'Números',
+        'altres' => 'Altres',
+    ];
+
+    /** Camps fixos de l'alumne, que sempre surten primer. */
+    private const FIELDS = ['usuari', 'nom_complet', 'num_taula', 'x', 'email'];
+
     /**
-     * Primer els camps de l'alumne, després la resta per ordre alfabètic.
+     * Agrupa els noms de variable per prefix (xarxa_, ip_, nom_, num_), ordenats dins de cada grup.
      *
      * @param  list<string>  $keys
-     * @return list<string>
+     * @return array<string, list<string>> etiqueta del grup => noms
      */
-    private function sortKeys(array $keys): array
+    public static function groups(array $keys): array
     {
-        $first = ['usuari', 'nom_complet', 'num_taula', 'x', 'email'];
-        $rest = array_diff($keys, $first);
-        sort($rest);
+        $groups = array_fill_keys(array_keys(self::GROUPS), []);
+        foreach ($keys as $key) {
+            $group = 'altres';
+            if (in_array($key, self::FIELDS, true)) {
+                $group = 'alumne';
+            } else {
+                foreach (array_keys(self::GROUPS) as $prefix) {
+                    if (str_ends_with($prefix, '_') && str_starts_with($key, $prefix)) {
+                        $group = $prefix;
+                        break;
+                    }
+                }
+            }
+            $groups[$group][] = $key;
+        }
 
-        return [...array_values(array_intersect($first, $keys)), ...$rest];
+        $result = [];
+        foreach ($groups as $group => $names) {
+            if ($names === []) {
+                continue;
+            }
+            if ($group === 'alumne') {
+                $names = array_values(array_intersect(self::FIELDS, $names));
+            } else {
+                sort($names);
+            }
+            $result[self::GROUPS[$group]] = $names;
+        }
+
+        return $result;
     }
 }

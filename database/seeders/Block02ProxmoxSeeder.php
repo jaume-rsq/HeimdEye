@@ -11,7 +11,7 @@ use Illuminate\Database\Seeder;
  * Bloc 2 (Proxmox VE i accés remot) amb els checks inicials d'SSH.
  *
  * Contracte dels checks: codi de sortida 0 = assolit; stdout = missatge.
- * Les variables arriben com a entorn HE_* (HE_PVE_IP, HE_ROUTER_IP...). Als checks
+ * Les variables arriben com a entorn HE_* (HE_IP_PVE, HE_IP_ROUTER...). Als checks
  * locals, el runner hi afegeix la credencial del mòdul: HE_SSH_USER i HE_SSH_KEY.
  * Els checks ssh diuen amb la capçalera "# hosts:" a quins equips s'executen.
  */
@@ -44,16 +44,16 @@ class Block02ProxmoxSeeder extends Seeder
             [
                 'nom' => 'SSH al servidor Proxmox',
                 'codi' => self::SSH."\n".<<<'SH'
-                    ssh "${opts[@]}" "$HE_SSH_USER@$HE_PVE_IP" true || exit 1
-                    echo "SSH correcte a $HE_PVE_IP"
+                    ssh "${opts[@]}" "$HE_SSH_USER@$HE_IP_PVE" true || exit 1
+                    echo "SSH correcte a $HE_IP_PVE"
                     SH,
             ],
             // El router és un MikroTik: RouterOS no té `true`.
             [
                 'nom' => 'SSH al router',
                 'codi' => self::SSH."\n".<<<'SH'
-                    ssh "${opts[@]}" "$HE_SSH_USER@$HE_ROUTER_IP" ':put ok' || exit 1
-                    echo "SSH correcte a $HE_ROUTER_IP"
+                    ssh "${opts[@]}" "$HE_SSH_USER@$HE_IP_ROUTER" ':put ok' || exit 1
+                    echo "SSH correcte a $HE_IP_ROUTER"
                     SH,
             ],
         ]);

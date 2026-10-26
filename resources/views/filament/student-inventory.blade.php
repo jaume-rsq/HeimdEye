@@ -32,15 +32,20 @@
             <table>
                 <thead><tr><th class="fix">Variable</th><th>Valor</th><th>Origen</th></tr></thead>
                 <tbody>
-                    @foreach ($data['vars'] as $key => $var)
-                        <tr style="cursor: default">
-                            <td class="fix mono">{{ $key }}</td>
-                            <td @class(['mono', 'o-'.$var['origen'], 'bad' => str_contains($var['valor'], '{{')])>{{ $var['valor'] }}</td>
-                            <td class="sub">
-                                {{ ['global' => 'global', 'modul' => 'derivada del mòdul', 'alumne' => 'camp de l\'alumne', 'propia' => 'pròpia de l\'alumne'][$var['origen']] }}
-                                @if ($var['tapa']) · tapa un valor inferior @endif
-                            </td>
-                        </tr>
+                    @foreach (\App\Support\InventoryGrid::groups(array_keys($data['vars'])) as $group => $names)
+                        <tr class="grp-row" style="cursor: default"><td class="fix" colspan="3">{{ $group }}</td></tr>
+                        @foreach ($names as $key)
+                            @php $var = $data['vars'][$key]; @endphp
+                            <tr style="cursor: default">
+                                <td class="fix mono">{{ $key }}</td>
+                                <td @class(['mono', 'o-'.$var['origen'], 'bad' => $var['error'] || str_contains($var['valor'], '{' . '{')])>{{ $var['valor'] }}</td>
+                                <td class="sub">
+                                    {{ ['global' => 'global', 'curs' => 'del curs', 'modul' => 'del mòdul', 'alumne' => 'camp de l\'alumne', 'propia' => 'pròpia de l\'alumne'][$var['origen']] }}
+                                    @if ($var['tapa']) · tapa un valor inferior @endif
+                                    @if ($var['error']) · <span style="color: rgb(220,38,38)">{{ $var['error'] }}</span> @endif
+                                </td>
+                            </tr>
+                        @endforeach
                     @endforeach
                 </tbody>
             </table>

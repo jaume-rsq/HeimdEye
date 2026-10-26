@@ -4,7 +4,6 @@ namespace App\Runner\Ansible;
 
 use App\Enums\CredentialType;
 use App\Models\Credential;
-use App\Models\GlobalVar;
 use App\Models\HostType;
 use App\Models\Module;
 use App\Models\Student;
@@ -39,7 +38,7 @@ class InventoryBuilder
     public function build(Module $module, iterable $students, Collection $hostTypes): array
     {
         $this->hostMap = [];
-        $globals = GlobalVar::query()->pluck('valor', 'clau')->all();
+        $globals = $this->resolver->common($module);
         $children = [];
         $studentGroups = [];
 

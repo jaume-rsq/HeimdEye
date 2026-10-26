@@ -15,7 +15,7 @@ class Module extends Model
 
     protected $fillable = [
         'curs_id', 'cicle_id', 'codi', 'nom', 'descripcio', 'tipus',
-        'combina', 'variables_derivades', 'credencial_id',
+        'combina', 'credencial_id',
     ];
 
     protected function casts(): array
@@ -23,7 +23,6 @@ class Module extends Model
         return [
             'tipus' => ModuleKind::class,
             'combina' => 'array',
-            'variables_derivades' => 'array',
         ];
     }
 
@@ -60,6 +59,12 @@ class Module extends Model
     public function hostTypes(): HasMany
     {
         return $this->hasMany(HostType::class, 'modul_id')->orderBy('posicio');
+    }
+
+    /** Variables pròpies del mòdul (les globals i les del curs es veuen amb Variable::visibleFrom). */
+    public function variables(): HasMany
+    {
+        return $this->hasMany(Variable::class, 'modul_id');
     }
 
     public function secrets(): HasMany
