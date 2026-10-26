@@ -57,7 +57,9 @@ class EditStudent extends EditRecord
                 ->icon(Heroicon::OutlinedSquares2x2)
                 ->color('gray')
                 ->url(fn () => InventoryOverview::getUrl(['modul' => $this->modul])),
-            DeleteAction::make(),
+            DeleteAction::make()
+                ->modalDescription(fn () => 'S\'esborraran totes les execucions de checks i accions d\'aquest alumne i els seus assoliments ('
+                    .$this->record->runs()->count().' execucions de checks). Si només ha deixat el curs, millor marca\'l com a inactiu. No es pot desfer.'),
         ];
     }
 

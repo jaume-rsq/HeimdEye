@@ -60,7 +60,6 @@ class AdminPanelProvider extends PanelProvider
                     ->isActiveWhen(fn () => request()->routeIs(ActionResource::getRouteBaseName().'.create'))
                     ->sort(2),
                 self::comingSoon('Gestió d\'usuaris i rols', Heroicon::OutlinedUsers, 'Administració', 1),
-                self::comingSoon('CRUD taules', Heroicon::OutlinedTableCells, 'Administració', 2),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

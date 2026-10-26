@@ -320,6 +320,16 @@ també poden ser playbooks (`executor = ansible`).
 - **Credencials** (`/admin/credencials`): SSH (clau privada), WinRM i usuari/contrasenya, amb on
   es fan servir (mòduls, tipus d'equip i capçaleres `# credencial:`). El secret no es torna a mostrar.
 
+### Al panell (menú Administració)
+
+- **Cursos** (`/admin/cursos`) i **Cicles** (`/admin/cicles`). Només hi ha un curs actual: marcar-ne
+  un desmarca l'anterior. Un curs o un cicle amb mòduls o alumnes no es pot esborrar.
+- **Mòduls i blocs** (`/admin/moduls-i-blocs`): dades del mòdul, professors, i els seus blocs amb
+  les tasques (d'on pengen els checks). Un bloc o una tasca amb checks no es pot treure, i un mòdul
+  amb checks, alumnes o accions no es pot esborrar. Els equips i les variables són a Inventari.
+- **Alumnes** (Inventari): a més de la fitxa, es poden marcar actius o inactius en bloc. Esborrar un
+  alumne esborra les seves execucions; si només ha deixat el curs, millor marcar-lo inactiu.
+
 ## Accions
 
 Les accions són scripts o playbooks que llança el professor (no puntuen): posar contrasenya,
