@@ -22,6 +22,7 @@
     <div style="display: flex; flex-wrap: wrap; gap: .375rem;">
         @foreach ($students as $s)
             @php([$bg, $fg] = $style($s))
+            @if (isset($s['url']))<a href="{{ $s['url'] }}" style="text-decoration: none">@endif
             <div title="{{ $s['taula'] }} · {{ $s['nom'] }} · {{ $s['estat']?->value ?? 'mai executat' }}{{ $s['versio'] ? ' · v'.$s['versio'] : '' }}{{ $s['data'] ? ' · '.$s['data'] : '' }}"
                  style="width: 3rem; height: 3rem; border-radius: .375rem; background: {{ $bg }}; color: {{ $fg }}; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1;">
                 <span style="font-weight: 600;">{{ $s['taula'] }}</span>
@@ -29,6 +30,7 @@
                     <span style="font-size: .7rem;">v{{ $s['versio'] ?? '?' }}</span>
                 @endif
             </div>
+            @if (isset($s['url']))</a>@endif
         @endforeach
     </div>
     <div style="font-size: .75rem; opacity: .7;">
