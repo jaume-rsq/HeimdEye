@@ -143,6 +143,23 @@ class ActionPanelTest extends TestCase
             ->assertCanNotSeeTableRecords([$failing]);
     }
 
+    public function test_simulations_only_show_in_the_last_simulation_view(): void
+    {
+        $this->actingAs($this->teacher);
+        $action = $this->action();
+        $student = $this->module->students()->firstOrFail();
+        $this->record($action, $student, ActionStatus::Ok);
+        $this->record($action, $student, ActionStatus::Changed, simulate: true);
+        [$real, $simulated] = [$action->runs()->where('es_simulacio', false)->first(), $action->runs()->where('es_simulacio', true)->first()];
+
+        Livewire::test(ManageActionRuns::class, ['record' => $action->id])
+            ->assertCanSeeTableRecords([$real])
+            ->assertCanNotSeeTableRecords([$simulated]);
+        Livewire::withQueryParams(['simulacio' => 1])->test(ManageActionRuns::class, ['record' => $action->id])
+            ->assertCanSeeTableRecords([$simulated])
+            ->assertCanNotSeeTableRecords([$real]);
+    }
+
     public function test_create_makes_version_one_and_edit_only_versions_real_changes(): void
     {
         $this->actingAs($this->teacher);
@@ -166,12 +183,13 @@ class ActionPanelTest extends TestCase
         $this->assertSame(1, $action->versions()->count());
 
         Livewire::test(EditAction::class, ['record' => $action->id])
-            ->fillForm(['codi' => 'echo adeu'])
+            ->fillForm(['codi' => 'echo adeu', 'comentari' => 'Diu adeu'])
             ->call('save')
             ->assertHasNoFormErrors();
         $action->refresh();
         $this->assertSame(2, $action->currentVersion->versio);
         $this->assertSame('echo adeu', $action->currentVersion->codi);
+        $this->assertSame('Diu adeu', $action->currentVersion->comentari);
         $this->assertSame(Executor::Local, $action->executor);
     }
 

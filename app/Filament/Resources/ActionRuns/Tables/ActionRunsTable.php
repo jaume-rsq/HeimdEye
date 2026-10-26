@@ -12,26 +12,32 @@ use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
-use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
-use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
  * Historial d'execucions d'accions: global (totes les accions) o d'una sola acció.
+ * Les simulacions no hi surten; només es poden veure les d'un lot ($simulationBatch).
  */
 class ActionRunsTable
 {
-    public static function configure(Table $table, ?ActionModel $action = null): Table
+    public static function configure(Table $table, ?ActionModel $action = null, ?int $simulationBatch = null): Table
     {
+        $simulation = $simulationBatch !== null;
+
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['action', 'version', 'student', 'triggeredBy']))
+            ->modifyQueryUsing(fn (Builder $query) => $query
+                ->with(['action', 'version', 'student', 'triggeredBy'])
+                ->where('es_simulacio', $simulation)
+                ->when($simulation, fn (Builder $q) => $q->where('execucio_id', $simulationBatch)))
             ->defaultSort('id', 'desc')
-            ->poll(fn () => RunBatch::where('origen', RunOrigin::Action)->whereNull('data_fi')->exists() ? '5s' : null)
+            ->poll(fn () => $simulation || RunBatch::where('origen', RunOrigin::Action)->whereNull('data_fi')->exists() ? '5s' : null)
+            ->emptyStateHeading($simulation ? 'Encara no hi ha resultats' : 'Encara no s\'ha executat')
+            ->emptyStateDescription($simulation ? 'La simulació és a la cua o s\'està executant.' : null)
             ->recordAction('sortida')
             ->columns([
                 TextColumn::make('action.nom')
@@ -48,13 +54,6 @@ class ActionRunsTable
                 TextColumn::make('triggeredBy.nom')
                     ->label('Llançat per')
                     ->placeholder('consola'),
-                IconColumn::make('es_simulacio')
-                    ->label('Simulació')
-                    ->boolean()
-                    ->trueIcon(Heroicon::OutlinedBeaker)
-                    ->falseIcon(Heroicon::OutlinedMinus)
-                    ->trueColor('info')
-                    ->falseColor('gray'),
                 TextColumn::make('estat')
                     ->badge(),
                 TextColumn::make('resum')
@@ -88,7 +87,7 @@ class ActionRunsTable
                 SelectFilter::make('versio_accio_id')
                     ->label('Versió')
                     ->options(fn () => $action?->versions()->orderByDesc('versio')->pluck('versio', 'id')->map(fn ($v) => "v{$v}") ?? [])
-                    ->visible($action !== null),
+                    ->visible($action !== null && ! $simulation),
                 SelectFilter::make('alumne_id')
                     ->label('Alumne')
                     ->options(fn () => Student::where('es_actiu', true)
@@ -99,10 +98,6 @@ class ActionRunsTable
                 SelectFilter::make('estat')
                     ->options(ActionStatus::class)
                     ->multiple(),
-                TernaryFilter::make('es_simulacio')
-                    ->label('Simulació')
-                    ->trueLabel('Només simulacions')
-                    ->falseLabel('Només execucions reals'),
                 Filter::make('dates')
                     ->columns(2)
                     ->columnSpan(2)
@@ -116,7 +111,8 @@ class ActionRunsTable
                     ->indicateUsing(fn (array $data) => array_filter([
                         filled($data['des'] ?? null) ? 'Des de '.$data['des'] : null,
                         filled($data['fins'] ?? null) ? 'Fins a '.$data['fins'] : null,
-                    ])),
+                    ]))
+                    ->visible(! $simulation),
             ], layout: FiltersLayout::AboveContent)
             ->filtersFormColumns(4)
             ->deferFilters(false)

@@ -247,6 +247,9 @@ Menú Accions → Llista d'accions (`/admin/accions`):
   vermell = ha fallat per a tots, gris = mai executada.
 - Botons Versions, Historial, Editar darrera versió i Llançar (Simular, només Ansible, i Executar).
 - Editar no modifica mai una versió: si canvia el codi, els paràmetres, el temps màxim o els
-  checks de verificació, es crea la versió següent. L'executor i el mòdul no es poden canviar.
+  checks de verificació, es crea la versió següent, amb un comentari opcional del canvi.
+  L'executor i el mòdul no es poden canviar.
+- Les simulacions no compten per a l'estat ni surten a l'historial: després de Simular es veu
+  el resultat a «Darrera simulació» de l'acció.
 - En llançar per a un sol alumne, els paràmetres es mostren calculats amb les seves variables
   (`{{num_taula}}`...) i es poden modificar. Només s'envien els que difereixen del valor per defecte.

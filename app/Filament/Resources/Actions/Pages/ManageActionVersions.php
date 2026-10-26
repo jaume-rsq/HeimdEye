@@ -53,6 +53,11 @@ class ManageActionVersions extends ManageRelatedRecords
                     ->label('Versió')
                     ->prefix('v')
                     ->weight('bold'),
+                TextColumn::make('comentari')
+                    ->label('Comentari')
+                    ->limit(60)
+                    ->wrap()
+                    ->placeholder('—'),
                 TextColumn::make('codi')
                     ->label('Codi')
                     ->formatStateUsing(fn (string $state) => strtok($state, "\n"))
