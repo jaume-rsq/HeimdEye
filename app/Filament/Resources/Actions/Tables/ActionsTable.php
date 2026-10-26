@@ -47,8 +47,6 @@ class ActionsTable
                     ->weight('bold'),
                 TextColumn::make('descripcio')
                     ->label('Descripció')
-                    ->limit(70)
-                    ->tooltip(fn (ActionModel $record) => $record->descripcio)
                     ->wrap(),
                 TextColumn::make('executor')
                     ->badge()

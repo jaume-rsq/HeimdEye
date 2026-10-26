@@ -44,6 +44,63 @@ class ActionRunner
     public function run(Action $action, Collection $students, array $hostTypes = [], array $params = [], bool $checkMode = false, ?User $user = null): RunBatch
     {
         $version = $action->currentVersion ?? throw new InvalidArgumentException("L'acció no té codi");
+        [$params, $types] = $this->prepare($action, $version, $hostTypes, $params, $checkMode);
+
+        $batch = RunBatch::create([
+            'modul_id' => $action->module->id,
+            'origen' => RunOrigin::Action,
+            'llancat_per' => $user?->id,
+            'data_inici' => now(),
+            'totals' => ['expected' => $students->count(), 'es_simulacio' => $checkMode],
+        ]);
+
+        $this->perform($action, $version, $students, $hostTypes, $types, $params, $checkMode, fn (ActionRun $run) => $run->fill([
+            'execucio_id' => $batch->id,
+            'versio_accio_id' => $version->id,
+            'llancat_per' => $user?->id,
+        ])->save());
+
+        $batch->refreshTotals();
+
+        if (! $checkMode && $version->checks_verificacio) {
+            $this->verify($action, $version->checks_verificacio, $students);
+        }
+
+        return $batch;
+    }
+
+    /**
+     * Prova una versió (també un esborrany sense desar, i d'una acció encara sense desar)
+     * i en retorna el resultat per alumne sense desar res ni llançar els checks de verificació.
+     *
+     * @param  Collection<int, Student>  $students
+     * @param  list<string>  $hostTypes
+     * @param  array<string, string>  $params
+     * @return list<ActionRun> execucions sense desar
+     *
+     * @throws InvalidArgumentException si l'acció no es pot executar així
+     */
+    public function preview(Action $action, ActionVersion $version, Collection $students, array $hostTypes = [], array $params = [], bool $checkMode = false): array
+    {
+        [$params, $types] = $this->prepare($action, $version, $hostTypes, $params, $checkMode);
+
+        $runs = [];
+        $this->perform($action, $version, $students, $hostTypes, $types, $params, $checkMode, function (ActionRun $run) use (&$runs) {
+            $runs[] = $run;
+        });
+
+        return $runs;
+    }
+
+    /**
+     * Valida l'execució i retorna els valors dels paràmetres i els tipus d'equip.
+     *
+     * @param  list<string>  $hostTypes
+     * @param  array<string, string>  $params
+     * @return array{0: array<string, string>, 1: Collection<int, HostType>}
+     */
+    private function prepare(Action $action, ActionVersion $version, array $hostTypes, array $params, bool $checkMode): array
+    {
         $params = Params::values($version->parametres, $params);
         if ($checkMode && $action->executor !== Executor::Ansible) {
             throw new InvalidArgumentException('Només es poden simular les accions d\'Ansible');
@@ -58,56 +115,55 @@ class ActionRunner
             throw new InvalidArgumentException('No existeix el tipus d\'equip '.implode(', ', $unknown));
         }
 
-        $batch = RunBatch::create([
-            'modul_id' => $module->id,
-            'origen' => RunOrigin::Action,
-            'llancat_per' => $user?->id,
-            'data_inici' => now(),
-            'totals' => ['expected' => $students->count(), 'es_simulacio' => $checkMode],
-        ]);
+        return [$params, $types];
+    }
 
-        $record = fn (Student $student, ActionStatus $status, array $counts, ?string $output, $startedAt) => ActionRun::create([
-            'execucio_id' => $batch->id,
-            'accio_id' => $action->id,
-            'versio_accio_id' => $version->id,
-            'alumne_id' => $student->id,
-            'llancat_per' => $user?->id,
-            'es_simulacio' => $checkMode,
-            'estat' => $status,
-            ...$counts,
-            'parametres' => $params ?: null,
-            'sortida' => $output,
-            'data_inici' => $startedAt,
-            'data_fi' => now(),
-        ]);
+    /**
+     * Executa la versió i passa el resultat de cada alumne, com a execució sense desar, a $record.
+     *
+     * @param  Collection<int, Student>  $students
+     * @param  list<string>  $hostTypes
+     * @param  Collection<int, HostType>  $types
+     * @param  array<string, string>  $params
+     * @param  callable(ActionRun): void  $record
+     */
+    private function perform(Action $action, ActionVersion $version, Collection $students, array $hostTypes, Collection $types, array $params, bool $checkMode, callable $record): void
+    {
+        $emit = function (Student $student, ActionStatus $status, array $counts, ?string $output, $startedAt) use ($action, $params, $checkMode, $record) {
+            $run = new ActionRun([
+                'accio_id' => $action->id,
+                'alumne_id' => $student->id,
+                'es_simulacio' => $checkMode,
+                'estat' => $status,
+                ...$counts,
+                'parametres' => $params ?: null,
+                'sortida' => $output,
+                'data_inici' => $startedAt,
+                'data_fi' => now(),
+            ]);
+            $run->setRelation('student', $student);
+            $record($run);
+        };
 
         $builder = new ContextBuilder($this->resolver);
         try {
             if ($action->executor === Executor::Ansible) {
-                $this->runAnsible($builder, $action, $version, $students, $types, $params, $checkMode, $record);
+                $this->runAnsible($builder, $action, $version, $students, $types, $params, $checkMode, $emit);
             } else {
                 foreach ($students as $student) {
                     $startedAt = now();
                     try {
-                        $context = $builder->build($module, $student, $action->executor, $version->codi, $version->temps_max_seg, $params, onlyTypes: $hostTypes ?: null);
+                        $context = $builder->build($action->module, $student, $action->executor, $version->codi, $version->temps_max_seg, $params, onlyTypes: $hostTypes ?: null);
                         $result = CheckRunner::executor($action->executor)->execute($context)->masked($context->mask);
                     } catch (InvalidArgumentException $e) {
                         $result = CheckResult::error($e->getMessage());
                     }
-                    $record($student, $this->statusFor($result->status), [], trim($result->message."\n\n".$result->output), $startedAt);
+                    $emit($student, $this->statusFor($result->status), [], trim($result->message."\n\n".$result->output), $startedAt);
                 }
             }
         } finally {
             $builder->cleanup();
         }
-
-        $batch->refreshTotals();
-
-        if (! $checkMode && $version->checks_verificacio) {
-            $this->verify($action, $version->checks_verificacio, $students);
-        }
-
-        return $batch;
     }
 
     /**

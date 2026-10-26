@@ -6,6 +6,7 @@ use App\Enums\Executor;
 use App\Models\Block;
 use App\Models\Check;
 use App\Models\Module;
+use Filament\Actions\Action;
 use Filament\Forms\Components\CodeEditor;
 use Filament\Forms\Components\CodeEditor\Enums\Language;
 use Filament\Forms\Components\Repeater;
@@ -15,6 +16,7 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 
 /**
@@ -98,6 +100,16 @@ class ActionForm
                             ->options(fn (Get $get) => Check::whereHas('task.block', fn ($q) => $q->where('modul_id', $get('modul_id')))
                                 ->orderBy('nom')->pluck('nom', 'id')),
                     ]),
+                Section::make('Proves')
+                    ->description('Resultats de provar l\'esborrany amb el botó «Provar». No es desen enlloc.')
+                    ->headerActions([
+                        Action::make('netejarProves')
+                            ->label('Netejar')
+                            ->color('gray')
+                            ->size('sm')
+                            ->action(fn ($livewire) => $livewire->clearTestResults()),
+                    ])
+                    ->schema([View::make('filament.test-results')]),
             ]);
     }
 
