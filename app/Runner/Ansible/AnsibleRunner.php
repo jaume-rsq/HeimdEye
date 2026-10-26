@@ -14,8 +14,9 @@ class AnsibleRunner
     /**
      * @param  array<string, mixed>  $inventory
      * @param  array<string, mixed>  $extraVars
+     * @param  array<string, string>  $env  variables d'entorn d'Ansible addicionals (ANSIBLE_FORKS...)
      */
-    public function run(TempFiles $files, string $playbook, array $inventory, array $extraVars, bool $checkMode, int $timeout): AnsibleResult
+    public function run(TempFiles $files, string $playbook, array $inventory, array $extraVars, bool $checkMode, int $timeout, array $env = []): AnsibleResult
     {
         $command = [
             (string) config('heimdeye.ansible.playbook_bin'),
@@ -34,6 +35,7 @@ class AnsibleRunner
             'ANSIBLE_RETRY_FILES_ENABLED' => '0',
             'ANSIBLE_HOST_KEY_CHECKING' => 'False',
             'ANSIBLE_SSH_ARGS' => implode(' ', [...SshOptions::HOST_KEYS, '-o', 'ControlMaster=auto', '-o', 'ControlPersist=60s']),
+            ...$env,
         ], '', $timeout);
 
         $report = null;
