@@ -14,6 +14,9 @@ class CheckVersion extends Model
 
     protected $table = 'versions_check';
 
+    /** Una versió nova també compta com a modificació del check (llista ordenada per updated_at). */
+    protected $touches = ['check'];
+
     protected $fillable = ['check_id'];
 
     public function check(): BelongsTo

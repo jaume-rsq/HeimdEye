@@ -408,4 +408,18 @@ class CheckPanelTest extends TestCase
         $this->assertSame('IP', $copy->currentVersion->parametres[0]['name']);
         $this->assertSame($source->posicio + 1, $copy->posicio);
     }
+
+    public function test_the_list_shows_the_last_modified_checks_first(): void
+    {
+        $this->actingAs($this->teacher);
+        $old = $this->check();
+        $old->forceFill(['updated_at' => now()->subWeek()])->saveQuietly();
+        $recent = $this->check();
+        $recent->forceFill(['updated_at' => now()->subDay()])->saveQuietly();
+
+        Livewire::test(ListChecks::class)->assertCanSeeTableRecords([$recent, $old], inOrder: true);
+
+        $old->versions()->create(['versio' => 2, 'codi' => 'echo nova', 'temps_max_seg' => 10]);
+        Livewire::test(ListChecks::class)->assertCanSeeTableRecords([$old->fresh(), $recent], inOrder: true);
+    }
 }
