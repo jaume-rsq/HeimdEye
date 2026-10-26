@@ -75,11 +75,19 @@ composer install --no-dev --no-interaction --no-progress --prefer-dist --optimiz
 
 # Còpia de la BBDD abans de migrar.
 mkdir -p "$BASE/backups"
-set -a
-# shellcheck disable=SC1090
-source <(grep -E '^DB_(HOST|PORT|DATABASE|USERNAME|PASSWORD)=' "$BASE/shared/.env")
-set +a
-PGPASSWORD=$DB_PASSWORD pg_dump -w -h "${DB_HOST:-127.0.0.1}" -p "${DB_PORT:-5432}" -U "$DB_USERNAME" -Fc "$DB_DATABASE" \
+# Es llegeix el .env sense executar-lo: una contrasenya amb $, & o # no s'ha d'interpretar.
+env_value() {
+    local value
+    value=$(grep -E "^$1=" "$BASE/shared/.env" | tail -n 1 | cut -d= -f2- || true)
+    if [[ $value =~ ^\"(.*)\"$ || $value =~ ^\'(.*)\'$ ]]; then
+        value=${BASH_REMATCH[1]}
+    fi
+    printf '%s' "$value"
+}
+db_host=$(env_value DB_HOST)
+db_port=$(env_value DB_PORT)
+PGPASSWORD=$(env_value DB_PASSWORD) pg_dump -w -h "${db_host:-127.0.0.1}" -p "${db_port:-5432}" \
+    -U "$(env_value DB_USERNAME)" -Fc "$(env_value DB_DATABASE)" \
     >"$BASE/backups/$(date +%Y%m%d-%H%M%S)-abans-de-${sha:0:7}.dump" || { rm -rf "$release"; fail "pg_dump"; }
 ls -1t "$BASE"/backups/*.dump | tail -n +$((KEEP_BACKUPS + 1)) | xargs -r rm -f
 
