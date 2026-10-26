@@ -1,0 +1,9 @@
+[Unit]
+Description=HeimdEye: mira cada 5 minuts si hi ha res a desplegar
+
+[Timer]
+OnBootSec=2min
+OnUnitInactiveSec=5min
+
+[Install]
+WantedBy=timers.target

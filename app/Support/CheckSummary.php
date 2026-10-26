@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\CheckOverview;
 use App\Enums\CheckStatus;
+use App\Filament\Pages\StudentTracking;
 use App\Models\Check;
 use Illuminate\Support\Facades\DB;
 
@@ -101,7 +102,7 @@ final class CheckSummary
                     'versio' => $run?->checkVersion?->versio,
                     'vigent' => $run !== null && $run->versio_check_id === $current,
                     'data' => $run?->data_execucio?->format('d/m H:i'),
-                    'url' => \App\Filament\Pages\StudentTracking::getUrl(['alumne' => $student->id, 'tasca' => $check->tasca_id]),
+                    'url' => StudentTracking::getUrl(['alumne' => $student->id, 'tasca' => $check->tasca_id]),
                 ];
             })->all();
     }
