@@ -245,6 +245,10 @@ també poden ser playbooks (`executor = ansible`).
   La previsualització calcula, per a l'alumne triat, el que hi ha al formulari sense desar-ho.
   En desar, si alguna plantilla no es pot calcular per a algun alumne, ho avisa. Els secrets
   no es tornen a mostrar: un camp buit vol dir que no canvia.
+- **Variables comunes** (`/admin/variables`): les globals i les de cada curs, agrupades per prefix.
+  Un nom només pot sortir una vegada a cada àmbit.
+- **Credencials** (`/admin/credencials`): SSH (clau privada), WinRM i usuari/contrasenya, amb on
+  es fan servir (mòduls, tipus d'equip i capçaleres `# credencial:`). El secret no es torna a mostrar.
 
 ## Accions
 
