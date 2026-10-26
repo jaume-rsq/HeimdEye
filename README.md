@@ -8,7 +8,6 @@ contra els equips dels alumnes. El disseny complet és al document de disseny de
 
 Fase 4: base de dades, seeders, runner de checks (executors `local`, `ssh` i `ansible`), accions
 del professor i la primera part de la interfície web (Filament): la gestió d'accions i de checks.
-La gestió d'usuaris i rols surt al menú com a «aviat».
 
 ## Posada en marxa (desenvolupament)
 
@@ -322,6 +321,11 @@ també poden ser playbooks (`executor = ansible`).
 
 ### Al panell (menú Administració)
 
+- **Usuaris i rols** (`/admin/usuaris`, només administradors): administrador (tot, inclosos els
+  usuaris), professor (el panell sense usuaris, amb els mòduls que imparteix) i alumne (no entra al
+  panell; els crea l'importador). Amb `HEIMDEYE_AUTH=cloudflare` l'usuari es reconeix pel correu de
+  Google Workspace i no hi ha contrasenya. Ningú es pot canviar el rol, desactivar-se ni esborrar-se
+  a si mateix; un usuari amb fitxa d'alumne no s'esborra des d'aquí.
 - **Cursos** (`/admin/cursos`) i **Cicles** (`/admin/cicles`). Només hi ha un curs actual: marcar-ne
   un desmarca l'anterior. Un curs o un cicle amb mòduls o alumnes no es pot esborrar.
 - **Mòduls i blocs** (`/admin/moduls-i-blocs`): dades del mòdul, professors, i els seus blocs amb

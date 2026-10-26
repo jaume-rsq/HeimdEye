@@ -2,7 +2,6 @@
 
 namespace App\Providers\Filament;
 
-use App\Filament\Pages\ComingSoon;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Http\Middleware\AuthenticateWithCloudflareAccess;
@@ -58,7 +57,6 @@ class AdminPanelProvider extends PanelProvider
                     ->url(fn () => ActionResource::getUrl('create'))
                     ->isActiveWhen(fn () => request()->routeIs(ActionResource::getRouteBaseName().'.create'))
                     ->sort(2),
-                self::comingSoon('Gestió d\'usuaris i rols', Heroicon::OutlinedUsers, 'Administració', 1),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
@@ -93,17 +91,5 @@ class AdminPanelProvider extends PanelProvider
         }
 
         return $panel;
-    }
-
-    /** Entrada del menú d'una pantalla que encara no existeix. */
-    private static function comingSoon(string $label, Heroicon $icon, ?string $group, int $sort): NavigationItem
-    {
-        return NavigationItem::make($label)
-            ->group($group)
-            ->icon($icon)
-            ->badge('aviat', 'gray')
-            ->url(fn () => ComingSoon::getUrl(['que' => $label]))
-            ->isActiveWhen(fn () => request()->routeIs(ComingSoon::getRouteName()) && request('que') === $label)
-            ->sort($sort);
     }
 }
