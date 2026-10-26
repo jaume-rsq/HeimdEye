@@ -46,7 +46,6 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Administració'),
             ])
             ->navigationItems([
-                self::comingSoon('Leaderboard', Heroicon::OutlinedTrophy, null, -10),
                 NavigationItem::make('Nou check')
                     ->group('Checks')
                     ->icon(Heroicon::OutlinedPlusCircle)

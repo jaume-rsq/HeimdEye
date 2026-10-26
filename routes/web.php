@@ -1,6 +1,9 @@
 <?php
 
+use App\Http\Controllers\LeaderboardController;
 use Illuminate\Support\Facades\Route;
 
-// De moment, tota l'app és al panell; el leaderboard públic vindrà més endavant.
 Route::redirect('/', '/admin');
+
+// Públic (a Cloudflare Access cal una regla de Bypass per a /leaderboard).
+Route::get('/leaderboard', LeaderboardController::class)->name('leaderboard');

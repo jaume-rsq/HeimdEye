@@ -8,7 +8,7 @@ contra els equips dels alumnes. El disseny complet és al document de disseny de
 
 Fase 4: base de dades, seeders, runner de checks (executors `local`, `ssh` i `ansible`), accions
 del professor i la primera part de la interfície web (Filament): la gestió d'accions i de checks.
-El leaderboard i els CRUD surten al menú com a «aviat».
+La gestió d'usuaris i rols surt al menú com a «aviat».
 
 ## Posada en marxa (desenvolupament)
 
@@ -329,6 +329,19 @@ també poden ser playbooks (`executor = ansible`).
   amb checks, alumnes o accions no es pot esborrar. Els equips i les variables són a Inventari.
 - **Alumnes** (Inventari): a més de la fitxa, es poden marcar actius o inactius en bloc. Esborrar un
   alumne esborra les seves execucions; si només ha deixat el curs, millor marcar-lo inactiu.
+
+## Leaderboard
+
+Classificació d'un mòdul del curs actual. Públic a `/leaderboard` (sense login: a Cloudflare Access cal
+una regla de Bypass per a aquest camí), on només surt l'àlies de l'alumne o «Taula NN»; al panell
+(menú Leaderboard) surt amb els noms reals.
+
+- Compten els checks que ja han començat: no els desactivats a mà ni els que encara no han arribat a
+  `actiu_des`. Els que ja han acabat continuen comptant.
+- Cada check assolit dona els seus punts, amb el bonus de puntualitat si es va assolir abans de la
+  data límit. L'estat del professor mana: assolit sense data dona els punts sense bonus; no assolit, 0.
+- Columnes: punts, % d'obligatoris assolits, progrés per bloc i data del darrer assoliment.
+- En cas d'empat, va davant qui hi va arribar abans (darrer assoliment més antic).
 
 ## Accions
 
