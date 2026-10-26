@@ -90,6 +90,12 @@ sempre fan servir els 10 alumnes ficticis de `tests/fixtures/students.csv`.
 
 Cada alumne rep `xarxa_aula` (columna Xarxa) i `nom_alum` (columna alum) com a variables pròpies.
 
+Durant el curs, la mateixa llista s'importa des del panell (Alumnes → **Importar llista**):
+s'enganxa o s'arrossega el fitxer (es llegeix al navegador, no es puja), es previsualitzen els
+alumnes nous, els canvis i els que ja no hi són, i només s'aplica en confirmar. Els que no hi són
+es poden marcar inactius; no s'esborra mai cap alumne. El seeder fa servir el mateix servei
+(`App\Support\StudentImporter`) però no desactiva ningú.
+
 ## Variables
 
 Totes les variables són a la taula `variables`, amb un àmbit (`abast`): `global`, `curs`
@@ -267,6 +273,7 @@ també poden ser playbooks (`executor = ansible`).
   amb l'origen de cada valor i les plantilles que no es poden calcular en vermell.
 - **Alumnes** (`/admin/alumnes`): dades, variables pròpies i l'inventari calculat de cada alumne
   (variables, equips, inventari Ansible amb les contrasenyes emmascarades i activitat).
+  **Importar llista** (`/admin/alumnes/importar`) carrega la llista de l'aula a un mòdul.
 - **Equips i variables** (`/admin/moduls`): tipus d'equip, variables i secrets de cada mòdul.
   La previsualització calcula, per a l'alumne triat, el que hi ha al formulari sense desar-ho.
   En desar, si alguna plantilla no es pot calcular per a algun alumne, ho avisa. Els secrets

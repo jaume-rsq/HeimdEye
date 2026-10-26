@@ -2,12 +2,10 @@
 
 namespace Database\Seeders;
 
-use App\Enums\Role;
 use App\Models\AcademicYear;
 use App\Models\Cycle;
 use App\Models\Module;
-use App\Models\Student;
-use App\Models\User;
+use App\Support\StudentImporter;
 use Illuminate\Database\Seeder;
 use RuntimeException;
 
@@ -31,32 +29,8 @@ class StudentSeeder extends Seeder
             ->where('codi', '9991')
             ->firstOrFail();
 
-        foreach ($this->rows() as $row) {
-            $tableNo = (int) preg_replace('/\D/', '', $row['taula']);
-            $username = strstr($row['email'], '@', true);
-
-            $user = User::updateOrCreate(
-                ['email' => $row['email']],
-                ['nom' => $row['alumne'], 'rol' => Role::Student],
-            );
-
-            $student = Student::updateOrCreate(
-                ['curs_id' => $year->id, 'usuari' => $username],
-                [
-                    'usuari_id' => $user->id,
-                    'cicle_id' => $cycle->id,
-                    'nom_complet' => $row['alumne'],
-                    'num_taula' => $tableNo,
-                    'x' => 20 + $tableNo,
-                    'variables' => [
-                        'xarxa_aula' => $row['xarxa'],
-                        'nom_alum' => $row['alum'],
-                    ],
-                ],
-            );
-
-            $student->modules()->syncWithoutDetaching([$module->id]);
-        }
+        // El seeder no desactiva ningú: només afegeix i actualitza.
+        app(StudentImporter::class)->apply($module, $this->rows(), deactivateMissing: false);
     }
 
     /** @return list<array<string, string>> */
@@ -70,25 +44,11 @@ class StudentSeeder extends Seeder
             $path = database_path('seeders/data/students.example.csv');
         }
 
-        $handle = fopen($path, 'r') ?: throw new RuntimeException("No es pot llegir $path");
-        $first = fgets($handle);
-        if ($first === false || trim($first) === '') {
-            fclose($handle);
-
-            return []; // fitxer buit: cap alumne
+        $text = file_get_contents($path);
+        if ($text === false) {
+            throw new RuntimeException("No es pot llegir $path");
         }
-        $separator = str_contains($first, "\t") ? "\t" : ',';
-        rewind($handle);
-        $header = array_map(fn ($h) => strtolower(trim($h)), fgetcsv($handle, separator: $separator, escape: ''));
-        $rows = [];
-        while (($line = fgetcsv($handle, separator: $separator, escape: '')) !== false) {
-            if ($line === [null]) {
-                continue;
-            }
-            $rows[] = array_combine($header, array_map('trim', $line));
-        }
-        fclose($handle);
 
-        return $rows;
+        return app(StudentImporter::class)->parse($text);
     }
 }
