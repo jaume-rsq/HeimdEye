@@ -34,6 +34,11 @@ Postgres. També hi corre Pint, de moment només com a avís. Per provar Postgre
 
 ```bash
 DB_CONNECTION=pgsql DB_HOST=127.0.0.1 DB_DATABASE=heimdeye_test DB_USERNAME=heimdeye DB_PASSWORD=heimdeye php artisan test
+`migrate --seed` només carrega el Bloc 2. Els altres blocs tenen el seu seeder, que es pot
+tornar a executar sense duplicar res (no canvia el codi dels checks que ja tenen versions):
+
+```bash
+php artisan db:seed --class=Block06DnsSeeder   # Bloc 6: DNS (i l'acció d'accés a ns1)
 ```
 
 ### Autenticació
