@@ -34,7 +34,7 @@ class Leaderboard
             ->whereIn('tasca_id', $module->tasks()->select('tasques.id'))
             ->with('task')
             ->get()
-            ->filter(fn (Check $c) => $this->counts($c, $day))
+            ->filter(fn (Check $c) => self::counts($c, $day))
             ->keyBy('id');
         $blocks = $module->blocks()->orderBy('numero')->get()
             ->map(fn (Block $b) => ['block' => $b, 'checks' => $checks->where('task.bloc_id', $b->id)->count()])
@@ -51,10 +51,7 @@ class Leaderboard
         $rows = $students->map(function (Student $student) use ($checks, $blocks, $required, $states) {
             /** @var Collection<int, CheckStudent> $passed */
             $passed = ($states[$student->id] ?? collect())->filter->isPassing()->keyBy('check_id');
-            // Sense data d'assoliment (l'ha marcat el professor): els punts, sense bonus.
-            $points = $passed->sum(fn (CheckStudent $s) => $s->data_primer_assoliment
-                ? $checks[$s->check_id]->pointsFor($s->data_primer_assoliment)
-                : $checks[$s->check_id]->punts);
+            $points = $passed->sum(fn (CheckStudent $s) => self::points($checks[$s->check_id], $s));
             $requiredDone = $required->filter(fn (Check $c) => $passed->has($c->id))->count();
 
             return [
@@ -85,13 +82,23 @@ class Leaderboard
         ];
     }
 
+    /** Punts que dona ara un check a un alumne. Sense data d'assoliment (l'ha marcat el professor): sense bonus. */
+    public static function points(Check $check, ?CheckStudent $state): float
+    {
+        if ($state === null || ! $state->isPassing()) {
+            return 0;
+        }
+
+        return $state->data_primer_assoliment ? $check->pointsFor($state->data_primer_assoliment) : (float) $check->punts;
+    }
+
     /** Un check compta si està activat a mà, o si no està desactivat i ja ha començat. */
-    private function counts(Check $check, CarbonInterface $day): bool
+    public static function counts(Check $check, ?CarbonInterface $day = null): bool
     {
         if ($check->es_actiu !== null) {
             return $check->es_actiu;
         }
 
-        return $check->actiu_des === null || $check->actiu_des->toDateString() <= $day->toDateString();
+        return $check->actiu_des === null || $check->actiu_des->toDateString() <= ($day ?? Carbon::today())->toDateString();
     }
 }

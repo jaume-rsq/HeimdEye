@@ -33,9 +33,14 @@
                 <tr>
                     <td @class(['pos', 'medal-'.$row['posicio'] => $row['posicio'] <= 3 && $row['punts'] > 0])>{{ $row['posicio'] }}</td>
                     <td>
-                        <strong>{{ $row['nom_public'] }}</strong>
-                        @if ($names)
-                            <div class="sub">{{ sprintf('%02d', $row['student']->num_taula) }} · {{ $row['student']->nom_complet }}</div>
+                        @if ($names && isset($link))
+                            <a href="{{ $link($row['student']) }}" style="text-decoration: none; color: inherit"><strong>{{ $row['nom_public'] }}</strong>
+                                <div class="sub">{{ sprintf('%02d', $row['student']->num_taula) }} · {{ $row['student']->nom_complet }} →</div></a>
+                        @else
+                            <strong>{{ $row['nom_public'] }}</strong>
+                            @if ($names)
+                                <div class="sub">{{ sprintf('%02d', $row['student']->num_taula) }} · {{ $row['student']->nom_complet }}</div>
+                            @endif
                         @endif
                     </td>
                     <td class="num"><strong>{{ rtrim(rtrim(number_format($row['punts'], 2, ',', ''), '0'), ',') }}</strong></td>

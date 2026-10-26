@@ -90,7 +90,7 @@ final class CheckSummary
         $runs = $check->runs()->whereIn('id', $latest)->with('checkVersion')->get()->keyBy('alumne_id');
 
         return $check->module->students()->where('es_actiu', true)->orderBy('num_taula')->get()
-            ->map(function ($student) use ($runs, $current) {
+            ->map(function ($student) use ($runs, $current, $check) {
                 $run = $runs->get($student->id);
 
                 return [
@@ -101,6 +101,7 @@ final class CheckSummary
                     'versio' => $run?->checkVersion?->versio,
                     'vigent' => $run !== null && $run->versio_check_id === $current,
                     'data' => $run?->data_execucio?->format('d/m H:i'),
+                    'url' => \App\Filament\Pages\StudentTracking::getUrl(['alumne' => $student->id, 'tasca' => $check->tasca_id]),
                 ];
             })->all();
     }
