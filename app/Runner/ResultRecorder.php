@@ -6,22 +6,23 @@ use App\Enums\CheckStatus;
 use App\Models\Check;
 use App\Models\CheckRun;
 use App\Models\CheckStudent;
+use App\Models\CheckVersion;
 use App\Models\RunBatch;
 use App\Models\Student;
 use Illuminate\Support\Facades\DB;
 
-/** Desa una execució al log i actualitza l'estat del check per a l'alumne. */
+/** Desa una execució al log (amb la versió que s'ha executat) i actualitza l'estat del check per a l'alumne. */
 class ResultRecorder
 {
-    public function record(RunBatch $batch, Check $check, Student $student, CheckResult $result): CheckRun
+    public function record(RunBatch $batch, Check $check, Student $student, CheckResult $result, ?CheckVersion $version = null): CheckRun
     {
-        return DB::transaction(function () use ($batch, $check, $student, $result) {
+        return DB::transaction(function () use ($batch, $check, $student, $result, $version) {
             $now = now();
 
             $run = CheckRun::create([
                 'execucio_id' => $batch->id,
                 'check_id' => $check->id,
-                'versio_check_id' => $check->currentVersion?->id,
+                'versio_check_id' => ($version ?? $check->currentVersion)?->id,
                 'alumne_id' => $student->id,
                 'estat' => $result->status,
                 'missatge' => $result->message,

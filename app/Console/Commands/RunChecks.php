@@ -60,9 +60,9 @@ class RunChecks extends Command
                     }
 
                     // A mà no hi ha reintents: el resultat es desa tal com surt.
-                    $result = $runner->run($check, $student);
+                    $result = $runner->run($check, $student, $check->currentVersion);
                     if ($batch) {
-                        $recorder->record($batch, $check, $student, $result);
+                        $recorder->record($batch, $check, $student, $result, $check->currentVersion);
                     }
 
                     $rows[] = [$student->usuari, $check->id.' '.$check->nom, $result->status->value, $result->message, $result->durationMs];

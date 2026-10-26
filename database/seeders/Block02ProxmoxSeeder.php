@@ -19,7 +19,8 @@ class Block02ProxmoxSeeder extends Seeder
 {
     /** Opcions comunes per als checks locals que fan ssh. */
     private const SSH = <<<'SH'
-        opts=(-o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new)
+        # HE_SSH_OPTS: no desa les claus de host (els alumnes reinstal·len les VM).
+        opts=(-o BatchMode=yes -o ConnectTimeout=5 $HE_SSH_OPTS)
         [ -n "$HE_SSH_KEY" ] && opts+=(-i "$HE_SSH_KEY")
         SH;
 

@@ -6,11 +6,10 @@ use App\Enums\ActionStatus;
 use App\Enums\Executor;
 use App\Filament\Forms\RowPicker;
 use App\Filament\Resources\Actions\ActionResource;
-use App\Jobs\RunAction;
 use App\Models\Action as ActionModel;
 use App\Models\HostType;
 use App\Models\Student;
-use App\Runner\Params;
+use App\Runner\ActionRunner;
 use App\Support\VariableResolver;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -50,14 +49,13 @@ class LaunchAction
                 $given = self::givenParams($version->parametres ?? [], $data);
 
                 try {
-                    Params::values($version->parametres, $given);
+                    $students = Student::whereKey(array_map('intval', $data['alumnes']))->orderBy('num_taula')->get();
+                    app(ActionRunner::class)->launch($record, $students, $data['equips'] ?? [], $given, $simulate, auth()->user());
                 } catch (InvalidArgumentException $e) {
                     Notification::make()->danger()->title($e->getMessage())->send();
                     $action->halt();
                 }
-
-                $ids = array_map('intval', $data['alumnes']);
-                RunAction::dispatch($record, $ids, $data['equips'] ?? [], $given, $simulate, auth()->user());
+                $ids = $students->modelKeys();
 
                 Notification::make()
                     ->success()
@@ -93,7 +91,7 @@ class LaunchAction
                 ->afterStateUpdated(fn (?array $state, Set $set) => self::fillParams($record, $declared, $state ?? [], $set)),
             RowPicker::make('equips')
                 ->label('Tipus d\'equip')
-                ->helperText('Cap marcat = tots els de l\'alumne.')
+                ->helperText('Cap marcat = tots els que fa servir el codi.')
                 ->headers(['Tipus', 'Grup Ansible', 'Abast', 'Nom de host', 'Adreça', 'Credencial'])
                 ->rows($record->module->hostTypes->sortBy('posicio')->mapWithKeys(fn (HostType $t) => [$t->nom => [
                     $t->nom, $t->grup_ansible, $t->abast->value, $t->nom_host, $t->adreca, $t->credential?->nom ?? '—',

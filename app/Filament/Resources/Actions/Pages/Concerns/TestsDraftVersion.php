@@ -12,6 +12,7 @@ use App\Models\Check;
 use App\Models\Student;
 use App\Runner\ActionRunner;
 use App\Runner\CheckRunner;
+use App\Runner\CodeValidator;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
@@ -50,9 +51,10 @@ trait TestsDraftVersion
         return $this->testedHash === $this->draftHash();
     }
 
-    /** Atura el desament si l'esborrany no s'ha provat tal com està. */
+    /** Atura el desament si el codi no és vàlid o si l'esborrany no s'ha provat tal com està. */
     protected function requireTestedDraft(): void
     {
+        $this->requireValidCode();
         if ($this->draftIsTested()) {
             return;
         }
@@ -64,6 +66,27 @@ trait TestsDraftVersion
             ->persistent()
             ->send();
         $this->halt();
+    }
+
+    /** Atura el desament si el codi no es pot executar així (grups d'equips, secrets en clar). */
+    protected function requireValidCode(): void
+    {
+        $action = $this->draftAction();
+        if ($action === null) {
+            return;
+        }
+
+        try {
+            app(CodeValidator::class)->validate($action->module, $action->executor, $this->draftVersion()->codi);
+        } catch (InvalidArgumentException $e) {
+            Notification::make()
+                ->danger()
+                ->title('El codi no es pot desar')
+                ->body($e->getMessage())
+                ->persistent()
+                ->send();
+            $this->halt();
+        }
     }
 
     public function clearTestResults(): void

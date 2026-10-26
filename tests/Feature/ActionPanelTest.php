@@ -20,6 +20,7 @@ use App\Models\Module;
 use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\User;
+use App\Runner\ActionRunner;
 use App\Support\ActionSummary;
 use App\Support\VariableResolver;
 use Firebase\JWT\JWT;
@@ -226,14 +227,33 @@ class ActionPanelTest extends TestCase
 
     public function test_a_failing_job_leaves_an_error_in_the_history(): void
     {
-        $action = $this->action([['name' => 'obligatori', 'label' => 'Obligatori', 'default' => null]]);
+        $action = $this->action();
         $student = $this->module->students()->firstOrFail();
+        $batch = RunBatch::create(['modul_id' => $this->module->id, 'origen' => RunOrigin::Action, 'totals' => ['expected' => 1]]);
 
-        RunAction::dispatchSync($action, [$student->id]);
+        // P. ex. el worker l'atura per temps màxim abans que hagi desat res.
+        (new RunAction($batch, $action, $action->currentVersion, $student))->failed(new \RuntimeException('temps màxim superat'));
 
         $run = $action->runs()->sole();
         $this->assertSame(ActionStatus::Error, $run->estat);
-        $this->assertStringContainsString('obligatori', $run->sortida);
+        $this->assertSame($action->currentVersion->id, $run->versio_accio_id);
+        $this->assertStringContainsString('temps màxim superat', $run->sortida);
+        $this->assertNotNull($batch->fresh()->data_fi);
+    }
+
+    public function test_missing_parameter_stops_the_launch(): void
+    {
+        Queue::fake();
+        $action = $this->action([['name' => 'obligatori', 'label' => 'Obligatori', 'default' => null]]);
+
+        try {
+            app(ActionRunner::class)->launch($action, $this->module->students()->get());
+            $this->fail('Calia una excepció');
+        } catch (\InvalidArgumentException $e) {
+            $this->assertStringContainsString('obligatori', $e->getMessage());
+        }
+        Queue::assertNothingPushed();
+        $this->assertSame(0, RunBatch::count());
     }
 
     public function test_execute_for_one_student_sends_the_values_computed_for_that_student(): void
@@ -251,7 +271,8 @@ class ActionPanelTest extends TestCase
             ->callMountedAction()
             ->assertHasNoActionErrors();
 
-        Queue::assertPushed(RunAction::class, fn (RunAction $job) => $job->studentIds === [$student->id]
+        Queue::assertPushed(RunAction::class, fn (RunAction $job) => $job->student->is($student)
+            && $job->version->versio === 1
             && $job->params === ['usuari_pve' => $expected]
             && ! $job->checkMode
             && $job->user->is($this->teacher));

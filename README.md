@@ -41,24 +41,35 @@ administradors i professors actius de la taula `usuaris` (no hi ha autoregistre)
 
 ### Cua
 
-Les accions llançades des del panell van a la cua (`HEIMDEYE_QUEUE`, per defecte `checks`).
-En producció cal un worker en marxa, p. ex. amb systemd:
+Les accions llançades des del panell i els checks de la nit van a la cua (`HEIMDEYE_QUEUE`,
+per defecte `checks`), un treball per alumne. En producció calen workers en marxa; amb 4 en
+paral·lel, 20 alumnes amb un playbook de 30 s acaben en uns 3 minuts. Amb systemd, una
+plantilla i 4 instàncies:
 
 ```ini
-# /etc/systemd/system/heimdeye-queue.service
+# /etc/systemd/system/heimdeye-queue@.service
 [Unit]
-Description=HeimdEye: worker de la cua
+Description=HeimdEye: worker de la cua %i
 After=network.target postgresql.service
 
 [Service]
 User=www-data
 WorkingDirectory=/var/www/heimdeye
-ExecStart=/usr/bin/php artisan queue:work --queue=checks,default --sleep=3 --tries=1
+ExecStart=/usr/bin/php artisan queue:work --queue=checks,default --sleep=3 --tries=1 --timeout=3700
 Restart=always
 
 [Install]
 WantedBy=multi-user.target
 ```
+
+```bash
+sudo systemctl enable --now heimdeye-queue@{1..4}
+```
+
+Cada treball porta el seu temps màxim (el de la versió més 60 s), però el worker no pot tenir
+un `--timeout` més curt. A més, `DB_QUEUE_RETRY_AFTER` (al `.env`) ha de ser més llarg que
+qualsevol treball: si no, la cua el dona per perdut i el torna a repartir mentre encara corre.
+El temps màxim d'una versió és com a molt 3600 s, i per això el valor per defecte és 3700.
 
 En desenvolupament n'hi ha prou amb `QUEUE_CONNECTION=sync` o amb `php artisan queue:work --queue=checks`.
 
@@ -139,8 +150,12 @@ sempre se sap quin codi exacte va córrer.
   l'alumne (vegeu «Variables» i `App\Support\VariableResolver`). A Ansible són variables de
   grup de l'alumne (`{{ ip_pve }}`, `{{ nom_taula }}`...).
 - **Paràmetres:** `HE_PARAM_<NOM>` a `local` i `ssh`; a Ansible, una variable amb el seu nom.
-- **Secrets del mòdul:** el codi només rep els que esmenta pel nom (`HE_SECRET_<NOM>` o la
-  variable Ansible), i a la sortida desada surten com a `********`.
+- **Secrets del mòdul:** el codi només rep els que esmenta pel nom, com a paraula sencera
+  (`HE_SECRET_<NOM>` o la variable Ansible), i a la sortida desada surten com a `********`.
+  Cap secret no pot arribar en clar a un equip d'alumne, on l'alumne és root: amb `ssh`, el
+  codi no en pot esmentar cap; amb Ansible, només dins una expressió amb `password_hash` (a
+  l'equip hi arriba el hash) o en una tasca amb `delegate_to: localhost`. Si no, el codi no es
+  pot desar ni executar. La comprovació és de text i, en cas de dubte, rebutja.
 
 ### Capçaleres
 
@@ -154,9 +169,11 @@ com està. Es llegeixen fins a la primera línia de codi; els altres comentaris 
 out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
 ```
 
-- `# hosts: <grups>`: equips on s'executa el codi (executor `ssh`). Són grups Ansible del
-  mòdul (`pve`, `vm_router`...) o noms de tipus d'equip, separats per `:` o comes. Si falta, o
-  un grup no existeix, l'execució dona `error`.
+- `# hosts: <grups>`: equips on s'executa el codi (executor `ssh`, obligatòria). Són grups
+  Ansible del mòdul (`pve`, `vm_router`...) o noms de tipus d'equip, separats per `:` o comes.
+  Si falta, o un grup no existeix, el codi no es pot desar i l'execució dona `error`. A Ansible
+  fa aquesta feina el `hosts:` de cada play, amb les mateixes regles. `all`, comodins i
+  variables no hi són permesos: cal dir els grups concrets.
 - `# credencial: <nom>`: credencial a fer servir en lloc de la per defecte (pel nom). Si no
   existeix, `error`.
 
@@ -166,7 +183,7 @@ out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
 | --- | --- | --- | --- |
 | `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | La de `# credencial:` o la del mòdul. Una credencial SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); una de contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). |
 | `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els globals, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | La de `# credencial:`, o la del tipus d'equip, o la del mòdul. Port i usuari de `variables_connexio` (`ansible_port`, `ansible_user`) si n'hi ha. |
-| `ansible` | `ansible-playbook` al servidor, amb l'inventari generat a partir dels tipus d'equip. | Els tria el `hosts:` del playbook. | La de cada tipus d'equip (o la del mòdul). |
+| `ansible` | `ansible-playbook` al servidor, un per alumne, amb l'inventari generat a partir dels tipus d'equip. | Els dels grups del `hosts:` dels plays: l'inventari només porta aquests. | La de cada tipus d'equip (o la del mòdul). |
 
 Amb `ssh` i diversos equips, el resultat és `pass` només si passa a tots; si no, és el del
 primer equip que falla, i el missatge comença pel nom de l'equip (`router01: ...`). La sortida
@@ -174,7 +191,14 @@ desada porta un bloc per equip.
 
 Codis de sortida especials: amb `ssh`, el 255 (no connecta, clau rebutjada...) és
 `unavailable`. Un codi que no es pot executar (falta una variable, capçalera o credencial) és
-`error`.
+`error`. Amb Ansible, si cap equip de l'alumne no ha executat res (el `hosts:` no en
+coincideix cap), també és `error`, mai `ok` ni `pass`. Un check d'Ansible que canvia alguna
+cosa (`changed`) dona `error`: un check només llegeix (cal `changed_when: false` a les tasques
+`command`/`shell`).
+
+Claus de host: ni l'executor `ssh` ni Ansible no desen les claus dels equips
+(`StrictHostKeyChecking=no`, `UserKnownHostsFile=/dev/null`), perquè els alumnes reinstal·len
+les VM sovint. Els scripts `local` que fan `ssh` tenen les mateixes opcions a `$HE_SSH_OPTS`.
 
 ### Paràmetres
 
@@ -190,6 +214,8 @@ per exemple, `min_vms` en un check de VMs o `usuari` en una acció.
 - Una **acció** pot demanar els valors en el moment d'executar (`--param=usuari=jaume`); si no
   se'n dona cap, s'usa el `default`. Un paràmetre desconegut o sense valor atura l'execució. Els
   valors fets servir es desen a cada `execucions_accio`.
+- Un valor pot fer servir variables de l'alumne (`{{ip_pve}}`, `{{ xarxa_aula | host(3) }}`):
+  es calcula per a cada alumne abans d'executar.
 
 Vegeu els exemples a `database/seeders/Block02ProxmoxSeeder.php` i `HostsSeeder.php`.
 
@@ -247,12 +273,16 @@ php artisan heimdeye:action 4 --student=alumne01 --student=alumne02 --host=pve -
 php artisan heimdeye:action 4 --queue          # tots els alumnes, a la cua
 ```
 
-- Un sol `ansible-playbook` per a tots els alumnes seleccionats; el resultat es reparteix per
-  alumne segons els equips (els globals compten per a tots).
-- `--simulate` executa amb `--check --diff`: no canvia res i mostra què canviaria.
-- `--host` limita els tipus d'equip (a l'inventari d'Ansible o als de `# hosts:`); `--param`
-  dona valor als paràmetres declarats.
-- Si la versió té `checks_verificacio`, després de l'execució real es llancen aquests checks.
+- Cada alumne és una execució a part (un `ansible-playbook` o un script per alumne) i un
+  treball de la cua propi: un alumne amb una variable que falta o un equip que no respon no
+  afecta els altres, i el temps màxim de la versió és per alumne.
+- S'executa la versió vigent quan es llança, encara que després se'n desi una altra.
+- `--simulate` executa amb `--check --diff`: no canvia res i mostra què canviaria. Les tasques
+  `command` i `shell` se salten en simular, així que una simulació verda no ho garanteix tot.
+- `--host` limita els tipus d'equip als que fa servir el codi; `--param` dona valor als
+  paràmetres declarats.
+- Si la versió té `checks_verificacio`, quan l'acció acaba per a un alumne es llancen aquests
+  checks per a ell (no en simular).
 
 ### Al panell
 

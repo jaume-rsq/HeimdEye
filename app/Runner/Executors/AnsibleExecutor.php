@@ -10,8 +10,8 @@ use App\Runner\ExecutionContext;
 use App\Runner\TempFiles;
 
 /**
- * Executa un playbook com a check: assolit si cap tasca falla i tots els equips responen.
- * El playbook tria els equips amb hosts: (pve, vm_dns_windows...).
+ * Executa un playbook com a check: assolit si cap tasca falla, tots els equips responen i no
+ * canvia res (un check només llegeix). El playbook tria els equips amb hosts: (pve, vm_dns_windows...).
  */
 class AnsibleExecutor implements Executor
 {
@@ -27,11 +27,21 @@ class AnsibleExecutor implements Executor
             $context->checkMode,
             $context->timeout,
         );
-        $summary = $result->summarize(array_keys($result->stats));
+        $summary = $result->summarize($context->hosts);
+        if ($summary['status'] === ActionStatus::Changed) {
+            return new CheckResult(
+                CheckStatus::Error,
+                "El check ha modificat l'equip (changed={$summary['changed']}): un check només pot llegir. Posa changed_when: false a les tasques que no canvien res.",
+                $summary['output'],
+                $result->exitCode,
+                $result->durationMs,
+            );
+        }
 
         return new CheckResult(
             match ($summary['status']) {
-                ActionStatus::Ok, ActionStatus::Changed => CheckStatus::Pass,
+                ActionStatus::Ok => CheckStatus::Pass,
+                ActionStatus::Changed => CheckStatus::Error,
                 ActionStatus::Failed => CheckStatus::Fail,
                 ActionStatus::Unavailable => CheckStatus::Unavailable,
                 ActionStatus::Timeout => CheckStatus::Timeout,
