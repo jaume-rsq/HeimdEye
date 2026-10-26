@@ -7,16 +7,25 @@ use App\Filament\Actions\LaunchAction;
 use App\Filament\Resources\ActionRuns\Tables\ActionRunsTable;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Models\Action;
+use App\Support\ActionSummary;
 use Filament\Actions\Action as PageAction;
 use Filament\Resources\Pages\ManageRelatedRecords;
+use Filament\Schemas\Components\EmbeddedTable;
+use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\RenderHook;
+use Filament\Schemas\Components\View;
+use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Filament\View\PanelsRenderHook;
 use Illuminate\Contracts\Support\Htmlable;
 use Livewire\Attributes\Url;
 
 /**
- * Historial d'execucions reals d'una acció. Amb ?simulacio=1 mostra només el resultat
- * de la darrera simulació (les simulacions no formen part de l'historial).
+ * Historial d'execucions reals d'una acció, amb l'estat de cada alumne a dalt i, si n'hi ha
+ * que l'han rebuda amb una versió anterior, el botó per executar-hi la vigent.
+ * Amb ?simulacio=1 mostra només el resultat de la darrera simulació (les simulacions
+ * no formen part de l'historial).
  *
  * @property Action $record
  */
@@ -56,9 +65,26 @@ class ManageActionRuns extends ManageRelatedRecords
                 ->color('gray')
                 ->url(ActionResource::getUrl('runs', ['record' => $action, 'simulacio' => 1]))
                 ->visible(! $this->simulacio && $action->executor === Executor::Ansible && $this->latestSimulationBatch() !== null),
+            LaunchAction::make(outdated: true)->record($action),
             LaunchAction::make(simulate: true)->record($action),
             LaunchAction::make()->record($action),
         ];
+    }
+
+    /** Com la de ManageRelatedRecords, amb la graella d'estat per alumne a sobre de la taula (no a la simulació). */
+    public function content(Schema $schema): Schema
+    {
+        return $schema->components([
+            View::make('filament.action-students')
+                ->viewData(['students' => $this->simulacio ? [] : ActionSummary::students($this->getOwnerRecord())])
+                ->visible(! $this->simulacio),
+            Group::make([
+                $this->getTabsContentComponent(),
+                RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_MANAGE_RELATED_RECORDS_TABLE_BEFORE),
+                EmbeddedTable::make(),
+                RenderHook::make(PanelsRenderHook::RESOURCE_PAGES_MANAGE_RELATED_RECORDS_TABLE_AFTER),
+            ]),
+        ]);
     }
 
     public function table(Table $table): Table

@@ -10,6 +10,7 @@ use App\Models\Action as ActionModel;
 use App\Models\HostType;
 use App\Models\Student;
 use App\Runner\ActionRunner;
+use App\Support\ActionSummary;
 use App\Support\VariableResolver;
 use Filament\Actions\Action;
 use Filament\Forms\Components\TextInput;
@@ -28,13 +29,25 @@ use InvalidArgumentException;
  */
 class LaunchAction
 {
-    public static function make(bool $simulate = false): Action
+    /**
+     * @param  bool  $outdated  botó «Executar amb la vN»: només surt si hi ha alumnes que han
+     *                          rebut bé una versió anterior, i ja els porta marcats
+     */
+    public static function make(bool $simulate = false, bool $outdated = false): Action
     {
-        return Action::make($simulate ? 'simular' : 'executar')
-            ->label($simulate ? 'Simular' : 'Executar')
-            ->icon($simulate ? Heroicon::OutlinedBeaker : Heroicon::OutlinedPlay)
-            ->color($simulate ? 'info' : 'warning')
-            ->visible(fn (ActionModel $record) => ! $simulate || $record->executor === Executor::Ansible)
+        return Action::make($simulate ? 'simular' : ($outdated ? 'actualitzar' : 'executar'))
+            ->label(fn (ActionModel $record) => match (true) {
+                $simulate => 'Simular',
+                $outdated => 'Executar amb la v'.$record->currentVersion?->versio,
+                default => 'Executar',
+            })
+            ->icon($simulate ? Heroicon::OutlinedBeaker : ($outdated ? Heroicon::OutlinedArrowPath : Heroicon::OutlinedPlay))
+            ->color($simulate ? 'info' : ($outdated ? 'success' : 'warning'))
+            ->visible(fn (ActionModel $record) => match (true) {
+                $simulate => $record->executor === Executor::Ansible,
+                $outdated => ActionSummary::outdatedStudentIds($record) !== [],
+                default => true,
+            })
             ->disabled(fn (ActionModel $record) => $record->currentVersion === null)
             ->modalHeading(fn (ActionModel $record) => ($simulate ? 'Simular ' : 'Executar ').$record->nom)
             ->modalDescription($simulate
@@ -43,7 +56,10 @@ class LaunchAction
             ->modalSubmitActionLabel($simulate ? 'Simular' : 'Executar')
             ->modalWidth('4xl')
             ->schema(fn (ActionModel $record) => self::schema($record, $record->currentVersion?->parametres ?? []))
-            ->fillForm(fn (ActionModel $record) => self::fill($record->currentVersion?->parametres ?? []))
+            ->fillForm(fn (ActionModel $record) => [
+                ...self::fill($record->currentVersion?->parametres ?? []),
+                ...($outdated ? ['alumnes' => array_map('strval', ActionSummary::outdatedStudentIds($record))] : []),
+            ])
             ->action(function (ActionModel $record, array $data, Action $action) use ($simulate) {
                 $version = $record->currentVersion;
                 $given = self::givenParams($version->parametres ?? [], $data);

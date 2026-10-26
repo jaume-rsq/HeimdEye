@@ -140,7 +140,7 @@ class ActionRunner
      * @param  array<string, string>  $params
      * @return array<string, string>
      */
-    private function prepare(Action $action, ActionVersion $version, array $hostTypes, array $params, bool $checkMode): array
+    public function prepare(Action $action, ActionVersion $version, array $hostTypes, array $params, bool $checkMode): array
     {
         $params = Params::values($version->parametres, $params);
         if ($checkMode && $action->executor !== Executor::Ansible) {

@@ -302,8 +302,13 @@ Menú Accions → Llista d'accions (`/admin/accions`):
 - Filtres per curs (per defecte l'actual), mòdul, executor, nom i estat de la darrera execució
   real per a tots o algun alumne.
 - Icona d'estat segons la darrera execució real (les simulacions no compten) de cada alumne
-  actiu: verd = tots ok/changed, blau = encara falten alumnes, taronja = ha fallat per a algun,
-  vermell = ha fallat per a tots, gris = mai executada.
+  actiu: verd = tots ok/changed amb la versió vigent, blau = encara falten alumnes o n'hi ha
+  que la tenen d'una versió anterior, taronja = ha fallat per a algun, vermell = ha fallat per
+  a tots, gris = mai executada.
+- A l'historial, una graella amb un quadre per alumne: verd si la darrera execució va bé amb
+  la versió vigent, verd clar amb el número de versió si va bé amb una d'anterior, taronja o
+  vermell si ha fallat, gris si no s'ha executat mai. Només si hi ha alumnes amb una versió
+  anterior surt el botó «Executar amb la vN», amb aquests alumnes ja marcats.
 - Botons Versions, Historial, Editar darrera versió i Llançar (Simular, només Ansible, i Executar).
 - Editar no modifica mai una versió: si canvia el codi, els paràmetres, el temps màxim o els
   checks de verificació, es crea la versió següent, amb un comentari opcional del canvi.
@@ -312,8 +317,10 @@ Menú Accions → Llista d'accions (`/admin/accions`):
   el resultat a «Darrera simulació» de l'acció.
 - A l'editor (nova acció o editar), el botó **Provar** simula o executa el codi del formulari
   sense desar-lo, o executa un check per verificar-ne l'efecte. Els resultats surten a la secció
-  Proves i no es desen enlloc. Una versió nova no es pot desar sense haver provat el codi tal com és.
-  Les proves s'executen dins la petició web: compte amb els temps màxims de PHP-FPM o del proxy.
+  Proves i no es desen enlloc. Una versió nova no es pot desar sense haver provat el codi tal com és,
+  ni si no passa les comprovacions de `hosts:` i de secrets.
+  Les proves van per la cua (un treball per alumne), perquè Cloudflare talla les peticions als
+  100 s: la secció Proves les mostra «en cua» i s'omple a mesura que acaben. Cal un worker en marxa.
 - Si una execució falla abans de tenir resultat (p. ex. falta un paràmetre), queda a l'historial
   en estat `error` i l'excepció va al log de Laravel.
 - Si hi ha feines a la cua que cap worker no processa, el panell ho avisa a dalt de tot.

@@ -2,28 +2,31 @@
 
 namespace App\Filament\Resources\Actions\Pages\Concerns;
 
-use App\Enums\CheckStatus;
 use App\Enums\Executor;
 use App\Filament\Actions\LaunchAction;
 use App\Filament\Resources\Actions\Schemas\ActionForm;
+use App\Jobs\RunEditorTest;
 use App\Models\Action as ActionModel;
 use App\Models\ActionVersion;
 use App\Models\Check;
 use App\Models\Student;
 use App\Runner\ActionRunner;
-use App\Runner\CheckRunner;
 use App\Runner\CodeValidator;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
  * Proves de l'esborrany a l'editor d'accions: simular o executar el codi del formulari sense
- * desar-lo i verificar amb un check. Els resultats només es mostren a la pàgina; no queden
- * enlloc. Una versió nova no es pot desar sense haver provat abans el codi tal com està.
+ * desar-lo i verificar amb un check. Cada alumne és un treball de la cua (RunEditorTest), perquè
+ * una prova llarga no talli la petició web, i la pàgina en recull els resultats a mesura que
+ * acaben. Només es mostren a la pàgina; no queden enlloc. Una versió nova no es pot desar
+ * sense haver provat abans el codi tal com està.
  */
 trait TestsDraftVersion
 {
@@ -123,46 +126,91 @@ trait TestsDraftVersion
             ->schema(fn () => LaunchAction::schema($this->draftAction(), $this->draftVersion()->parametres ?? []))
             ->fillForm(fn () => LaunchAction::fill($this->draftVersion()->parametres ?? []))
             ->action(function (array $data, Action $action) use ($simulate) {
+                $draft = $this->draftAction();
                 $version = $this->draftVersion();
-                $students = Student::whereKey($data['alumnes'])->orderBy('num_taula')->get();
-                @set_time_limit($version->temps_max_seg + 60);
+                $hostTypes = $data['equips'] ?? [];
 
                 try {
-                    $runs = app(ActionRunner::class)->preview(
-                        $this->draftAction(),
-                        $version,
-                        $students,
-                        $data['equips'] ?? [],
-                        LaunchAction::givenParams($version->parametres ?? [], $data),
-                        $simulate,
-                    );
+                    $params = app(ActionRunner::class)->prepare($draft, $version, $hostTypes, LaunchAction::givenParams($version->parametres ?? [], $data), $simulate);
                 } catch (InvalidArgumentException $e) {
                     Notification::make()->danger()->title($e->getMessage())->send();
                     $action->halt();
                 }
 
                 $this->testedHash = $this->draftHash();
-                $title = $simulate ? 'Simulació de l\'esborrany' : 'Execució de l\'esborrany';
-                foreach (array_reverse($runs) as $run) {
-                    array_unshift($this->testResults, [
-                        'titol' => $title,
-                        'alumne' => sprintf('%02d · %s', $run->student->num_taula, $run->student->nom_complet),
-                        'estat' => $run->estat->value,
-                        'color' => self::hex($run->estat->getColor()),
-                        'resum' => $run->ok === null ? null : "ok={$run->ok} changed={$run->changed} failed={$run->failed}",
-                        'parametres' => $run->parametres ? collect($run->parametres)->map(fn ($v, $k) => "{$k}={$v}")->implode(' ') : null,
-                        'sortida' => $run->sortida,
-                        'hora' => now()->format('H:i:s'),
-                    ]);
-                }
-
-                $failures = collect($runs)->filter(fn ($run) => $run->estat->isFailure())->count();
-                Notification::make()
-                    ->{$failures ? 'warning' : 'success'}()
-                    ->title($failures ? "Prova feta: {$failures} amb errors" : 'Prova feta')
-                    ->body('Els resultats són a la secció Proves, a sota del formulari.')
-                    ->send();
+                $this->queueTests($simulate ? 'Simulació de l\'esborrany' : 'Execució de l\'esborrany', $data['alumnes'], fn (string $key, string $title, int $studentId) => new RunEditorTest(
+                    $key,
+                    $title,
+                    $studentId,
+                    action: ['id' => $draft->id, 'modul_id' => $draft->modul_id, 'nom' => $draft->nom, 'executor' => $draft->executor->value],
+                    version: $version->only(ActionForm::VERSION_FIELDS),
+                    hostTypes: $hostTypes,
+                    params: $params,
+                    checkMode: $simulate,
+                ));
             });
+    }
+
+    /**
+     * Posa a la cua una prova per alumne i en deixa la fila «en cua» a la secció Proves;
+     * refreshTestResults() hi posa el resultat quan arriba.
+     *
+     * @param  list<int|string>  $studentIds
+     * @param  callable(string, string, int): RunEditorTest  $job
+     */
+    private function queueTests(string $title, array $studentIds, callable $job): void
+    {
+        $rows = [];
+        foreach (Student::whereKey($studentIds)->orderBy('num_taula')->get() as $student) {
+            $key = (string) Str::uuid();
+            dispatch($job($key, $title, $student->id));
+            $rows[] = [
+                'clau' => $key,
+                'titol' => $title,
+                'alumne' => sprintf('%02d · %s', $student->num_taula, $student->nom_complet),
+                'estat' => 'en cua',
+                'color' => RunEditorTest::hex('gray'),
+                'resum' => null,
+                'parametres' => null,
+                'sortida' => null,
+                'hora' => now()->format('H:i:s'),
+            ];
+        }
+        $this->testResults = [...$rows, ...$this->testResults];
+        $this->refreshTestResults(notify: false);
+
+        Notification::make()
+            ->info()
+            ->title('Prova a la cua per a '.count($rows).' alumnes')
+            ->body('Els resultats apareixen a la secció Proves, a sota del formulari, a mesura que acaben.')
+            ->send();
+    }
+
+    /** Recull els resultats de les proves que ja han acabat (la vista ho crida cada 2 s mentre n'hi ha a la cua). */
+    public function refreshTestResults(bool $notify = true): void
+    {
+        $finished = [];
+        foreach ($this->testResults as $i => $row) {
+            if (! isset($row['clau'])) {
+                continue;
+            }
+            $result = Cache::pull(RunEditorTest::cacheKey($row['clau']));
+            if ($result !== null) {
+                unset($row['clau']);
+                $this->testResults[$i] = [...$row, ...$result];
+                $finished[] = $this->testResults[$i];
+            }
+        }
+
+        $pending = collect($this->testResults)->filter(fn (array $row) => isset($row['clau']))->count();
+        if (! $notify || $finished === [] || $pending > 0) {
+            return;
+        }
+        $failures = collect($finished)->whereNotIn('estat', ['ok', 'changed', 'pass'])->count();
+        Notification::make()
+            ->{$failures ? 'warning' : 'success'}()
+            ->title($failures ? "Prova acabada: {$failures} amb errors" : 'Prova acabada')
+            ->send();
     }
 
     private function draftCheckAction(): Action
@@ -191,39 +239,13 @@ trait TestsDraftVersion
             })
             ->action(function (array $data) {
                 $check = Check::findOrFail($data['check_id']);
-                $runner = app(CheckRunner::class);
-                $results = [];
-                foreach (Student::whereKey($data['alumnes'])->orderBy('num_taula')->get() as $student) {
-                    $result = $runner->run($check, $student);
-                    $results[] = [
-                        'titol' => "Check «{$check->nom}»",
-                        'alumne' => sprintf('%02d · %s', $student->num_taula, $student->nom_complet),
-                        'estat' => $result->status->value,
-                        'color' => self::hex($result->status === CheckStatus::Pass ? 'success' : ($result->status === CheckStatus::Fail ? 'danger' : 'warning')),
-                        'resum' => $result->message,
-                        'parametres' => null,
-                        'sortida' => $result->output,
-                        'hora' => now()->format('H:i:s'),
-                    ];
-                }
-                $this->testResults = [...$results, ...$this->testResults];
-
-                $failed = collect($results)->where('estat', '!=', CheckStatus::Pass->value)->count();
-                Notification::make()
-                    ->{$failed ? 'warning' : 'success'}()
-                    ->title($failed ? "Verificació: {$failed} no passen" : 'Verificació: tots passen')
-                    ->body('Els resultats són a la secció Proves, a sota del formulari.')
-                    ->send();
+                $this->queueTests("Check «{$check->nom}»", $data['alumnes'], fn (string $key, string $title, int $studentId) => new RunEditorTest(
+                    $key,
+                    $title,
+                    $studentId,
+                    version: ['temps_max_seg' => $check->currentVersion?->temps_max_seg ?? 15],
+                    checkId: $check->id,
+                ));
             });
-    }
-
-    private static function hex(string $color): string
-    {
-        return match ($color) {
-            'success' => '#16a34a',
-            'info' => '#2563eb',
-            'danger' => '#dc2626',
-            default => '#d97706',
-        };
     }
 }
