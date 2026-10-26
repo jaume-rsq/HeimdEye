@@ -17,7 +17,6 @@ use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
-use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 
@@ -79,11 +78,11 @@ class ActionForm
                             ->schema([
                                 TextInput::make('name')
                                     ->required()
-                                    ->regex(Params::NAME_RULE)
-                                    ->validationMessages(['regex' => 'Només majúscules, xifres i _ (p. ex. NOM_DNS).'])
-                                    ->extraInputAttributes(['style' => 'text-transform: uppercase'])
-                                    ->live(onBlur: true)
-                                    ->afterStateUpdated(fn (?string $state, Set $set) => $set('name', Params::name($state))),
+                                    // Es valida sense distingir majúscules i es desa en majúscules (versionData):
+                                    // el camp ja les mostra, encara que el valor no ho sigui.
+                                    ->regex(Params::NAME_RULE.'i')
+                                    ->validationMessages(['regex' => 'Només lletres sense accents, xifres i _ (p. ex. NOM_DNS).'])
+                                    ->extraInputAttributes(['style' => 'text-transform: uppercase']),
                                 TextInput::make('label'),
                                 TextInput::make('default'),
                             ])

@@ -7,6 +7,7 @@ use App\Filament\Resources\Checks\CheckResource;
 use App\Filament\Resources\Checks\Pages\Concerns\TestsDraftCheck;
 use App\Filament\Resources\Checks\Schemas\CheckForm;
 use App\Models\Check;
+use App\Runner\Params;
 use Filament\Resources\Pages\CreateRecord;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
@@ -31,10 +32,16 @@ class CreateCheck extends CreateRecord
         $source = $this->copia ? Check::with('currentVersion')->find($this->copia) : null;
         if ($source !== null) {
             $this->form->fill([
-                ...collect($source->only($source->getFillable()))->except('posicio')->all(),
+                ...$source->only($source->getFillable()),
+                'posicio' => ($source->posicio ?? 0) + 1,
                 'nom' => "{$source->nom} (còpia)",
                 'modul_id' => $source->module?->id,
                 ...($source->currentVersion?->only(CheckForm::VERSION_FIELDS) ?? []),
+                // Els checks d'abans de la regla de les majúscules poden tenir noms en minúscules.
+                'parametres' => array_map(
+                    fn (array $p) => [...$p, 'name' => Params::name($p['name'] ?? null)],
+                    $source->currentVersion?->parametres ?? [],
+                ),
             ]);
         }
     }
@@ -68,7 +75,10 @@ class CreateCheck extends CreateRecord
     protected function handleRecordCreation(array $data): Model
     {
         return DB::transaction(function () use ($data) {
-            $check = Check::create(array_diff_key($data, array_flip([...CheckForm::VERSION_FIELDS, 'comentari'])));
+            $check = Check::create([
+                ...array_diff_key($data, array_flip([...CheckForm::VERSION_FIELDS, 'comentari'])),
+                'posicio' => $data['posicio'] ?? 0, // la columna no admet null
+            ]);
             $check->versions()->create([
                 ...CheckForm::versionData($data),
                 'comentari' => $data['comentari'] ?? null,
