@@ -80,6 +80,13 @@ class User extends Authenticatable implements FilamentUser, HasName
         return in_array($this->rol, [Role::Admin, Role::Teacher], true);
     }
 
+    /** Pot editar un check: un administrador, o un professor del mòdul del check. */
+    public function canEditCheck(Check $check): bool
+    {
+        return $this->es_actiu && ($this->isAdmin()
+            || ($this->rol === Role::Teacher && $this->modules()->whereKey($check->task?->block?->modul_id)->exists()));
+    }
+
     /** Al panell hi entren els administradors i els professors actius. */
     public function canAccessPanel(Panel $panel): bool
     {

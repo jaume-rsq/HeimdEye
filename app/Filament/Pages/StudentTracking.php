@@ -214,6 +214,25 @@ class StudentTracking extends Page
         }
     }
 
+    /** Si l'usuari pot editar el check (administrador o professor del mòdul). */
+    public function canEdit(Check $check): bool
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        return $user->isAdmin() || $this->editableModules()->contains($check->task?->block?->modul_id);
+    }
+
+    /** @return Collection<int, int> mòduls que imparteix l'usuari */
+    #[Computed]
+    public function editableModules(): Collection
+    {
+        /** @var User $user */
+        $user = Auth::user();
+
+        return $user->modules()->pluck('moduls.id');
+    }
+
     /** Verifica ara un check, els d'una tasca o els de tot el mòdul, per a aquest alumne. */
     public function verify(?int $checkId = null, ?int $taskId = null): void
     {

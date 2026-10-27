@@ -36,6 +36,12 @@
         .he-tr .blk .agg { display: flex; flex-wrap: wrap; gap: .35rem 1.1rem; align-items: center; font-weight: 400; font-size: .8rem; margin-top: .3rem; }
         .he-tr .blk .agg .bar { width: 7rem; display: inline-block; vertical-align: middle; }
         .he-tr .pos { font-variant-numeric: tabular-nums; white-space: nowrap; opacity: .75; }
+        .he-tr tbody.chk td { border-bottom: 0; }
+        .he-tr tbody.chk tr.l1 td { border-top: 1px solid rgba(128,128,128,.15); }
+        .he-tr tr.l1 td { padding-bottom: .15rem; }
+        .he-tr tr.l2 td, .he-tr tr.l3 td { padding-top: 0; padding-bottom: .4rem; font-size: .8rem; }
+        .he-tr .run { display: inline-flex; flex-wrap: wrap; gap: .2rem .9rem; align-items: baseline; }
+        .he-tr .run > span:not(.msg) { white-space: nowrap; opacity: .85; }
         .he-tr .caret { display: inline-block; width: 1rem; transition: transform .15s; }
     </style>
 
@@ -144,11 +150,8 @@
                                         <th title="Bloc.tasca.check: l'ordre en què s'han d'anar assolint">Pos.</th>
                                         <th>Check</th>
                                         <th>Estat</th>
-                                        <th>Darrera execució</th>
-                                        <th>Missatge</th>
                                         <th>Primer assoliment</th>
                                         <th style="text-align: right">Punts</th>
-                                        <th>Comentari</th>
                                         <th></th>
                                     </tr>
                                 </thead>
@@ -159,7 +162,7 @@
                                     @endphp
                                     <tbody>
                                         <tr class="blk" x-on:click="closed[{{ $blockId }}] = ! closed[{{ $blockId }}]">
-                                            <td colspan="9">
+                                            <td colspan="6">
                                                 <span class="caret" x-bind:style="closed[{{ $blockId }}] ? 'transform: rotate(-90deg)' : ''">▾</span>
                                                 Bloc {{ $group['block']->numero }}: {{ $group['block']->titol }}
                                                 <div class="agg" style="padding-left: 1rem">
@@ -184,7 +187,7 @@
                                         <tbody x-show="! closed[{{ $blockId }}]">
                                             <tr class="grp">
                                                 <td class="pos">{{ $group['block']->numero }}.{{ $t['task']->posicio }}</td>
-                                                <td colspan="7">{{ $t['task']->titol }} <span class="sub">· {{ $t['assolits'] }}/{{ $t['total'] }} assolits</span></td>
+                                                <td colspan="4">{{ $t['task']->titol }} <span class="sub">· {{ $t['assolits'] }}/{{ $t['total'] }} assolits</span></td>
                                                 <td style="text-align: right"><button type="button" class="he-btn" wire:click="verify(null, {{ $t['task']->id }})">Verificar la tasca</button></td>
                                             </tr>
                                         </tbody>
@@ -194,44 +197,64 @@
                                                 $state = $r['state'];
                                                 $last = $r['darrera'];
                                             @endphp
-                                            <tbody x-data="{ open: false }" x-show="! closed[{{ $blockId }}]" wire:key="chk-{{ $check->id }}">
-                                                <tr class="row-main" x-on:click="open = ! open">
+                                            <tbody class="chk" x-data="{ open: false }" x-show="! closed[{{ $blockId }}]" wire:key="chk-{{ $check->id }}">
+                                                {{-- Línia 1: el check i el seu estat per a l'alumne --}}
+                                                <tr class="row-main l1" x-on:click="open = ! open">
                                                     <td class="pos">{{ $check->positionLabel() }}</td>
-                                                    <td style="min-width: 14rem">
+                                                    <td style="min-width: 16rem">
                                                         <strong>{{ $check->nom }}</strong>
-                                                        <div class="sub">{{ $check->tipus->value }} · {{ $check->punts }} punts{{ $r['compta'] ? '' : ' · no compta (no ha començat o desactivat)' }}</div>
-                                                    </td>
-                                                    <td>
-                                                        <span class="chip" style="background: {{ $r['assolit'] ? 'rgb(22,163,74)' : 'rgb(107,114,128)' }}">{{ $r['assolit'] ? 'Assolit' : 'No assolit' }}</span>
-                                                        @if ($r['corregit'])
-                                                            <div class="sub" title="{{ $state->updated_at?->format('d/m/Y H:i') }}">✎ corregit per {{ $state->teacherUpdatedBy?->nom ?: 'el professor' }}</div>
-                                                        @endif
+                                                        <span class="sub" style="white-space: nowrap">· {{ $check->tipus->value }} · {{ $check->punts }} {{ $check->punts == 1 ? 'punt' : 'punts' }}{{ $r['compta'] ? '' : ' · no compta encara' }}</span>
                                                     </td>
                                                     <td style="white-space: nowrap">
-                                                        @if ($last)
-                                                            <span class="dot" style="background: {{ $statusColor($last->estat) }}"></span>{{ $last->estat->value }}
-                                                            <div class="sub">{{ $last->data_execucio?->format('d/m/Y H:i') }} · v{{ $last->checkVersion?->versio ?? '?' }}{{ $last->durada_ms !== null ? ' · '.round($last->durada_ms / 1000, 1).' s' : '' }}</div>
-                                                        @else
-                                                            <span class="sub">Mai executat</span>
+                                                        <span class="chip" style="background: {{ $r['assolit'] ? 'rgb(22,163,74)' : 'rgb(107,114,128)' }}">{{ $r['assolit'] ? 'Assolit' : 'No assolit' }}</span>
+                                                        @if ($r['corregit'])
+                                                            <span class="sub" title="{{ $state->updated_at?->format('d/m/Y H:i') }}">✎ {{ $state->teacherUpdatedBy?->nom ?: 'professor' }}</span>
                                                         @endif
                                                     </td>
-                                                    <td style="max-width: 22rem">{{ \Illuminate\Support\Str::limit($last?->missatge, 120) }}</td>
                                                     <td style="white-space: nowrap">
                                                         {{ $state?->data_primer_assoliment?->format('d/m/Y H:i') ?? '—' }}
                                                         @if ($r['a_temps'] !== null)
-                                                            <div class="sub">{{ $r['a_temps'] ? 'a temps (+'.$check->bonus_puntualitat_pct.'%)' : 'tard' }}</div>
+                                                            <span class="sub">· {{ $r['a_temps'] ? 'a temps (+'.$check->bonus_puntualitat_pct.'%)' : 'tard' }}</span>
                                                         @endif
                                                     </td>
                                                     <td style="text-align: right"><strong>{{ $fmt($r['punts']) }}</strong></td>
-                                                    <td style="max-width: 16rem">{{ $state?->comentari_professor }}</td>
                                                     <td style="text-align: right; white-space: nowrap" x-on:click.stop>
                                                         <button type="button" class="he-btn" wire:click="mountAction('info', { check: {{ $check->id }} })" title="Objectiu, justificació i codi amb les dades de l'alumne">Info</button>
                                                         <button type="button" class="he-btn" wire:click="verify({{ $check->id }})">Verificar</button>
                                                         <button type="button" class="he-btn" wire:click="mountAction('correct', { check: {{ $check->id }} })">Corregir</button>
+                                                        @if ($this->canEdit($check))
+                                                            <a class="he-btn" href="{{ \App\Filament\Resources\Checks\CheckResource::getUrl('edit', ['record' => $check->id]) }}" title="Editar el check">✎</a>
+                                                        @endif
                                                     </td>
                                                 </tr>
+                                                {{-- Línia 2: la darrera execució --}}
+                                                <tr class="row-main l2" x-on:click="open = ! open">
+                                                    <td></td>
+                                                    <td colspan="5">
+                                                        @if ($last)
+                                                            <span class="run">
+                                                                <span><span class="dot" style="background: {{ $statusColor($last->estat) }}"></span><strong>{{ $last->estat->value }}</strong></span>
+                                                                <span>{{ $last->data_execucio?->format('d/m/Y H:i') }}</span>
+                                                                <span>v{{ $last->checkVersion?->versio ?? '?' }}</span>
+                                                                @if ($last->durada_ms !== null)<span>{{ round($last->durada_ms / 1000, 1) }} s</span>@endif
+                                                                @if (filled($last->missatge))
+                                                                    <span class="msg" style="color: {{ $last->estat === \App\Enums\CheckStatus::Pass ? 'inherit' : $statusColor($last->estat) }}">{{ \Illuminate\Support\Str::limit($last->missatge, 200) }}</span>
+                                                                @endif
+                                                            </span>
+                                                        @else
+                                                            <span class="sub">Mai executat</span>
+                                                        @endif
+                                                    </td>
+                                                </tr>
+                                                {{-- Línia 3: el comentari del professor, si n'hi ha --}}
+                                                @if (filled($state?->comentari_professor))
+                                                    <tr class="l3">
+                                                        <td></td>
+                                                        <td colspan="5"><span class="sub">Comentari:</span> {{ $state->comentari_professor }}</td>
+                                                    </tr>
+                                                @endif
                                                 <tr x-show="open" x-cloak>
-                                                    <td colspan="9" style="background: rgba(128,128,128,.04)">
+                                                    <td colspan="6" style="background: rgba(128,128,128,.04)">
                                                         <div style="display: grid; gap: 1rem; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr)">
                                                             <div>
                                                                 <div class="sub" style="margin-bottom: .3rem">Sortida de la darrera execució</div>
