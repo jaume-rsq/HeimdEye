@@ -455,6 +455,17 @@ d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
 - Botons per verificar ara un check, una tasca o tot el mòdul (per a aquest alumne) i per corregir:
   forçar assolit / no assolit o tornar a automàtic, i deixar un comentari que veurà l'alumne.
 
+### Vista de l'alumne
+
+Panell propi a `/alumne` (menú «El meu seguiment»). Hi entren els usuaris amb rol alumne, actius i
+amb fitxa d'alumne (l'importador ja els crea amb l'email de la llista). Amb Cloudflare Access entren
+amb el seu compte de Google; en local, pel formulari de `/alumne/login`. Un alumne que obre `/admin`
+(o `/`) va a `/alumne`, i un professor no pot entrar a `/alumne`.
+
+És la pantalla de Seguiment de només lectura i sempre amb l'alumne connectat: els seus mòduls, els
+checks amb l'estat, la darrera execució, el comentari del professor i el botó Info. No hi ha selector
+d'alumne, Verificar, Corregir ni editar, i el servidor els rebutja encara que es cridin a mà.
+
 ## Accions
 
 Les accions són scripts o playbooks que llança el professor (no puntuen): posar contrasenya,

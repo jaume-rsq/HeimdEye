@@ -214,6 +214,12 @@ class StudentTracking extends Page
         }
     }
 
+    /** La vista de l'alumne (El meu seguiment) no deixa verificar, corregir ni canviar d'alumne. */
+    public function readonly(): bool
+    {
+        return false;
+    }
+
     /** Si l'usuari pot editar el check (administrador o professor del mòdul). */
     public function canEdit(Check $check): bool
     {
