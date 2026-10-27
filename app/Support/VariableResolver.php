@@ -207,6 +207,25 @@ class VariableResolver
     }
 
     /**
+     * Variables que han quedat amb la plantilla sense calcular perquè en falta alguna altra
+     * (p. ex. ip_router = {{ xarxa_aula | host(-1) }} per a un alumne sense xarxa_aula).
+     *
+     * @param  array<string, string>  $vars  el resultat de resolve()
+     * @return array<string, list<string>> per variable, les que li falten
+     */
+    public function unresolved(array $vars): array
+    {
+        $result = [];
+        foreach ($vars as $key => $value) {
+            if ($missing = $this->missing($value, $vars)) {
+                $result[$key] = $missing;
+            }
+        }
+
+        return $result;
+    }
+
+    /**
      * Noms de variables que una plantilla fa servir i que no existeixen.
      *
      * @param  array<string, mixed>  $vars

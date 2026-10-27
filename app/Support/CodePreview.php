@@ -37,6 +37,13 @@ class CodePreview
             $vars[$key] = $var['valor'];
         }
 
+        foreach ($this->resolver->unresolved($vars) as $name => $missing) {
+            $env = 'HE_'.strtoupper(preg_replace('/[^A-Za-z0-9]+/', '_', $name));
+            if (preg_match('/(?<![A-Za-z0-9_])(?:'.preg_quote($name, '/').'|'.preg_quote($env, '/').')(?![A-Za-z0-9_])/', $version->codi)) {
+                $warnings[] = "El codi fa servir {$name}, però aquest alumne no té ".implode(', ', $missing).': defineix-la a la fitxa de l\'alumne (Variables pròpies) o a l\'inventari.';
+            }
+        }
+
         try {
             $params = Params::values($version->parametres);
         } catch (InvalidArgumentException $e) {

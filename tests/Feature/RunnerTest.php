@@ -203,6 +203,23 @@ class RunnerTest extends TestCase
         $this->assertStringContainsString('jaume_password no té valor', $result->message);
     }
 
+    public function test_a_variable_that_cannot_be_computed_for_the_student_is_an_error(): void
+    {
+        $student = Student::where('usuari', 'alumne01')->firstOrFail();
+        $student->update(['variables' => [...($student->variables ?? []), 'ip_router' => '{{ xarxa_inexistent | host(-1) }}']]);
+
+        $result = $this->execute($this->check('echo "$HE_IP_ROUTER"'));
+        $this->assertSame(CheckStatus::Error, $result->status);
+        $this->assertStringContainsString('ip_router', $result->message);
+        $this->assertStringContainsString('xarxa_inexistent', $result->message);
+
+        $this->assertSame(CheckStatus::Pass, $this->execute($this->check('echo "$HE_IP_PVE"'))->status, 'si el codi no la fa servir, no passa res');
+
+        $ssh = $this->execute($this->check("# hosts: vm_router\ntrue", Executor::Ssh));
+        $this->assertSame(CheckStatus::Error, $ssh->status);
+        $this->assertStringContainsString("L'adreça de l'equip router depèn de xarxa_inexistent", $ssh->message);
+    }
+
     public function test_not_implemented_executor_is_an_error(): void
     {
         $this->assertSame(CheckStatus::Error, $this->execute($this->check('GET /', Executor::Http))->status);

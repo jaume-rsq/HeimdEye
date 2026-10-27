@@ -63,6 +63,7 @@ class ContextBuilder
         $headers = CodeHeaders::parse($code);
         $override = $headers->credential === null ? null : $this->credentialNamed($headers->credential);
         $vars = $this->resolver->resolve($student, $module);
+        $this->assertNoUnresolvedVariables($vars, $code);
         $params = $this->renderParams($params, $vars);
 
         $secrets = $this->secretsFor($module, $code);
@@ -102,6 +103,11 @@ class ContextBuilder
             if (Playbook::mentions($code, 'heimdeye_ssh_pubkey_file') && ! config('heimdeye.runner.ssh_pubkey_path')) {
                 throw new InvalidArgumentException('El codi fa servir heimdeye_ssh_pubkey_file, però no hi ha HEIMDEYE_SSH_PUBKEY_PATH ni HEIMDEYE_SSH_KEY_PATH al .env');
             }
+            foreach ($types ?? [] as $type) {
+                if (! $type->isGlobal()) {
+                    $this->assertHostResolved($type, $vars);
+                }
+            }
             $builder = new InventoryBuilder($this->resolver, $this->files);
             $inventory = $builder->build($module, [$student], $types);
             $hosts = array_keys($builder->hostMap());
@@ -138,6 +144,44 @@ class ContextBuilder
         }
 
         return $secrets->mapWithKeys(fn ($secret) => [$secret->clau => $secret->valor])->all();
+    }
+
+    /**
+     * Atura l'execució si el codi fa servir (pel nom o com a $HE_NOM) una variable que per a
+     * aquest alumne no s'ha pogut calcular: si no, el codi rebria la plantilla tal qual.
+     *
+     * @param  array<string, string>  $vars
+     *
+     * @throws InvalidArgumentException
+     */
+    private function assertNoUnresolvedVariables(array $vars, string $code): void
+    {
+        foreach ($this->resolver->unresolved($vars) as $name => $missing) {
+            $env = $this->envName('HE_', $name);
+            if (preg_match('/(?<![A-Za-z0-9_])(?:'.preg_quote($name, '/').'|'.preg_quote($env, '/').')(?![A-Za-z0-9_])/', $code)) {
+                throw new InvalidArgumentException(sprintf(
+                    'El codi fa servir %s, però aquest alumne no té %s: defineix-la a la fitxa de l\'alumne (Variables pròpies) o a l\'inventari.',
+                    $name,
+                    implode(', ', $missing),
+                ));
+            }
+        }
+    }
+
+    /**
+     * L'adreça d'un equip pot fer servir una variable que tampoc s'ha pogut calcular
+     * (adreca {{ip_router}}, ip_router sense xarxa_aula): seria una adreça amb claus.
+     *
+     * @param  array<string, string>  $vars
+     *
+     * @throws InvalidArgumentException
+     */
+    public function assertHostResolved(HostType $type, array $vars): void
+    {
+        $address = $this->resolver->render($type->nom_host.' '.$type->adreca, $vars);
+        if ($missing = $this->resolver->missing($address, $vars)) {
+            throw new InvalidArgumentException("L'adreça de l'equip {$type->nom} depèn de ".implode(', ', $missing).", que aquest alumne no té: defineix-la a la fitxa de l'alumne (Variables pròpies) o a l'inventari.");
+        }
     }
 
     public function cleanup(): void
@@ -186,6 +230,7 @@ class ContextBuilder
             if ($missing = $this->resolver->missing($type->nom_host.' '.$type->adreca, $vars)) {
                 throw new InvalidArgumentException('Falta la variable '.implode(', ', $missing)." per a l'equip {$type->nom}");
             }
+            $this->assertHostResolved($type, $vars);
 
             return new SshTarget(
                 name: $this->resolver->render($type->nom_host, $vars),
