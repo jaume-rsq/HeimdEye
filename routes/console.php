@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('heimdeye:run --nightly')
     ->dailyAt(config('heimdeye.runner.nightly_at'))
     ->withoutOverlapping();
+
+if (config('heimdeye.demo.enabled')) {
+    Schedule::command('heimdeye:demo-cleanup')->hourly();
+}

@@ -2,10 +2,12 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Auth\DemoLogin;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Http\Middleware\AuthenticateWithCloudflareAccess;
 use App\Http\Middleware\RedirectStudentsToTheirPanel;
+use App\Support\Demo;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -68,6 +70,7 @@ class AdminPanelProvider extends PanelProvider
                 AccountWidget::class,
             ])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.partials.native-controls'))
+            ->renderHook(PanelsRenderHook::PAGE_START, fn () => view('filament.demo-banner'))
             ->renderHook(PanelsRenderHook::PAGE_START, fn () => view('filament.queue-warning'))
             ->renderHook(PanelsRenderHook::PAGE_END, fn () => view('filament.back-button'))
             ->middleware([
@@ -86,8 +89,11 @@ class AdminPanelProvider extends PanelProvider
                 RedirectStudentsToTheirPanel::class,
             ]);
 
-        // Amb Cloudflare Access el login el fa Google Workspace: no cal formulari.
-        if (config('heimdeye.auth.mode') !== 'cloudflare') {
+        // A la demo s'entra amb un botó, sense contrasenya. Amb Cloudflare Access el login el fa
+        // Google Workspace: no cal formulari.
+        if (Demo::enabled()) {
+            $panel->login(DemoLogin::class);
+        } elseif (config('heimdeye.auth.mode') !== 'cloudflare') {
             $panel->login();
         }
 

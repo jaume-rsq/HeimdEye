@@ -3,6 +3,7 @@
 namespace App\Runner;
 
 use App\Enums\CheckStatus;
+use App\Support\Demo;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\Process;
@@ -10,8 +11,8 @@ use Symfony\Component\Process\Process;
 /**
  * Executa una ordre amb timeout i converteix la sortida en un CheckResult.
  *
- * Si hi ha un embolcall configurat (p. ex. systemd-run), l'ordre s'executa a dins,
- * amb les variables d'entorn passades amb --setenv.
+ * Si hi ha un embolcall configurat (p. ex. systemd-run, o heimdeye-sandbox a la demo), l'ordre
+ * s'executa a dins, amb les variables d'entorn passades amb --setenv.
  */
 class ProcessRunner
 {
@@ -22,6 +23,7 @@ class ProcessRunner
      */
     public function run(array $command, array $env, string $stdin, int $timeout, ?callable $statusForExitCode = null): CheckResult
     {
+        $timeout = Demo::timeout($timeout);
         $run = $this->execute($command, $env, $stdin, $timeout);
 
         if ($run['error'] !== null) {
@@ -60,6 +62,7 @@ class ProcessRunner
      */
     public function execute(array $command, array $env, string $stdin, int $timeout): array
     {
+        $timeout = Demo::timeout($timeout);
         $process = new Process($this->wrap($command, $env, $timeout), env: $env, input: $stdin, timeout: $timeout);
         $start = hrtime(true);
         $timedOut = false;
@@ -100,6 +103,14 @@ class ProcessRunner
             foreach (array_keys($env) as $name) {
                 $wrapper[] = '--setenv='.$name;
             }
+        }
+        // Contenidor de proves de la demo (docker/sandbox/heimdeye-sandbox).
+        if (basename($wrapper[0]) === 'heimdeye-sandbox') {
+            $wrapper[] = '--timeout='.$timeout;
+            foreach (array_keys($env) as $name) {
+                $wrapper[] = '--setenv='.$name;
+            }
+            $wrapper[] = '--';
         }
 
         return [...$wrapper, ...$command];

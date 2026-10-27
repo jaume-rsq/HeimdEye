@@ -27,3 +27,4 @@ Homestead.yaml
 Thumbs.db
 /database/seeders/data/students.csv
 __pycache__/
+docker/.env

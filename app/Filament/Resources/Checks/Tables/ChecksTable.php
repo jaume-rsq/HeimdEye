@@ -155,7 +155,8 @@ class ChecksTable
                         ->hiddenLabel()
                         ->color('gray')
                         ->label('Editar')
-                        ->tooltip('Editar darrera versió'),
+                        ->tooltip('Editar darrera versió')
+                        ->visible(fn (Check $record) => CheckResource::canEdit($record)),
                     LaunchCheck::make()
                         ->hiddenLabel()
                         ->tooltip('Verificar ara'),

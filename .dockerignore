@@ -1,0 +1,17 @@
+.git
+.github
+.env
+.env.*
+docker/.env
+node_modules
+vendor
+public/css/filament
+public/fonts/filament
+public/js/filament
+storage/logs/*
+storage/framework/cache/*
+storage/framework/sessions/*
+storage/framework/views/*
+database/database.sqlite
+database/seeders/data/students.csv
+tests

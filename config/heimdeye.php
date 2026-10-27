@@ -50,6 +50,7 @@ return [
     | - wrapper: ordre que embolcalla cada execució, p. ex.
     |   "systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%"
     |   (amb systemd-run s'hi afegeixen RuntimeMaxSec i les variables amb --setenv). Buit = directe.
+    |   A la demo, "heimdeye-sandbox": s'executa al contenidor de proves (docker/compose.demo.yaml).
     | - ssh_key_path: clau privada a fer servir si la credencial no en té cap desada.
     | - ssh_pubkey_path: clau pública corresponent (per defecte, la privada amb .pub). Arriba als
     |   playbooks com a heimdeye_ssh_pubkey_file.
@@ -62,6 +63,20 @@ return [
         'retry_after' => (int) env('HEIMDEYE_RETRY_AFTER', 180),
         'output_limit' => 8192,
         'nightly_at' => env('HEIMDEYE_NIGHTLY_AT', '02:00'),
+    ],
+
+    /*
+    | Mode demo (App\Support\Demo): instància pública on qualsevol entra com a professor visitant.
+    | - max_timeout: segons màxims de qualsevol execució, sigui quin sigui el temps de la versió.
+    | - runs_per_hour: execucions (per alumne) que pot llançar cada visitant en una hora.
+    | - visitor_hours: hores d'inactivitat després de les quals heimdeye:demo-cleanup esborra el
+    |   visitant i els checks i les accions que ha creat.
+    */
+    'demo' => [
+        'enabled' => (bool) env('HEIMDEYE_DEMO', false),
+        'max_timeout' => (int) env('HEIMDEYE_DEMO_MAX_TIMEOUT', 30),
+        'runs_per_hour' => (int) env('HEIMDEYE_DEMO_RUNS_PER_HOUR', 60),
+        'visitor_hours' => (int) env('HEIMDEYE_DEMO_VISITOR_HOURS', 2),
     ],
 
     /*

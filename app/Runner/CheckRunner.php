@@ -14,6 +14,7 @@ use App\Runner\Executors\AnsibleExecutor;
 use App\Runner\Executors\Executor;
 use App\Runner\Executors\LocalExecutor;
 use App\Runner\Executors\SshExecutor;
+use App\Support\Demo;
 use App\Support\VariableResolver;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -43,6 +44,7 @@ class CheckRunner
     {
         $version = $check->currentVersion ?? throw new InvalidArgumentException('El check no té codi');
         $this->prepare($check, $version);
+        Demo::consumeRuns($user, $students->count());
 
         $batch = RunBatch::create([
             'modul_id' => $check->module->id,

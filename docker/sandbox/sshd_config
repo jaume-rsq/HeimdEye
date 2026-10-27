@@ -1,0 +1,20 @@
+# sshd del contenidor de proves: corre com l'usuari heimdeye (sense root) i només accepta la clau
+# del worker. Les sessions no tenen reenviaments ni terminal.
+Port 2222
+HostKey /tmp/sshd/host_ed25519
+PidFile /tmp/sshd/sshd.pid
+AuthorizedKeysFile /keys/runner/id_ed25519.pub
+StrictModes no
+UsePAM no
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowTcpForwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+X11Forwarding no
+PermitTunnel no
+PermitTTY no
+PrintMotd no
+# El sistema de fitxers és de només lectura menys /tmp: Ansible hi ha d'escriure.
+SetEnv ANSIBLE_LOCAL_TEMP=/tmp/ansible-local ANSIBLE_SSH_CONTROL_PATH_DIR=/tmp/ansible-cp ANSIBLE_HOME=/tmp/ansible-home ANSIBLE_COLLECTIONS_PATH=/home/heimdeye/.ansible/collections
