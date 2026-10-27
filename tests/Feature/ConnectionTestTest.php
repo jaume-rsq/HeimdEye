@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Enums\HostScope;
 use App\Enums\Role;
 use App\Filament\Pages\InventoryOverview;
 use App\Models\HostType;
@@ -46,7 +45,7 @@ class ConnectionTestTest extends TestCase
     {
         $broken = $this->module->hostTypes()->create(['nom' => 'trencat', 'grup_ansible' => 'trencats', 'nom_host' => 'trencat{{num_taula}}', 'adreca' => '{{ip_inexistent}}', 'posicio' => 2]);
         $api = $this->module->hostTypes()->create([
-            'nom' => 'api', 'grup_ansible' => 'apis', 'abast' => HostScope::Global, 'nom_host' => 'api', 'adreca' => '127.0.0.1', 'posicio' => 3,
+            'nom' => 'api', 'grup_ansible' => 'apis', 'es_unic' => true, 'nom_host' => 'api', 'adreca' => '127.0.0.1', 'posicio' => 3,
             'variables_connexio' => ['ansible_connection' => 'httpapi', 'ansible_httpapi_port' => 1],
         ]);
         // Windows va en una execució a part: si falla (p. ex. sense ansible.windows), la resta no se n'assabenta.

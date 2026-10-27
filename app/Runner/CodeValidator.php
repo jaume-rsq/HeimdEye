@@ -51,12 +51,13 @@ class CodeValidator
         }
 
         $matches = fn (HostType $type, string $group) => $type->grup_ansible === $group || $type->nom === $group;
-        $unknown = array_filter($groups, fn ($group) => ! $module->hostTypes->contains(fn (HostType $type) => $matches($type, $group)));
+        $visible = $module->visibleHostTypes();
+        $unknown = array_filter($groups, fn ($group) => ! $visible->contains(fn (HostType $type) => $matches($type, $group)));
         if ($unknown) {
             throw new InvalidArgumentException('No existeix el grup d\'equips '.implode(', ', $unknown));
         }
 
-        return $module->hostTypes
+        return $visible
             ->filter(fn (HostType $type) => collect($groups)->contains(fn ($group) => $matches($type, $group)))
             ->values();
     }

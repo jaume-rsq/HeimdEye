@@ -2,13 +2,12 @@
 
 namespace App\Filament\Resources\Modules\Schemas;
 
-use App\Enums\HostScope;
 use App\Enums\Level;
 use App\Enums\SecretType;
+use App\Filament\Resources\HostTypes\Schemas\HostTypeFields;
 use App\Filament\Resources\Secrets\Schemas\SecretFields;
 use App\Models\Module;
 use App\Models\Student;
-use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
@@ -51,26 +50,9 @@ class ModuleInventoryForm
                                     ->itemLabel(fn (array $state) => trim(($state['nom'] ?? '').' · '.($state['grup_ansible'] ?? '').' → '.($state['adreca'] ?? ''), ' ·→'))
                                     ->columns(3)
                                     ->addActionLabel('Afegir tipus d\'equip')
-                                    ->schema([
-                                        TextInput::make('nom')->required()->live(onBlur: true)->helperText('pve, router, dns...'),
-                                        TextInput::make('grup_ansible')->label('Grup Ansible')->required()->regex(self::KEY_RULE),
-                                        Select::make('abast')
-                                            ->options([HostScope::Student->value => 'Un per alumne', HostScope::Global->value => 'Un per a tot el mòdul'])
-                                            ->default(HostScope::Student->value)
-                                            ->live()
-                                            ->required(),
-                                        TextInput::make('nom_host')->label('Nom de host')->required()->live(onBlur: true)->helperText('Plantilla: pve{{num_taula}}-{{usuari}}'),
-                                        TextInput::make('adreca')->label('Adreça')->required()->live(onBlur: true)->helperText('Plantilla: {{ip_pve}}'),
-                                        Select::make('secret_acces_id')
-                                            ->label('Accés')
-                                            ->options(fn ($livewire) => SecretFields::accessOptions($livewire->getRecord()))
-                                            ->placeholder('El del mòdul'),
-                                        KeyValue::make('variables_connexio')
-                                            ->label('Variables de connexió')
-                                            ->keyLabel('Variable Ansible')
-                                            ->valueLabel('Valor')
-                                            ->columnSpanFull(),
-                                    ]),
+                                    ->schema(HostTypeFields::make(fn ($livewire) => SecretFields::accessOptions($livewire->getRecord())))
+                                    ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [...$data, 'nivell' => Level::Module->value]),
+                                View::make('filament.host-type-help'),
                             ]),
                         Tab::make('Variables')
                             ->schema([

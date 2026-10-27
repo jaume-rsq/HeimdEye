@@ -43,9 +43,9 @@ class InventoryBuilder
         $children = [];
         $studentGroups = [];
 
-        foreach ($hostTypes->filter->isGlobal() as $type) {
+        foreach ($hostTypes->filter->isUnique() as $type) {
             $name = $this->resolver->render($type->nom_host, $globals);
-            $children[$type->grup_ansible]['hosts'][$name] = $this->hostVars($type, $globals);
+            $children[$type->grup_ansible]['hosts'][$name] = $this->hostVars($module, $type, $globals);
             $this->hostMap[$name] = null;
         }
 
@@ -55,9 +55,9 @@ class InventoryBuilder
             $studentGroups[$group] = (object) [];
             $children[$group] = ['hosts' => [], 'vars' => array_diff_assoc($vars, $globals)];
 
-            foreach ($hostTypes->reject->isGlobal() as $type) {
+            foreach ($hostTypes->reject->isUnique() as $type) {
                 $name = $this->resolver->render($type->nom_host, $vars);
-                $children[$type->grup_ansible]['hosts'][$name] = $this->hostVars($type, $vars);
+                $children[$type->grup_ansible]['hosts'][$name] = $this->hostVars($module, $type, $vars);
                 $children[$group]['hosts'][$name] = (object) [];
                 $this->hostMap[$name] = $student->id;
             }
@@ -90,14 +90,14 @@ class InventoryBuilder
      * @param  array<string, string>  $vars
      * @return array<string, mixed>
      */
-    private function hostVars(HostType $type, array $vars): array
+    private function hostVars(Module $module, HostType $type, array $vars): array
     {
         $hostVars = ['ansible_host' => $this->resolver->render($type->adreca, $vars)];
         foreach ($type->variables_connexio ?? [] as $key => $value) {
             $hostVars[$key] = is_string($value) ? $this->resolver->render($value, $vars) : $value;
         }
 
-        return [...$hostVars, ...$this->accessVars($type->access ?? $type->module->access)];
+        return [...$hostVars, ...$this->accessVars($type->access ?? $module->access)];
     }
 
     /** @return array<string, string> */

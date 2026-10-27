@@ -58,9 +58,25 @@ class Module extends Model
         return $this->hasMany(Block::class, 'modul_id')->orderBy('posicio');
     }
 
+    /** Tipus d'equip propis del mòdul (els que veu, amb els globals i els del curs, a visibleHostTypes). */
     public function hostTypes(): HasMany
     {
         return $this->hasMany(HostType::class, 'modul_id')->orderBy('posicio')->orderBy('id');
+    }
+
+    /**
+     * Tipus d'equip que veu el mòdul: un de mòdul tapa un de curs o global amb el mateix nom.
+     *
+     * @return Collection<int, HostType>
+     */
+    public function visibleHostTypes(): Collection
+    {
+        return HostType::query()->visibleFrom($this)->with(['access'])->get()
+            ->sortBy(fn (HostType $type) => $type->nivell->rank())
+            ->keyBy('nom')
+            ->sortBy([['posicio', 'asc'], ['id', 'asc']])
+            ->each(fn (HostType $type) => $type->modul_id === $this->id && $type->setRelation('module', $this))
+            ->values();
     }
 
     /** Variables pròpies del mòdul (les globals i les del curs es veuen amb Variable::visibleFrom). */

@@ -12,7 +12,7 @@
                     <tbody>
                         @forelse ($preview['hosts'] as $host)
                             <tr style="cursor: default">
-                                <td class="fix"><strong>{{ $host['tipus']->nom }}</strong>@if ($host['tipus']->isGlobal()) <span class="sub">global</span>@endif</td>
+                                <td class="fix"><strong>{{ $host['tipus']->nom }}</strong>@if ($host['tipus']->isUnique()) <span class="sub">únic</span>@endif @if ($host['tipus']->nivell !== \App\Enums\Level::Module) <span class="sub">{{ $host['tipus']->nivell->value }}</span>@endif</td>
                                 <td @class(['bad' => $host['problemes']])>{{ $host['nom'] }}</td>
                                 <td @class(['mono', 'bad' => $host['problemes']])>
                                     {{ $host['adreca'] }}

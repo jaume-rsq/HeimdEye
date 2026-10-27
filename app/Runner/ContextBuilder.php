@@ -102,7 +102,7 @@ class ContextBuilder
         }
 
         $targets = $executor === Executor::Ssh
-            ? $this->targets($vars, $types, $override)
+            ? $this->targets($module, $vars, $types, $override)
             : [];
 
         $inventory = null;
@@ -112,7 +112,7 @@ class ContextBuilder
                 throw new InvalidArgumentException("El codi fa servir heimdeye_ssh_pubkey_file, però l'accés del mòdul no té clau pública: posa-la al secret, o fes servir {{ <secret>.pubkey }}");
             }
             foreach ($types ?? [] as $type) {
-                if (! $type->isGlobal()) {
+                if (! $type->isUnique()) {
                     $this->assertHostResolved($type, $vars);
                 }
             }
@@ -226,14 +226,14 @@ class ContextBuilder
      * @param  Collection<int, HostType>  $types
      * @return list<SshTarget>
      */
-    private function targets(array $vars, Collection $types, ?Secret $override): array
+    private function targets(Module $module, array $vars, Collection $types, ?Secret $override): array
     {
-        return $types->map(function (HostType $type) use ($vars, $override) {
+        return $types->map(function (HostType $type) use ($module, $vars, $override) {
             $connection = $type->variables_connexio ?? [];
             if (($connection['ansible_connection'] ?? 'ssh') !== 'ssh') {
                 throw new InvalidArgumentException("L'equip {$type->nom} es connecta per {$connection['ansible_connection']}, no per SSH");
             }
-            $access = $override ?? $type->access ?? $type->module->access;
+            $access = $override ?? $type->access ?? $module->access;
             if ($access?->tipus === SecretType::Login) {
                 throw new InvalidArgumentException("L'accés {$access->clau} és d'usuari i contrasenya, no una clau SSH");
             }

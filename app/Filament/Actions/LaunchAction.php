@@ -108,11 +108,11 @@ class LaunchAction
             RowPicker::make('equips')
                 ->label('Tipus d\'equip')
                 ->helperText('Cap marcat = tots els que fa servir el codi.')
-                ->headers(['Tipus', 'Grup Ansible', 'Abast', 'Nom de host', 'Adreça', 'Accés'])
-                ->rows($record->module->hostTypes->sortBy('posicio')->mapWithKeys(fn (HostType $t) => [$t->nom => [
-                    $t->nom, $t->grup_ansible, $t->abast->value, $t->nom_host, $t->adreca, $t->access?->clau ?? '—',
+                ->headers(['Tipus', 'Grup Ansible', 'Únic', 'Nom de host', 'Adreça', 'Accés'])
+                ->rows($record->module->visibleHostTypes()->mapWithKeys(fn (HostType $t) => [$t->nom => [
+                    $t->nom, $t->grup_ansible, $t->isUnique() ? 'sí' : 'no', $t->nom_host, $t->adreca, $t->access?->clau ?? '—',
                 ]])->all())
-                ->visible($record->module->hostTypes->isNotEmpty()),
+                ->visible($record->module->visibleHostTypes()->isNotEmpty()),
             Fieldset::make('Paràmetres')
                 ->visible($declared !== [])
                 ->schema(array_map(fn (array $p) => TextInput::make("parametres.{$p['name']}")

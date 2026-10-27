@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Secrets\Schemas;
 
+use App\Enums\Level;
 use App\Enums\SecretType;
 use App\Filament\Resources\Modules\Schemas\ModuleInventoryForm;
 use App\Models\Module;
@@ -83,6 +84,23 @@ class SecretFields
         return $module->visibleSecrets()
             ->filter(fn (Secret $secret) => $secret->tipus->isAccess())
             ->sortKeys()
+            ->mapWithKeys(fn (Secret $secret) => [$secret->id => "{$secret->clau} ({$secret->tipus->label()}, {$secret->nivell->value})"])
+            ->all();
+    }
+
+    /**
+     * Secrets d'accés que veu un tipus d'equip comú: els globals i, si és d'un curs, els del curs.
+     *
+     * @return array<int, string>
+     */
+    public static function commonAccessOptions(?string $level, mixed $courseId): array
+    {
+        return Secret::query()
+            ->where(fn ($q) => $q->where('nivell', Level::Global)
+                ->when($level === Level::Course->value && $courseId, fn ($q) => $q->orWhere(fn ($q) => $q->where('nivell', Level::Course)->where('curs_id', $courseId))))
+            ->whereIn('tipus', [SecretType::Login, SecretType::SshKey])
+            ->orderBy('clau')
+            ->get()
             ->mapWithKeys(fn (Secret $secret) => [$secret->id => "{$secret->clau} ({$secret->tipus->label()}, {$secret->nivell->value})"])
             ->all();
     }

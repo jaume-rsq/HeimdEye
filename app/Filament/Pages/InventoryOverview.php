@@ -100,10 +100,9 @@ class InventoryOverview extends Page
             return;
         }
 
-        $types = $module->hostTypes()
-            ->when($typeId, fn ($q) => $q->whereKey($typeId), fn ($q) => $q->where('abast', '!=', 'global'))
-            ->orderBy('posicio')
-            ->get();
+        $types = $module->visibleHostTypes()
+            ->when($typeId, fn ($types) => $types->where('id', $typeId), fn ($types) => $types->reject->isUnique())
+            ->values();
         $students = $module->students()->where('es_actiu', true)
             ->when($studentId, fn ($q) => $q->whereKey($studentId))
             ->orderBy('num_taula')
@@ -114,7 +113,7 @@ class InventoryOverview extends Page
 
         $cells = [];
         foreach ($types as $type) {
-            foreach ($type->isGlobal() ? [null] : $students->pluck('id') as $id) {
+            foreach ($type->isUnique() ? [null] : $students->pluck('id') as $id) {
                 $cells[] = ConnectionTester::key($id, $type->id);
             }
         }

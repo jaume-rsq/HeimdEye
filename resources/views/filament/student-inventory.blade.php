@@ -58,7 +58,7 @@
                     @foreach ([...$data['hosts'], ...$data['globals']] as $host)
                         @php $type = $host['tipus']; @endphp
                         <tr style="cursor: default">
-                            <td class="fix"><strong>{{ $type->nom }}</strong>@if ($type->isGlobal()) <span class="sub">global</span>@endif</td>
+                            <td class="fix"><strong>{{ $type->nom }}</strong>@if ($type->isUnique()) <span class="sub">únic</span>@endif @if ($type->nivell !== \App\Enums\Level::Module) <span class="sub">{{ $type->nivell->value }}</span>@endif</td>
                             <td class="mono">{{ $type->grup_ansible }}</td>
                             <td @class(['bad' => $host['problemes']])>{{ $host['nom'] }}</td>
                             <td @class(['mono', 'bad' => $host['problemes']])>
@@ -68,7 +68,7 @@
                             <td class="mono sub">
                                 @foreach ($type->variables_connexio ?? [] as $k => $v)<div>{{ $k }}={{ is_scalar($v) ? var_export($v, true) : json_encode($v) }}</div>@endforeach
                             </td>
-                            <td>{{ $type->access?->clau ?? ($type->module->access ? $type->module->access->clau.' (del mòdul)' : '—') }}</td>
+                            <td>{{ $type->access?->clau ?? ($data['access'] ? $data['access']->clau.' (del mòdul)' : '—') }}</td>
                         </tr>
                     @endforeach
                 </tbody>

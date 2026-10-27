@@ -153,7 +153,7 @@ class ActionRunner
         }
 
         $module = $action->module;
-        if ($unknown = array_diff($hostTypes, $module->hostTypes->pluck('nom')->all())) {
+        if ($unknown = array_diff($hostTypes, $module->visibleHostTypes()->pluck('nom')->all())) {
             throw new InvalidArgumentException('No existeix el tipus d\'equip '.implode(', ', $unknown));
         }
         $this->validator->validate($module, $action->executor, $version->codi);
