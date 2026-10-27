@@ -27,7 +27,7 @@ use Illuminate\Database\Seeder;
  * L'estructura mateixa és un exemple: curs → cicle → mòduls → blocs → tasques → checks, amb
  * alumnes, un tipus d'equip, una variable de mòdul, una credencial i accions amb verificació.
  * Tots els textos (enunciat, descripció i info) són els que es veuen a l'app; heimdeye:tutorial
- * els exporta a docs/tutorial.md.
+ * els exporta a docs/demo-tutorial.md.
  */
 class TutorialSeeder extends Seeder
 {

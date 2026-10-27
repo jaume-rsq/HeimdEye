@@ -15,7 +15,7 @@ use Illuminate\Console\Command;
  */
 class TutorialMarkdown extends Command
 {
-    protected $signature = 'heimdeye:tutorial {--output=docs/tutorial.md : fitxer on s\'escriu, relatiu a l\'arrel}';
+    protected $signature = 'heimdeye:tutorial {--output=docs/demo-tutorial.md : fitxer on s\'escriu, relatiu a l\'arrel}';
 
     protected $description = 'Exporta el tutorial de HeimdEye a Markdown';
 
