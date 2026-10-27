@@ -337,8 +337,8 @@ La nocturna la llança el scheduler (`HEIMDEYE_NIGHTLY_AT`, per defecte 02:00); 
   la cua propi (`RunCheck`), amb la versió vigent quan es posa a la cua: és la que s'executa i
   la que queda registrada. Si el treball falla abans de tenir resultat, queda una execució en
   estat `error` amb el motiu. Executat a mà (sense `--queue`) no hi ha reintents.
-- Clau SSH: la del secret d'accés (vegeu la taula d'executors) si en té una de desada; si no,
-  `HEIMDEYE_SSH_KEY_PATH`; si tampoc, la clau per defecte de l'usuari que executa el worker.
+- Clau SSH: la del secret d'accés (vegeu la taula d'executors). Si el secret no en té, `ssh` i
+  `# credencial:` donen `error`; un script `local` no rep `HE_SSH_KEY`.
 - Aïllament: `HEIMDEYE_RUNNER_WRAPPER` embolcalla cada execució, per exemple
   `systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%`.
   Amb `systemd-run` s'hi afegeixen `RuntimeMaxSec` i les variables (`--setenv`). L'usuari del
@@ -399,6 +399,14 @@ pública, que no és secreta). Els d'usuari i contrasenya i els de clau SSH fan 
 el mòdul en té un per defecte i cada tipus d'equip en pot dir un altre. Un playbook o script rep
 només els que esmenta (vegeu «Contracte del codi»), i a la sortida desada apareixen com a
 `********`. Els valors s'omplen des de l'administració, mai al repositori.
+
+La clau privada d'un secret de clau SSH pot ser la clau mateixa o la ruta absoluta d'un fitxer
+del servidor (`/var/lib/heimdeye/.ssh/id_ed25519`), que ha de poder llegir l'usuari del worker.
+`php artisan heimdeye:import-key ssh_jaume /var/lib/heimdeye/.ssh/id_ed25519` en carrega una (amb
+`--ruta`, només la ruta) i la clau pública del `.pub` o amb `ssh-keygen -y`. El `.env` ja no té
+claus: la migració del 28/10/2026 va passar `HEIMDEYE_SSH_KEY_PATH` (i la seva `.pub`) als
+secrets de clau SSH buits. El codi antic que fa servir `heimdeye_ssh_pubkey_file` rep un fitxer
+amb la clau pública de l'accés del mòdul; el nou fa servir `{{ ssh_jaume.pubkey }}`.
 
 Els checks `ssh` fan servir aquests mateixos grups amb la capçalera `# hosts:`, i els checks
 també poden ser playbooks (`executor = ansible`).

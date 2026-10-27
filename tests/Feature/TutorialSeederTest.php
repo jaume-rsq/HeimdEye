@@ -6,8 +6,10 @@ use App\Models\AcademicYear;
 use App\Models\Action;
 use App\Models\Check;
 use App\Models\Module;
+use App\Models\Secret;
 use App\Runner\ContextBuilder;
 use Database\Seeders\DemoSeeder;
+use Database\Seeders\TutorialSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -54,6 +56,10 @@ class TutorialSeederTest extends TestCase
 
     public function test_every_check_builds_a_context_for_the_first_student(): void
     {
+        config(['heimdeye.demo.student_key' => '/keys/students/id_ed25519']);
+        $this->seed(TutorialSeeder::class);
+        $this->assertSame('/keys/students/id_ed25519', Secret::where('clau', 'ssh_demo')->sole()->valor);
+
         foreach ($this->checks()->with('currentVersion', 'task.block.module')->get() as $check) {
             $module = $check->task->block->module;
             $student = $module->students()->orderBy('num_taula')->firstOrFail();
@@ -63,6 +69,7 @@ class TutorialSeederTest extends TestCase
             if ($check->executor->value === 'ssh') {
                 $this->assertSame('alumne01', $context->targets[0]->host, $check->nom);
                 $this->assertSame('alumne', $context->targets[0]->user, $check->nom);
+                $this->assertSame('/keys/students/id_ed25519', $context->targets[0]->key, $check->nom);
             }
         }
     }

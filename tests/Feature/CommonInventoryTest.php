@@ -91,7 +91,7 @@ class CommonInventoryTest extends TestCase
         $this->assertNull($secret->modul_id);
 
         Livewire::test(ManageSecrets::class)
-            ->callAction('create', ['nivell' => Level::Global->value, 'clau' => 'jaume', 'tipus' => SecretType::Value->value])
+            ->callAction('create', ['nivell' => Level::Global->value, 'clau' => 'winrm_windows', 'tipus' => SecretType::Value->value])
             ->assertHasActionErrors(['clau']);
     }
 

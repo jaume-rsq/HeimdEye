@@ -119,6 +119,34 @@ final class SecretRefs
         };
     }
 
+    /**
+     * Fitxer amb la clau privada d'un secret de clau SSH: la ruta, si el valor és una ruta
+     * absoluta d'un fitxer del servidor, o un fitxer temporal amb la clau. Null si no en té.
+     */
+    public static function keyFile(Secret $secret, TempFiles $files): ?string
+    {
+        if (! $secret->hasValue()) {
+            return null;
+        }
+        $key = trim((string) $secret->valor);
+
+        return self::isPath($key) ? $key : $files->write("key-{$secret->id}", $key."\n");
+    }
+
+    /** Fitxer temporal amb la clau pública d'un secret de clau SSH. Null si no en té. */
+    public static function pubkeyFile(Secret $secret, TempFiles $files): ?string
+    {
+        $key = trim((string) $secret->clau_publica);
+
+        return $key === '' ? null : $files->write("pubkey-{$secret->id}", $key."\n");
+    }
+
+    /** Una sola línia que comença per /: la ruta d'un fitxer de clau, no la clau. */
+    public static function isPath(string $value): bool
+    {
+        return str_starts_with($value, '/') && ! str_contains($value, "\n");
+    }
+
     /** Valor de la variable Ansible del secret: el valor o un diccionari amb els camps. */
     public static function ansibleValue(Secret $secret, ?string $keyFile = null): mixed
     {

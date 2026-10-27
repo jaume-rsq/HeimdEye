@@ -11,8 +11,8 @@ x-runner: &runner
   environment:
     HEIMDEYE_DEMO: "true"
     HEIMDEYE_RUNNER_WRAPPER: heimdeye-sandbox
-    # Clau dels alumnes ficticis: només existeix dins el sandbox.
-    HEIMDEYE_SSH_KEY_PATH: /keys/students/id_ed25519
+    # Clau dels alumnes ficticis: només existeix dins el sandbox (el secret ssh_demo en desa la ruta).
+    HEIMDEYE_DEMO_STUDENT_KEY: /keys/students/id_ed25519
   volumes:
     - runner-key:/keys/runner:ro
   networks: [default, runner]
@@ -30,7 +30,7 @@ services:
     environment:
       HEIMDEYE_DEMO: "true"
       HEIMDEYE_RUNNER_WRAPPER: heimdeye-sandbox
-      HEIMDEYE_SSH_KEY_PATH: /keys/students/id_ed25519
+      HEIMDEYE_DEMO_STUDENT_KEY: /keys/students/id_ed25519
       # La primera vegada, només el tutorial i l'administrador.
       HEIMDEYE_SEED: "true"
       HEIMDEYE_SEEDER: DemoSeeder

@@ -91,7 +91,7 @@ class InventoryPanelTest extends TestCase
 
     public function test_the_student_sheet_shows_the_ansible_inventory_with_passwords_masked(): void
     {
-        Secret::where('clau', 'jaume')->sole()->update(['valor' => 'SuperSecret123']);
+        Secret::where('clau', 'winrm_windows')->sole()->update(['valor' => 'SuperSecret123']);
 
         Livewire::test(EditStudent::class, ['record' => $this->student->id])
             ->assertOk()

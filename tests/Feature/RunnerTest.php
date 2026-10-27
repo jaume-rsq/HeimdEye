@@ -42,9 +42,10 @@ class RunnerTest extends TestCase
         return $check->fresh();
     }
 
-    /** Tipus d'equip que no respon: SSH a un port tancat. */
+    /** Tipus d'equip que no respon: SSH a un port tancat. La clau és una ruta que no hi és. */
     private function closedHostType(string $name = 'tancat'): void
     {
+        Secret::where('clau', 'ssh_jaume')->sole()->update(['valor' => '/nonexistent/id_ed25519']);
         Module::where('codi', '9991')->sole()->hostTypes()->create([
             'nom' => $name,
             'grup_ansible' => "{$name}s",
@@ -127,6 +128,29 @@ class RunnerTest extends TestCase
         $this->assertSame(255, $result->exitCode);
     }
 
+    public function test_ssh_needs_a_private_key_in_the_access_secret(): void
+    {
+        $this->closedHostType();
+        Secret::where('clau', 'ssh_jaume')->sole()->update(['valor' => null]);
+
+        $result = $this->execute($this->check("# hosts: tancats\ntrue", Executor::Ssh));
+
+        $this->assertSame(CheckStatus::Error, $result->status);
+        $this->assertStringContainsString('ssh_jaume no té clau privada', $result->message);
+    }
+
+    public function test_the_private_key_can_be_stored_or_be_a_path_on_the_server(): void
+    {
+        $secret = Secret::where('clau', 'ssh_jaume')->sole();
+
+        $secret->update(['valor' => '/var/lib/heimdeye/.ssh/id_ed25519']);
+        $this->assertSame('key=/var/lib/heimdeye/.ssh/id_ed25519', $this->execute($this->check('echo "key=$HE_SSH_KEY"'))->message);
+
+        $secret->update(['valor' => "-----BEGIN OPENSSH PRIVATE KEY-----\nabc\n-----END OPENSSH PRIVATE KEY-----"]);
+        $result = $this->execute($this->check('head -1 "$HE_SSH_KEY"'));
+        $this->assertSame('-----BEGIN OPENSSH PRIVATE KEY-----', $result->message);
+    }
+
     public function test_ssh_runs_on_every_host_of_the_groups(): void
     {
         $this->closedHostType('tancat');
@@ -203,7 +227,7 @@ class RunnerTest extends TestCase
         $result = $this->execute($this->check('[ -n "$HE_SECRET_JAUME_PASSWORD" ]'));
 
         $this->assertSame(CheckStatus::Error, $result->status);
-        $this->assertStringContainsString('jaume no té valor', $result->message);
+        $this->assertStringContainsString('jaume_password no té valor', $result->message);
     }
 
     public function test_a_variable_that_cannot_be_computed_for_the_student_is_an_error(): void
@@ -338,13 +362,13 @@ class RunnerTest extends TestCase
 
     public function test_secrets_of_every_level_reach_the_code_by_field(): void
     {
-        Secret::where('clau', 'jaume')->sole()->update(['valor' => 'contrasenya-global']);
-        $result = $this->execute($this->check('echo "$HE_SECRET_JAUME_USER $HE_SECRET_JAUME_PASSWORD"'));
-        $this->assertSame('jaume ********', $result->message);
+        Secret::where('clau', 'winrm_windows')->sole()->update(['valor' => 'contrasenya-global']);
+        $result = $this->execute($this->check('echo "$HE_SECRET_WINRM_WINDOWS_USER $HE_SECRET_WINRM_WINDOWS_PASSWORD"'));
+        $this->assertSame('administrador ********', $result->message);
 
         // Un del mòdul amb la mateixa clau tapa el global.
-        Module::where('codi', '9991')->sole()->secrets()->create(['clau' => 'jaume', 'tipus' => SecretType::Login, 'nom_usuari' => 'altre', 'valor' => 'del-modul']);
-        $result = $this->execute($this->check('echo "$HE_SECRET_JAUME_USER"; [ "$HE_SECRET_JAUME_PASSWORD" = del-modul ]'));
+        Module::where('codi', '9991')->sole()->secrets()->create(['clau' => 'winrm_windows', 'tipus' => SecretType::Login, 'nom_usuari' => 'altre', 'valor' => 'del-modul']);
+        $result = $this->execute($this->check('echo "$HE_SECRET_WINRM_WINDOWS_USER"; [ "$HE_SECRET_WINRM_WINDOWS_PASSWORD" = del-modul ]'));
         $this->assertSame(CheckStatus::Pass, $result->status);
         $this->assertSame('altre', $result->message);
     }

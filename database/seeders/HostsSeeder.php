@@ -20,10 +20,9 @@ class HostsSeeder extends Seeder
     {
         $module = Module::where('codi', '9991')->firstOrFail();
 
-        // Una sola contrasenya de jaume: entra als Windows per WinRM i l'acció la posa als Linux.
         $windows = Secret::firstOrCreate(
-            ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'jaume'],
-            ['tipus' => SecretType::Login, 'nom_usuari' => 'jaume', 'descripcio' => 'Usuari jaume dels equips dels alumnes (WinRM als Windows)'],
+            ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'winrm_windows'],
+            ['tipus' => SecretType::Login, 'nom_usuari' => 'administrador', 'descripcio' => 'Usuari administrador dels Windows Server dels alumnes (WinRM): no és jaume'],
         );
         $zabbix = Secret::firstOrCreate(
             ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'api_zabbix'],
@@ -67,10 +66,16 @@ class HostsSeeder extends Seeder
             $module->hostTypes()->updateOrCreate(['nom' => $type['nom']], [...$type, 'posicio' => $position + 1]);
         }
 
+        // La dels Linux no és la mateixa que la dels Windows.
+        $module->secrets()->firstOrCreate(
+            ['clau' => 'jaume_password'],
+            ['descripcio' => 'Contrasenya de l\'usuari jaume als equips Linux dels alumnes'],
+        );
+
         $actions = [
             [
                 'nom' => 'Contrasenya de l\'usuari jaume',
-                'descripcio' => 'Posa la contrasenya del secret jaume a l\'usuari jaume dels Linux (que entra amb clau).',
+                'descripcio' => 'Posa la contrasenya del secret jaume_password a l\'usuari jaume (que entra amb clau).',
                 'codi' => <<<'YAML'
                     - hosts: pve:vm_router:vm_dns_bind
                       become: true
@@ -79,7 +84,7 @@ class HostsSeeder extends Seeder
                           ansible.builtin.user:
                             name: jaume
                             # Sal fixa perquè el hash no canviï a cada execució (idempotent).
-                            password: "{{ jaume.password | password_hash('sha512', 'heimdeye') }}"
+                            password: "{{ jaume_password | password_hash('sha512', 'heimdeye') }}"
                     YAML,
             ],
             [
@@ -106,7 +111,7 @@ class HostsSeeder extends Seeder
             ],
             [
                 'nom' => 'Clau pública de jaume',
-                'descripcio' => 'Afegeix a jaume la clau pública de HeimdEye (HEIMDEYE_SSH_PUBKEY_PATH, o la privada amb .pub).',
+                'descripcio' => 'Afegeix a jaume la clau pública del secret ssh_jaume.',
                 'codi' => <<<'YAML'
                     - hosts: pve
                       become: true
@@ -114,7 +119,7 @@ class HostsSeeder extends Seeder
                         - name: Clau pública de jaume
                           ansible.posix.authorized_key:
                             user: jaume
-                            key: "{{ lookup('file', heimdeye_ssh_pubkey_file) }}"
+                            key: "{{ ssh_jaume.pubkey }}"
                             state: present
                     YAML,
             ],

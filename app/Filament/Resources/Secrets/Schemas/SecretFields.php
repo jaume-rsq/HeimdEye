@@ -46,7 +46,7 @@ class SecretFields
                     SecretType::Value => 'Valor',
                 })
                 ->helperText(fn (Get $get, ?Secret $record) => ($record?->hasValue() ? 'Hi ha un valor desat: deixa-ho buit per no canviar-lo. ' : '')
-                    .(self::type($get) === SecretType::SshKey ? 'Sense clau, es fa servir la configurada al servidor (HEIMDEYE_SSH_KEY_PATH).' : ''))
+                    .(self::type($get) === SecretType::SshKey ? 'La clau, o la ruta absoluta d\'un fitxer de clau al servidor (/var/lib/heimdeye/.ssh/id_ed25519).' : ''))
                 ->rows(fn (Get $get) => self::type($get) === SecretType::SshKey ? 6 : 1)
                 ->extraInputAttributes(['style' => 'font-family: ui-monospace, monospace; -webkit-text-security: disc'])
                 ->dehydrated(fn (?string $state) => filled($state))

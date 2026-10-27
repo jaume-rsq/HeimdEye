@@ -8,6 +8,7 @@ use App\Models\AcademicYear;
 use App\Models\Check;
 use App\Models\CheckStudent;
 use App\Models\Module;
+use App\Models\Secret;
 use App\Models\Student;
 use App\Models\Variable;
 use App\Runner\Ansible\InventoryBuilder;
@@ -165,15 +166,16 @@ class DomainModelTest extends TestCase
         $this->assertSame('Taula 11', $student->publicName());
     }
 
-    public function test_inventory_gets_the_public_key_from_the_private_one(): void
+    public function test_inventory_keeps_the_public_key_file_of_the_module_access(): void
     {
-        config(['heimdeye.runner.ssh_pubkey_path' => '/home/jaume/.ssh/id_ed25519.pub']);
+        Secret::where('clau', 'ssh_jaume')->sole()->update(['clau_publica' => 'ssh-ed25519 AAAA heimdeye']);
         $module = Module::where('codi', '9991')->firstOrFail();
-        $builder = new InventoryBuilder(app(VariableResolver::class), new TempFiles);
+        $builder = new InventoryBuilder(app(VariableResolver::class), $files = new TempFiles);
 
         $inventory = $builder->build($module, [Student::where('usuari', 'alumne01')->firstOrFail()], $module->hostTypes);
 
-        $this->assertSame('/home/jaume/.ssh/id_ed25519.pub', $inventory['all']['vars']['heimdeye_ssh_pubkey_file']);
+        $this->assertSame("ssh-ed25519 AAAA heimdeye\n", file_get_contents($inventory['all']['vars']['heimdeye_ssh_pubkey_file']));
+        $files->cleanup();
         $this->assertSame('198.51.100.18', $inventory['all']['children']['estacio_windows']['hosts']['estacio01']['ansible_host']);
     }
 }

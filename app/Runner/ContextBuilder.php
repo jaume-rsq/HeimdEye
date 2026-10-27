@@ -74,7 +74,7 @@ class ContextBuilder
         }
         $extraVars = $params;
         foreach ($secrets as $secret) {
-            $keyFile = $secret->tipus === SecretType::SshKey ? $this->keyFor($secret) : null;
+            $keyFile = $secret->tipus === SecretType::SshKey ? SecretRefs::keyFile($secret, $this->files) : null;
             $secretEnv = SecretRefs::env($secret, $keyFile);
             $env = [...$env, ...array_intersect_key($secretEnv, array_flip(SecretRefs::envNamesIn($code, $secret)))];
             if ($executor === Executor::Ansible) {
@@ -92,8 +92,9 @@ class ContextBuilder
             $env['HE_CRED_PASSWORD'] = (string) $access->valor;
             $this->mask[] = (string) $access->valor;
         } elseif ($access !== null) {
+            // Sense clau desada, l'script local no té HE_SSH_KEY (i potser no fa ssh).
             $sshUser = $access->nom_usuari;
-            $sshKey = $this->keyFor($access);
+            $sshKey = SecretRefs::keyFile($access, $this->files);
         }
         if ($executor === Executor::Local) {
             // Opcions per als ssh que facin els scripts locals: veure SshOptions.
@@ -107,8 +108,8 @@ class ContextBuilder
         $inventory = null;
         $hosts = [];
         if ($executor === Executor::Ansible) {
-            if (Playbook::mentions($code, 'heimdeye_ssh_pubkey_file') && ! config('heimdeye.runner.ssh_pubkey_path')) {
-                throw new InvalidArgumentException('El codi fa servir heimdeye_ssh_pubkey_file, però no hi ha HEIMDEYE_SSH_PUBKEY_PATH ni HEIMDEYE_SSH_KEY_PATH al .env');
+            if (Playbook::mentions($code, 'heimdeye_ssh_pubkey_file') && blank($module->access?->clau_publica)) {
+                throw new InvalidArgumentException("El codi fa servir heimdeye_ssh_pubkey_file, però l'accés del mòdul no té clau pública: posa-la al secret, o fes servir {{ <secret>.pubkey }}");
             }
             foreach ($types ?? [] as $type) {
                 if (! $type->isGlobal()) {
@@ -246,7 +247,7 @@ class ContextBuilder
                 name: $this->resolver->render($type->nom_host, $vars),
                 host: $this->resolver->render($type->adreca, $vars),
                 user: $connection['ansible_user'] ?? $access?->nom_usuari,
-                key: $access === null ? config('heimdeye.runner.ssh_key_path') : $this->keyFor($access),
+                key: $access === null ? null : $this->keyFor($access),
                 port: isset($connection['ansible_port']) ? (int) $connection['ansible_port'] : null,
             );
         })->values()->all();
@@ -268,14 +269,11 @@ class ContextBuilder
         return $secret;
     }
 
-    /** Fitxer amb la clau privada desada al secret o, si no en té, la clau configurada. */
-    private function keyFor(Secret $secret): ?string
+    /** Fitxer amb la clau privada del secret d'accés. */
+    private function keyFor(Secret $secret): string
     {
-        if (! $secret->hasValue()) {
-            return config('heimdeye.runner.ssh_key_path');
-        }
-
-        return $this->files->write("key-{$secret->id}", rtrim((string) $secret->valor)."\n");
+        return SecretRefs::keyFile($secret, $this->files)
+            ?? throw new InvalidArgumentException("El secret {$secret->clau} no té clau privada: posa-la a Inventari → Secrets comuns (o a la pestanya Secrets del mòdul)");
     }
 
     private function envName(string $prefix, string $name): string
