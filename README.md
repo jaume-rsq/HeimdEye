@@ -185,6 +185,8 @@ memòria i processos. `docker compose down -v` ho esborra tot, BBDD inclosa.
 
 ## Mode demo
 
+Instal·lació a la VM de la demo: [docs/demo-vm.md](docs/demo-vm.md).
+
 Amb `HEIMDEYE_DEMO=true` (`App\Support\Demo`) la instància és pública: el login és un botó que
 crea un professor visitant (`visitant-xxxxxx@demo.heimdeye.invalid`) amb tots els mòduls
 assignats. Pensat per a una VM aïllada, sense secrets reals i que es restaura cada nit (vegeu el
