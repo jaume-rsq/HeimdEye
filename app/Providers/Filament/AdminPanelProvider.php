@@ -5,7 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Http\Middleware\AuthenticateWithCloudflareAccess;
-use Filament\Http\Middleware\Authenticate;
+use App\Http\Middleware\RedirectStudentsToTheirPanel;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
@@ -83,7 +83,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->middleware([AuthenticateWithCloudflareAccess::class], isPersistent: true)
             ->authMiddleware([
-                Authenticate::class,
+                RedirectStudentsToTheirPanel::class,
             ]);
 
         // Amb Cloudflare Access el login el fa Google Workspace: no cal formulari.

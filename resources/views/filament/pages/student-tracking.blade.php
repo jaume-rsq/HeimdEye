@@ -8,6 +8,7 @@
             default => 'rgb(217,119,6)',
         };
         $student = $this->student;
+        $readonly = $this->readonly();
     @endphp
     <style>
         .he-tr { font-size: .875rem; display: grid; gap: 1rem; }
@@ -47,10 +48,11 @@
 
     <div class="he-tr">
         @if (! $student)
-            <x-filament::section>No hi ha cap alumne en els teus mòduls.</x-filament::section>
+            <x-filament::section>{{ $readonly ? 'El teu usuari no té fitxa d\'alumne: parla amb el professor.' : 'No hi ha cap alumne en els teus mòduls.' }}</x-filament::section>
         @else
             {{-- Capçalera de l'alumne --}}
             <div style="display: flex; flex-wrap: wrap; gap: .75rem; align-items: center">
+                @unless ($readonly)
                 <button type="button" class="he-btn" wire:click="go(-1)" @disabled(! $this->neighbour(-1)) title="Alumne anterior">←</button>
                 <select wire:model.live="alumne" aria-label="Alumne" style="min-width: 16rem">
                     @foreach ($this->students as $s)
@@ -58,16 +60,19 @@
                     @endforeach
                 </select>
                 <button type="button" class="he-btn" wire:click="go(1)" @disabled(! $this->neighbour(1)) title="Alumne següent">→</button>
+                @endunless
                 <div>
                     <strong style="font-size: 1.05rem">{{ $student->nom_complet }}</strong>
                     <span class="sub">· taula {{ sprintf('%02d', $student->num_taula) }} · {{ $student->usuari }}{{ $student->alies ? ' · àlies «'.$student->alies.'»' : '' }}{{ $student->es_actiu ? '' : ' · inactiu' }}</span>
                 </div>
-                <a class="he-btn" style="margin-left: auto" href="{{ \App\Filament\Resources\Students\StudentResource::getUrl('edit', ['record' => $student->id]) }}">Fitxa</a>
+                @unless ($readonly)
+                    <a class="he-btn" style="margin-left: auto" href="{{ \App\Filament\Resources\Students\StudentResource::getUrl('edit', ['record' => $student->id]) }}">Fitxa</a>
+                @endunless
             </div>
 
             {{-- Una targeta per mòdul --}}
             @if ($this->cards === [])
-                <x-filament::section>Aquest alumne no està matriculat en cap dels teus mòduls.</x-filament::section>
+                <x-filament::section>{{ $readonly ? 'Encara no estàs matriculat en cap mòdul.' : 'Aquest alumne no està matriculat en cap dels teus mòduls.' }}</x-filament::section>
             @endif
             <div class="cards">
                 @foreach ($this->cards as $card)
@@ -129,7 +134,9 @@
                         <option value="error">Amb error a la darrera execució</option>
                     </select>
                     <label style="display: flex; gap: .35rem; align-items: center"><input type="checkbox" wire:model.live="obligatoris" /> Només obligatoris</label>
+                    @unless ($readonly)
                     <button type="button" class="he-btn" style="margin-left: auto" wire:click="verify" wire:confirm="Verificar ara tots els checks del mòdul per a aquest alumne?">Verificar tot el mòdul</button>
+                    @endunless
                 </div>
 
                 {{-- Taula de checks: cada bloc es plega clicant-ne la línia --}}
@@ -188,7 +195,11 @@
                                             <tr class="grp">
                                                 <td class="pos">{{ $group['block']->numero }}.{{ $t['task']->posicio }}</td>
                                                 <td colspan="4">{{ $t['task']->titol }} <span class="sub">· {{ $t['assolits'] }}/{{ $t['total'] }} assolits</span></td>
-                                                <td style="text-align: right"><button type="button" class="he-btn" wire:click="verify(null, {{ $t['task']->id }})">Verificar la tasca</button></td>
+                                                <td style="text-align: right">
+                                                    @unless ($readonly)
+                                                        <button type="button" class="he-btn" wire:click="verify(null, {{ $t['task']->id }})">Verificar la tasca</button>
+                                                    @endunless
+                                                </td>
                                             </tr>
                                         </tbody>
                                         @foreach ($t['rows'] as $r)
@@ -220,8 +231,10 @@
                                                     <td style="text-align: right"><strong>{{ $fmt($r['punts']) }}</strong></td>
                                                     <td style="text-align: right; white-space: nowrap" x-on:click.stop>
                                                         <button type="button" class="he-btn" wire:click="mountAction('info', { check: {{ $check->id }} })" title="Objectiu, justificació i codi amb les dades de l'alumne">Info</button>
-                                                        <button type="button" class="he-btn" wire:click="verify({{ $check->id }})">Verificar</button>
-                                                        <button type="button" class="he-btn" wire:click="mountAction('correct', { check: {{ $check->id }} })">Corregir</button>
+                                                        @unless ($readonly)
+                                                            <button type="button" class="he-btn" wire:click="verify({{ $check->id }})">Verificar</button>
+                                                            <button type="button" class="he-btn" wire:click="mountAction('correct', { check: {{ $check->id }} })">Corregir</button>
+                                                        @endunless
                                                         @if ($this->canEdit($check))
                                                             <a class="he-btn" href="{{ \App\Filament\Resources\Checks\CheckResource::getUrl('edit', ['record' => $check->id]) }}" title="Editar el check">✎</a>
                                                         @endif
@@ -271,7 +284,9 @@
                                                                 @empty
                                                                     <span class="sub">Encara no s'ha executat.</span>
                                                                 @endforelse
-                                                                <a class="sub" style="text-decoration: underline" href="{{ \App\Filament\Resources\Checks\CheckResource::getUrl('runs', ['record' => $check->id]) }}">Tot l'historial del check</a>
+                                                                @unless ($readonly)
+                                                                    <a class="sub" style="text-decoration: underline" href="{{ \App\Filament\Resources\Checks\CheckResource::getUrl('runs', ['record' => $check->id]) }}">Tot l'historial del check</a>
+                                                                @endunless
                                                             </div>
                                                         </div>
                                                     </td>

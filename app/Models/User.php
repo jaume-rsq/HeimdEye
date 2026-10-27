@@ -87,10 +87,22 @@ class User extends Authenticatable implements FilamentUser, HasName
             || ($this->rol === Role::Teacher && $this->modules()->whereKey($check->task?->block?->modul_id)->exists()));
     }
 
-    /** Al panell hi entren els administradors i els professors actius. */
+    /** Al panell admin hi entren els administradors i els professors actius; al d'alumne, els alumnes actius amb fitxa. */
     public function canAccessPanel(Panel $panel): bool
     {
-        return $this->es_actiu && $this->isTeacher();
+        if (! $this->es_actiu) {
+            return false;
+        }
+
+        return $panel->getId() === 'alumne'
+            ? $this->rol === Role::Student && $this->student()->exists()
+            : $this->isTeacher();
+    }
+
+    /** Panell on ha d'anar l'usuari quan entra. */
+    public function homePath(): string
+    {
+        return $this->rol === Role::Student ? '/alumne' : '/admin';
     }
 
     public function getFilamentName(): string
