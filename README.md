@@ -200,6 +200,26 @@ document de seguretat de la demo).
 `heimdeye:demo-cleanup` (cada hora) esborra els visitants sense activitat en les darreres
 `HEIMDEYE_DEMO_VISITOR_HOURS` hores (2) i els checks i les accions que havien creat.
 
+### Contenidor de proves i alumnes ficticis
+
+```bash
+cd docker
+docker compose -f compose.yaml -f compose.demo.yaml up -d --build
+```
+
+`compose.demo.yaml` activa el mode demo i hi afegeix:
+
+| Servei | Què és |
+| --- | --- |
+| `sandbox` | Contenidor de proves: hi corre tot el codi dels checks i les accions (bash, ssh, `ansible-playbook`). La mateixa imatge, amb un `sshd` sense root al port 2222. Sense `.env` ni accés a la BBDD, sistema de fitxers de només lectura menys `/tmp`, sense capabilities i amb límits |
+| `alumne1`…`alumne4` | Alumnes ficticis: Ubuntu amb SSH, l'usuari `alumne` amb `sudo` i Python per a Ansible |
+| `keys` | Genera la primera vegada les claus worker → sandbox i sandbox → alumnes |
+
+El worker fa servir `HEIMDEYE_RUNNER_WRAPPER=heimdeye-sandbox` (`docker/sandbox/heimdeye-sandbox`):
+cada execució hi copia els fitxers temporals (inventari, playbook), l'executa per SSH amb el temps
+màxim i les variables, i els esborra. La clau dels alumnes només és al sandbox. Les xarxes
+`runner` (worker ↔ sandbox) i `alumnes` (sandbox ↔ alumnes) són internes: sense sortida a Internet.
+
 ## Variables
 
 Totes les variables són a la taula `variables`, amb un àmbit (`abast`): `global`, `curs`

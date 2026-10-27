@@ -50,6 +50,7 @@ return [
     | - wrapper: ordre que embolcalla cada execució, p. ex.
     |   "systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%"
     |   (amb systemd-run s'hi afegeixen RuntimeMaxSec i les variables amb --setenv). Buit = directe.
+    |   A la demo, "heimdeye-sandbox": s'executa al contenidor de proves (docker/compose.demo.yaml).
     | - ssh_key_path: clau privada a fer servir si la credencial no en té cap desada.
     | - ssh_pubkey_path: clau pública corresponent (per defecte, la privada amb .pub). Arriba als
     |   playbooks com a heimdeye_ssh_pubkey_file.

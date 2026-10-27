@@ -3,8 +3,24 @@
 #   web        migra (i la primera vegada, si HEIMDEYE_SEED=true, omple la BBDD) i serveix l'app al :8080
 #   worker     processa la cua dels checks i les accions
 #   scheduler  ronda nocturna i tasques periòdiques
+#   keys       (demo) genera les claus del worker i dels alumnes ficticis, si no hi són
+#   sandbox    (demo) contenidor de proves: sshd sense root on el worker executa el codi
 # Qualsevol altra cosa s'executa tal qual (p. ex. "php artisan tinker").
 set -e
+
+case "${1:-web}" in
+    keys)
+        for name in runner students; do
+            [ -s "/keys/$name/id_ed25519" ] || ssh-keygen -q -t ed25519 -N '' -C "heimdeye-$name" -f "/keys/$name/id_ed25519"
+        done
+        exit 0
+        ;;
+    sandbox)
+        mkdir -p /tmp/sshd
+        ssh-keygen -q -t ed25519 -N '' -f /tmp/sshd/host_ed25519
+        exec /usr/sbin/sshd -D -e -f /etc/heimdeye/sandbox_sshd_config
+        ;;
+esac
 
 until pg_isready -q -h "${DB_HOST:-db}" -p "${DB_PORT:-5432}" -U "${DB_USERNAME:-heimdeye}"; do
     echo "Esperant la base de dades..."
