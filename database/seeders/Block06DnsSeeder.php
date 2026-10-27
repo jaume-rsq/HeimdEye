@@ -16,7 +16,8 @@ use Illuminate\Database\Seeder;
  * és el central. Per això les consultes a ns1 es fan des del mateix ns1 (ssh), les de la LAN
  * des de ns2 (Ansible, WinRM) i les de fora a través del central. La zona de cada alumne és
  * <nom_dns>.<nom_domini>. Cada check porta a `descripcio` el text per a l'alumne: què es
- * comprova i com ho pot verificar ell mateix.
+ * comprova i com ho pot verificar ell mateix. L'`info` (objectiu i justificació) és a
+ * `data/check_info.php`.
  */
 class Block06DnsSeeder extends Seeder
 {
@@ -471,11 +472,14 @@ class Block06DnsSeeder extends Seeder
             ['enunciat' => $statement, 'posicio' => $position],
         );
 
+        $info = (require database_path('seeders/data/check_info.php'))[$block->numero] ?? [];
+
         foreach ($checks as $i => $def) {
             $check = $task->checks()->updateOrCreate(
                 ['nom' => $def['nom']],
                 [
                     'descripcio' => $def['descripcio'],
+                    'info' => $info[$def['nom']] ?? null,
                     'executor' => $def['executor'] ?? Executor::Ssh,
                     'tipus' => $def['tipus'] ?? CheckKind::Required,
                     'punts' => $def['punts'] ?? 1,

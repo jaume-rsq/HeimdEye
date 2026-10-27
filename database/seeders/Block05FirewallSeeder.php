@@ -16,6 +16,7 @@ use Illuminate\Database\Seeder;
  * Els opcionals són específics d'un sistema i, si ara respon l'altre (o cap), donen `omes`
  * (HEIMDEYE_OMES:): no canvien l'estat de l'alumne ni li fan perdre punts. Cada check porta a
  * `descripcio` el text per a l'alumne: què es comprova i com ho pot verificar ell mateix.
+ * L'`info` (objectiu i justificació) és a `data/check_info.php`.
  */
 class Block05FirewallSeeder extends Seeder
 {
@@ -383,11 +384,14 @@ class Block05FirewallSeeder extends Seeder
             ['enunciat' => $statement, 'posicio' => $position],
         );
 
+        $info = (require database_path('seeders/data/check_info.php'))[$block->numero] ?? [];
+
         foreach ($checks as $i => $def) {
             $check = $task->checks()->updateOrCreate(
                 ['nom' => $def['nom']],
                 [
                     'descripcio' => $def['descripcio'],
+                    'info' => $info[$def['nom']] ?? null,
                     'executor' => $def['executor'] ?? Executor::Local,
                     'tipus' => $def['tipus'] ?? CheckKind::Required,
                     'punts' => $def['punts'] ?? 1,

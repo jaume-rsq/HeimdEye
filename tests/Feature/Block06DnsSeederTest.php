@@ -44,7 +44,7 @@ class Block06DnsSeederTest extends TestCase
         $this->assertCount(19, $checks);
         $this->assertSame(24, $checks->where('tipus', CheckKind::Required)->sum('punts'));
         $this->assertSame(3, $checks->where('tipus', CheckKind::Optional)->sum('punts'));
-        $this->assertTrue($checks->every(fn (Check $c) => filled($c->descripcio)));
+        $this->assertTrue($checks->every(fn (Check $c) => filled($c->descripcio) && filled($c->info)));
     }
 
     public function test_block_6_code_passes_the_save_rules(): void
