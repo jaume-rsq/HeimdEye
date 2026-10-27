@@ -105,22 +105,6 @@ class ModuleInventoryForm
                                         SecretFields::make(),
                                     ))
                                     ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [...$data, 'nivell' => Level::Module->value])
-                                    ->table([
-                                        TableColumn::make('Clau'),
-                                        TableColumn::make('Valor'),
-                                        TableColumn::make('Descripció'),
-                                    ])
-                                    ->schema([
-                                        TextInput::make('clau')->required()->regex(self::KEY_RULE)->distinct(),
-                                        TextInput::make('valor')
-                                            ->password()
-                                            ->revealable()
-                                            ->placeholder('Deixa-ho buit per no canviar-lo')
-                                            ->dehydrated(fn (?string $state) => filled($state))
-                                            // En la consulta no es mostra el valor (visitants de la demo).
-                                            ->hiddenOn('view'),
-                                        TextInput::make('descripcio'),
-                                    ])
                                     ->defaultItems(0)
                                     ->addActionLabel('Afegir secret'),
                                 View::make('filament.secret-help'),

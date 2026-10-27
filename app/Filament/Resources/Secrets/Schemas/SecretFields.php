@@ -50,6 +50,8 @@ class SecretFields
                 ->rows(fn (Get $get) => self::type($get) === SecretType::SshKey ? 6 : 1)
                 ->extraInputAttributes(['style' => 'font-family: ui-monospace, monospace; -webkit-text-security: disc'])
                 ->dehydrated(fn (?string $state) => filled($state))
+                // En la consulta no es mostra el valor (visitants de la demo).
+                ->hiddenOn('view')
                 ->columnSpanFull(),
             Textarea::make('clau_publica')
                 ->label('Clau pública')
