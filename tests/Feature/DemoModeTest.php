@@ -7,6 +7,7 @@ use App\Enums\Role;
 use App\Filament\Auth\DemoLogin;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Checks\CheckResource;
+use App\Filament\Resources\Modules\ModuleResource;
 use App\Filament\Resources\Students\StudentResource;
 use App\Models\Check;
 use App\Models\Module;
@@ -68,6 +69,20 @@ class DemoModeTest extends TestCase
         $this->get(StudentResource::getUrl())->assertOk();
         $this->assertFalse(StudentResource::canCreate());
         $this->assertFalse(StudentResource::canEdit(Student::firstOrFail()));
+    }
+
+    public function test_visitors_can_look_at_the_inventory_of_a_module(): void
+    {
+        $visitor = Demo::createVisitor();
+        $this->module->secrets()->create(['clau' => 'clau_demo', 'valor' => 'no-es-veu']);
+
+        $this->actingAs($visitor)->get(ModuleResource::getUrl('index'))
+            ->assertRedirect(ModuleResource::getUrl('view', ['record' => $this->module]));
+        $this->actingAs($visitor)->get(ModuleResource::getUrl('edit', ['record' => $this->module]))->assertForbidden();
+        $this->actingAs($visitor)->get(ModuleResource::getUrl('view', ['record' => $this->module]))
+            ->assertOk()
+            ->assertSee('clau_demo')
+            ->assertDontSee('no-es-veu');
     }
 
     public function test_visitors_only_edit_what_they_created(): void

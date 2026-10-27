@@ -103,7 +103,9 @@ class ModuleInventoryForm
                                             ->password()
                                             ->revealable()
                                             ->placeholder('Deixa-ho buit per no canviar-lo')
-                                            ->dehydrated(fn (?string $state) => filled($state)),
+                                            ->dehydrated(fn (?string $state) => filled($state))
+                                            // En la consulta no es mostra el valor (visitants de la demo).
+                                            ->hiddenOn('view'),
                                         TextInput::make('descripcio'),
                                     ])
                                     ->defaultItems(0)

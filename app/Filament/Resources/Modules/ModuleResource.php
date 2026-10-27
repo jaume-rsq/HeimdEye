@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Modules;
 
 use App\Filament\Resources\Modules\Pages\EditModuleInventory;
 use App\Filament\Resources\Modules\Pages\ListModules;
+use App\Filament\Resources\Modules\Pages\ViewModuleInventory;
 use App\Filament\Resources\Modules\Schemas\ModuleInventoryForm;
 use App\Filament\Resources\Modules\Tables\ModulesTable;
 use App\Models\Module;
@@ -55,6 +56,7 @@ class ModuleResource extends Resource
         return [
             'index' => ListModules::route('/'),
             'edit' => EditModuleInventory::route('/{record}/equips-i-variables'),
+            'view' => ViewModuleInventory::route('/{record}'),
         ];
     }
 }
