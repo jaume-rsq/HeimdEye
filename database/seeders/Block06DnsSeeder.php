@@ -87,7 +87,7 @@ class Block06DnsSeeder extends Seeder
             [
                 'nom' => 'WinRM a ns2',
                 'executor' => Executor::Ansible,
-                'descripcio' => 'HeimdEye entra a ns2 per WinRM (port 5985) com a jaume. Comprova-ho des d\'un altre Windows: `Test-WSMan 172.X.0.11 -Authentication Negotiate -Credential jaume`.',
+                'descripcio' => 'HeimdEye entra a ns2 per WinRM (port 5985) amb l\'usuari i la contrasenya del secret winrm_windows. Comprova-ho des d\'un altre Windows: `Test-WSMan 172.X.0.11 -Authentication Negotiate -Credential <usuari>`.',
                 'temps_max_seg' => 60,
                 'codi' => <<<'YAML'
                     - hosts: vm_dns_windows
@@ -431,7 +431,7 @@ class Block06DnsSeeder extends Seeder
                     read -r kind id <<< '{{ guest.stdout }}'
                     read -r -d '' script <<'EOF' || true
                     set -e
-                    key='{{ lookup('file', heimdeye_ssh_pubkey_file) }}'
+                    key='{{ ssh_jaume.pubkey }}'
                     export DEBIAN_FRONTEND=noninteractive
                     if ! id jaume >/dev/null 2>&1; then useradd -m -s /bin/bash jaume; echo "CANVI: usuari jaume"; fi
                     home=$(getent passwd jaume | cut -d: -f6)

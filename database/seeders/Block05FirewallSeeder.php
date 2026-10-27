@@ -343,7 +343,7 @@ class Block05FirewallSeeder extends Seeder
                         read -r kind id <<< '{{ guest.stdout }}'
                         read -r -d '' script <<'EOF' || true
                         set -e
-                        key='{{ lookup('file', heimdeye_ssh_pubkey_file) }}'
+                        key='{{ ssh_jaume.pubkey }}'
                         export DEBIAN_FRONTEND=noninteractive
                         if ! id jaume >/dev/null 2>&1; then useradd -m -s /bin/bash jaume; echo "CANVI: usuari jaume"; fi
                         home=$(getent passwd jaume | cut -d: -f6)

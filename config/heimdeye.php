@@ -51,9 +51,9 @@ return [
     |   "systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%"
     |   (amb systemd-run s'hi afegeixen RuntimeMaxSec i les variables amb --setenv). Buit = directe.
     |   A la demo, "heimdeye-sandbox": s'executa al contenidor de proves (docker/compose.demo.yaml).
-    | - ssh_key_path: clau privada a fer servir si la credencial no en té cap desada.
-    | - ssh_pubkey_path: clau pública corresponent (per defecte, la privada amb .pub). Arriba als
-    |   playbooks com a heimdeye_ssh_pubkey_file.
+    | - ssh_key_path, ssh_pubkey_path: ja no es fan servir per executar. Les claus SSH són secrets
+    |   (Inventari → Secrets comuns); la migració de 2026-10-28 hi va passar aquestes rutes, i
+    |   heimdeye:import-key en carrega una de nova.
     */
     'runner' => [
         'wrapper' => env('HEIMDEYE_RUNNER_WRAPPER', ''),
@@ -71,12 +71,15 @@ return [
     | - runs_per_hour: execucions (per alumne) que pot llançar cada visitant en una hora.
     | - visitor_hours: hores d'inactivitat després de les quals heimdeye:demo-cleanup esborra el
     |   visitant i els checks i les accions que ha creat.
+    | - student_key: ruta de la clau dels alumnes ficticis, que només existeix al contenidor de
+    |   proves. TutorialSeeder la desa al secret ssh_demo.
     */
     'demo' => [
         'enabled' => (bool) env('HEIMDEYE_DEMO', false),
         'max_timeout' => (int) env('HEIMDEYE_DEMO_MAX_TIMEOUT', 30),
         'runs_per_hour' => (int) env('HEIMDEYE_DEMO_RUNS_PER_HOUR', 60),
         'visitor_hours' => (int) env('HEIMDEYE_DEMO_VISITOR_HOURS', 2),
+        'student_key' => env('HEIMDEYE_DEMO_STUDENT_KEY'),
     ],
 
     /*

@@ -65,7 +65,7 @@ return [
             'la major part dels checks del bloc consulten el DNS des del mateix ns1, perquè el tallafocs (amb raó) no deixa HeimdEye arribar a la DMZ pel port 53. Sense aquest accés no es pot verificar res més de ns1.',
         ),
         'WinRM a ns2' => $info(
-            'comprovar que HeimdEye entra a ns2 (Windows Server) per WinRM com a jaume.',
+            'comprovar que HeimdEye entra a ns2 (Windows Server) per WinRM amb l\'usuari del secret winrm_windows.',
             'WinRM és l\'equivalent de l\'SSH a Windows i és el que fan servir eines com Ansible o PowerShell remot per administrar servidors sense entrar-hi per escriptori remot. Els checks de la LAN i del secundari es fan des de ns2.',
         ),
         'Bind en marxa a ns1' => $info(

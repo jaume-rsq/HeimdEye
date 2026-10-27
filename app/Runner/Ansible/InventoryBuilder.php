@@ -7,6 +7,7 @@ use App\Models\HostType;
 use App\Models\Module;
 use App\Models\Secret;
 use App\Models\Student;
+use App\Runner\SecretRefs;
 use App\Runner\TempFiles;
 use App\Support\VariableResolver;
 use Illuminate\Support\Collection;
@@ -65,7 +66,8 @@ class InventoryBuilder
         $children['alumnes'] = ['children' => $studentGroups ?: (object) []];
 
         $vars = $globals;
-        if ($pubkey = config('heimdeye.runner.ssh_pubkey_path')) {
+        // Compatibilitat amb el codi d'abans dels secrets: la clau pública de l'accés del mòdul.
+        if ($module->access?->tipus === SecretType::SshKey && ($pubkey = SecretRefs::pubkeyFile($module->access, $this->files))) {
             $vars['heimdeye_ssh_pubkey_file'] = $pubkey;
         }
 
@@ -111,10 +113,8 @@ class InventoryBuilder
                 $vars['ansible_password'] = (string) $access->valor;
                 $this->mask[] = (string) $access->valor;
             }
-        } elseif ($access->hasValue()) {
-            $vars['ansible_ssh_private_key_file'] = $this->files->write("key-{$access->id}", rtrim((string) $access->valor)."\n");
-        } elseif ($path = config('heimdeye.runner.ssh_key_path')) {
-            $vars['ansible_ssh_private_key_file'] = $path;
+        } elseif ($keyFile = SecretRefs::keyFile($access, $this->files)) {
+            $vars['ansible_ssh_private_key_file'] = $keyFile;
         }
 
         return $vars;

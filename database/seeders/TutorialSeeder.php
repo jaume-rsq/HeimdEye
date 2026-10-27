@@ -41,11 +41,14 @@ class TutorialSeeder extends Seeder
         );
         $cycle = Cycle::updateOrCreate(['codi' => self::CYCLE], ['nom' => 'Tutorial de HeimdEye']);
 
-        // Sense clau desada: fa servir HEIMDEYE_SSH_KEY_PATH, que a la demo només és al contenidor de proves.
+        // A la demo, la clau és una ruta que només existeix al contenidor de proves (HEIMDEYE_DEMO_STUDENT_KEY).
         $access = Secret::firstOrCreate(
             ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'ssh_demo'],
             ['tipus' => SecretType::SshKey, 'nom_usuari' => 'alumne', 'descripcio' => 'SSH als equips dels alumnes de la demo'],
         );
+        if (! $access->hasValue() && filled($path = config('heimdeye.demo.student_key'))) {
+            $access->update(['valor' => $path]);
+        }
 
         $students = collect([
             [1, 'ada', 'Ada Lovelace'],

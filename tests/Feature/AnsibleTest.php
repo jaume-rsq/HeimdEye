@@ -156,21 +156,21 @@ class AnsibleTest extends TestCase
 
     public function test_a_login_secret_is_a_dictionary_and_its_name_alone_is_just_text(): void
     {
-        Secret::where('clau', 'jaume')->sole()->update(['valor' => 'molt-secreta-123']);
+        Secret::where('clau', 'winrm_windows')->sole()->update(['valor' => 'molt-secreta-123']);
         $action = $this->action(<<<'YAML'
             - hosts: locals
               gather_facts: false
               tasks:
                 - ansible.builtin.debug:
-                    msg: "usuari {{ jaume.user }} hash {{ jaume.password | password_hash('sha512', 'heimdeye') | length > 0 }}"
+                    msg: "usuari {{ winrm_windows.user }} hash {{ winrm_windows.password | password_hash('sha512', 'heimdeye') | length > 0 }}"
             YAML);
         $this->launch($action, ['local']);
         $run = $this->runFor($action, 'alumne01');
         $this->assertSame(ActionStatus::Ok, $run->estat);
-        $this->assertStringContainsString('usuari jaume hash True', $run->sortida);
+        $this->assertStringContainsString('usuari administrador hash True', $run->sortida);
 
         // Sense valor, "jaume" com a text no demana el secret.
-        Secret::where('clau', 'jaume')->sole()->update(['valor' => null]);
+        Secret::where('clau', 'winrm_windows')->sole()->update(['valor' => null]);
         $plain = $this->action("- hosts: locals\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug:\n        msg: usuari jaume\n");
         $this->launch($plain, ['local']);
         $this->assertSame(ActionStatus::Ok, $this->runFor($plain, 'alumne01')->estat);
@@ -178,10 +178,10 @@ class AnsibleTest extends TestCase
 
     public function test_the_password_of_a_login_secret_cannot_reach_the_student_host(): void
     {
-        Secret::where('clau', 'jaume')->sole()->update(['valor' => 'molt-secreta-123']);
-        $action = $this->action("- hosts: locals\n  tasks:\n    - ansible.builtin.debug:\n        msg: \"{{ jaume.password }}\"\n");
+        Secret::where('clau', 'winrm_windows')->sole()->update(['valor' => 'molt-secreta-123']);
+        $action = $this->action("- hosts: locals\n  tasks:\n    - ansible.builtin.debug:\n        msg: \"{{ winrm_windows.password }}\"\n");
 
-        $this->expectExceptionMessage('jaume');
+        $this->expectExceptionMessage('winrm_windows');
         $this->launch($action, ['local']);
     }
 
