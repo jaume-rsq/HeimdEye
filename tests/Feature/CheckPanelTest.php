@@ -27,6 +27,7 @@ use App\Models\User;
 use App\Runner\CheckRunner;
 use App\Support\CheckSummary;
 use App\Support\DeletionImpact;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
@@ -90,6 +91,19 @@ class CheckPanelTest extends TestCase
         $this->get("/admin/checks/{$check->id}/versions")->assertOk();
         $this->get("/admin/checks/{$check->id}/historial")->assertOk()->assertSee('Estat per alumne');
         $this->get('/admin/historic-checks')->assertOk();
+    }
+
+    public function test_the_list_opens_the_check_info_in_a_modal(): void
+    {
+        $this->actingAs($this->teacher);
+        $check = $this->check();
+        $check->update(['info' => "## Objectiu\n\nQue el servidor respongui."]);
+
+        Livewire::test(ListChecks::class)
+            ->mountAction(TestAction::make('info')->table($check))
+            ->assertActionMounted(TestAction::make('info')->table($check))
+            ->assertMountedActionModalSee('Que el servidor respongui.')
+            ->assertMountedActionModalDontSee('Codi del check amb les teves dades');
     }
 
     public function test_overview_uses_the_latest_run_of_each_active_student(): void

@@ -16,6 +16,7 @@ use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
+use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -130,6 +131,17 @@ class ChecksTable
             ->deferFilters(false)
             ->recordActions([
                 ActionGroup::make([
+                    Action::make('info')
+                        ->hiddenLabel()
+                        ->color(fn (Check $record) => filled($record->info) ? 'info' : 'gray')
+                        ->label('Info')
+                        ->icon(Heroicon::OutlinedInformationCircle)
+                        ->tooltip(fn (Check $record) => filled($record->info) ? 'Informació per a l\'alumne' : 'Encara no té informació per a l\'alumne')
+                        ->modalHeading(fn (Check $record) => $record->nom)
+                        ->modalWidth(Width::FourExtraLarge)
+                        ->modalContent(fn (Check $record) => view('filament.check-info', ['check' => $record, 'preview' => null]))
+                        ->modalSubmitAction(false)
+                        ->modalCancelActionLabel('Tancar'),
                     Action::make('versions')
                         ->hiddenLabel()
                         ->color('gray')
