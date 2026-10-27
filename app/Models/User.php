@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\Role;
+use App\Support\Demo;
 use Database\Factories\UserFactory;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Models\Contracts\HasName;
@@ -80,11 +81,12 @@ class User extends Authenticatable implements FilamentUser, HasName
         return in_array($this->rol, [Role::Admin, Role::Teacher], true);
     }
 
-    /** Pot editar un check: un administrador, o un professor del mòdul del check. */
+    /** Pot editar un check: un administrador, o un professor del mòdul del check (a la demo, només si l'ha creat ell). */
     public function canEditCheck(Check $check): bool
     {
         return $this->es_actiu && ($this->isAdmin()
-            || ($this->rol === Role::Teacher && $this->modules()->whereKey($check->task?->block?->modul_id)->exists()));
+            || ($this->rol === Role::Teacher && $this->modules()->whereKey($check->task?->block?->modul_id)->exists()
+                && Demo::ownsCheck($this, $check)));
     }
 
     /** Al panell admin hi entren els administradors i els professors actius; al d'alumne, els alumnes actius amb fitxa. */

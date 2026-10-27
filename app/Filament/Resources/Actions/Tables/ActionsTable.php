@@ -125,7 +125,8 @@ class ActionsTable
                 EditAction::make()
                     ->label('Editar darrera versió')
                     ->iconButton()
-                    ->tooltip('Editar darrera versió'),
+                    ->tooltip('Editar darrera versió')
+                    ->visible(fn (ActionModel $record) => ActionResource::canEdit($record)),
                 ActionGroup::make([
                     LaunchAction::make(simulate: true),
                     LaunchAction::make(),

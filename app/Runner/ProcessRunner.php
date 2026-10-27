@@ -3,6 +3,7 @@
 namespace App\Runner;
 
 use App\Enums\CheckStatus;
+use App\Support\Demo;
 use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Symfony\Component\Process\Exception\RuntimeException;
 use Symfony\Component\Process\Process;
@@ -22,6 +23,7 @@ class ProcessRunner
      */
     public function run(array $command, array $env, string $stdin, int $timeout, ?callable $statusForExitCode = null): CheckResult
     {
+        $timeout = Demo::timeout($timeout);
         $run = $this->execute($command, $env, $stdin, $timeout);
 
         if ($run['error'] !== null) {
@@ -60,6 +62,7 @@ class ProcessRunner
      */
     public function execute(array $command, array $env, string $stdin, int $timeout): array
     {
+        $timeout = Demo::timeout($timeout);
         $process = new Process($this->wrap($command, $env, $timeout), env: $env, input: $stdin, timeout: $timeout);
         $start = hrtime(true);
         $timedOut = false;

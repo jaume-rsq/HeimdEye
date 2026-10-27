@@ -15,6 +15,7 @@ use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\User;
 use App\Runner\Ansible\AnsibleRunner;
+use App\Support\Demo;
 use App\Support\VariableResolver;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -50,6 +51,7 @@ class ActionRunner
     {
         $version = $action->currentVersion ?? throw new InvalidArgumentException("L'acció no té codi");
         $params = $this->prepare($action, $version, $hostTypes, $params, $checkMode);
+        Demo::consumeRuns($user, $students->count());
 
         $batch = RunBatch::create([
             'modul_id' => $action->modul_id,

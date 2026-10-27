@@ -165,6 +165,41 @@ d'Apache del port 8080 només accepta 192.168.20.7 i la mateixa màquina (`Requi
 VM no té tallafoc actiu. `HEIMDEYE_TRUSTED_PROXIES`
 fa que Laravel cregui la capçalera `X-Forwarded-Proto` (HTTPS) només si ve del `cloudflared`.
 
+## Docker
+
+`docker/` té una imatge (FrankenPHP amb PHP 8.5, ssh i Ansible) i un `compose.yaml` amb el web,
+2 workers de la cua, el scheduler i PostgreSQL 18. És l'opció per aixecar HeimdEye en una màquina
+nova sense instal·lar res més que Docker, i és la base de la demo.
+
+```bash
+cd docker
+cp env.example .env       # APP_KEY (php artisan key:generate --show), DB_PASSWORD, HEIMDEYE_ADMIN_*
+docker compose up -d --build
+docker compose --profile tunnel up -d   # opcional: cloudflared dins el Compose (TUNNEL_TOKEN)
+```
+
+L'app queda al port `HEIMDEYE_PORT` (8080). El contenidor `app` migra en arrencar i, amb
+`HEIMDEYE_SEED=true`, omple la BBDD la primera vegada. Els contenidors corren com un usuari sense
+privilegis, sense capabilities i amb `no-new-privileges`; els workers tenen límits de CPU,
+memòria i processos. `docker compose down -v` ho esborra tot, BBDD inclosa.
+
+## Mode demo
+
+Amb `HEIMDEYE_DEMO=true` (`App\Support\Demo`) la instància és pública: el login és un botó que
+crea un professor visitant (`visitant-xxxxxx@demo.heimdeye.invalid`) amb tots els mòduls
+assignats. Pensat per a una VM aïllada, sense secrets reals i que es restaura cada nit (vegeu el
+document de seguretat de la demo).
+
+| Què | Visitant | Administrador |
+| --- | --- | --- |
+| Checks i accions | Crear, provar i executar. Editar o esborrar només els que ha creat ell | Tot |
+| Cursos, mòduls, blocs, tasques, alumnes, equips, variables | Només lectura | Tot |
+| Usuaris i credencials | No els veu | Tot |
+| Execucions | Màxim `HEIMDEYE_DEMO_MAX_TIMEOUT` s (30) i `HEIMDEYE_DEMO_RUNS_PER_HOUR` per hora (60) | Màxim de temps igual |
+
+`heimdeye:demo-cleanup` (cada hora) esborra els visitants sense activitat en les darreres
+`HEIMDEYE_DEMO_VISITOR_HOURS` hores (2) i els checks i les accions que havien creat.
+
 ## Variables
 
 Totes les variables són a la taula `variables`, amb un àmbit (`abast`): `global`, `curs`

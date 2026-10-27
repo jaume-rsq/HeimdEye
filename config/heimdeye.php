@@ -65,6 +65,20 @@ return [
     ],
 
     /*
+    | Mode demo (App\Support\Demo): instància pública on qualsevol entra com a professor visitant.
+    | - max_timeout: segons màxims de qualsevol execució, sigui quin sigui el temps de la versió.
+    | - runs_per_hour: execucions (per alumne) que pot llançar cada visitant en una hora.
+    | - visitor_hours: hores d'inactivitat després de les quals heimdeye:demo-cleanup esborra el
+    |   visitant i els checks i les accions que ha creat.
+    */
+    'demo' => [
+        'enabled' => (bool) env('HEIMDEYE_DEMO', false),
+        'max_timeout' => (int) env('HEIMDEYE_DEMO_MAX_TIMEOUT', 30),
+        'runs_per_hour' => (int) env('HEIMDEYE_DEMO_RUNS_PER_HOUR', 60),
+        'visitor_hours' => (int) env('HEIMDEYE_DEMO_VISITOR_HOURS', 2),
+    ],
+
+    /*
     | Ansible: executable i nom del grup de cada alumne a l'inventari generat.
     */
     'ansible' => [

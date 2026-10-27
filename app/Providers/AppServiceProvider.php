@@ -2,7 +2,23 @@
 
 namespace App\Providers;
 
+use App\Models\AcademicYear;
+use App\Models\Action;
+use App\Models\Block;
+use App\Models\Credential;
+use App\Models\Cycle;
+use App\Models\HostType;
+use App\Models\Module;
+use App\Models\Secret;
+use App\Models\Student;
+use App\Models\Task;
+use App\Models\User;
+use App\Models\Variable;
+use App\Policies\ActionPolicy;
+use App\Policies\DemoHiddenPolicy;
+use App\Policies\DemoReadOnlyPolicy;
 use Illuminate\Http\Middleware\TrustProxies;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -23,5 +39,14 @@ class AppServiceProvider extends ServiceProvider
         if (filled($proxies = config('heimdeye.trusted_proxies'))) {
             TrustProxies::at(array_map('trim', explode(',', $proxies)));
         }
+
+        // Les polítiques només restringeixen en mode demo (App\Support\Demo); fora, ho permeten tot.
+        foreach ([AcademicYear::class, Cycle::class, Module::class, Block::class, Task::class, Student::class, Variable::class, HostType::class, Secret::class] as $model) {
+            Gate::policy($model, DemoReadOnlyPolicy::class);
+        }
+        foreach ([User::class, Credential::class] as $model) {
+            Gate::policy($model, DemoHiddenPolicy::class);
+        }
+        Gate::policy(Action::class, ActionPolicy::class);
     }
 }

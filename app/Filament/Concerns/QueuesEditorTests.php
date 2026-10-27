@@ -4,10 +4,12 @@ namespace App\Filament\Concerns;
 
 use App\Jobs\RunEditorTest;
 use App\Models\Student;
+use App\Support\Demo;
 use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
+use InvalidArgumentException;
 
 /**
  * Proves de l'esborrany a l'editor (d'accions i de checks): cada alumne és un treball de la cua
@@ -85,8 +87,17 @@ trait QueuesEditorTests
      */
     private function queueTests(string $title, array $studentIds, callable $job): void
     {
+        $students = Student::whereKey($studentIds)->orderBy('num_taula')->get();
+        try {
+            Demo::consumeRuns(auth()->user(), $students->count());
+        } catch (InvalidArgumentException $e) {
+            Notification::make()->danger()->title($e->getMessage())->send();
+
+            return;
+        }
+
         $rows = [];
-        foreach (Student::whereKey($studentIds)->orderBy('num_taula')->get() as $student) {
+        foreach ($students as $student) {
             $key = (string) Str::uuid();
             dispatch($job($key, $title, $student->id));
             $rows[] = [
