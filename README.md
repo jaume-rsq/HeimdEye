@@ -212,13 +212,25 @@ docker compose -f compose.yaml -f compose.demo.yaml up -d --build
 | Servei | Què és |
 | --- | --- |
 | `sandbox` | Contenidor de proves: hi corre tot el codi dels checks i les accions (bash, ssh, `ansible-playbook`). La mateixa imatge, amb un `sshd` sense root al port 2222. Sense `.env` ni accés a la BBDD, sistema de fitxers de només lectura menys `/tmp`, sense capabilities i amb límits |
-| `alumne1`…`alumne4` | Alumnes ficticis: Ubuntu amb SSH, l'usuari `alumne` amb `sudo` i Python per a Ansible |
+| `alumne01`…`alumne04` | Alumnes ficticis: Ubuntu amb SSH, l'usuari `alumne` amb `sudo` i Python per a Ansible |
 | `keys` | Genera la primera vegada les claus worker → sandbox i sandbox → alumnes |
 
 El worker fa servir `HEIMDEYE_RUNNER_WRAPPER=heimdeye-sandbox` (`docker/sandbox/heimdeye-sandbox`):
 cada execució hi copia els fitxers temporals (inventari, playbook), l'executa per SSH amb el temps
 màxim i les variables, i els esborra. La clau dels alumnes només és al sandbox. Les xarxes
 `runner` (worker ↔ sandbox) i `alumnes` (sandbox ↔ alumnes) són internes: sense sortida a Internet.
+
+## Tutorial
+
+El tutorial de HeimdEye és un curs a part (`TutorialSeeder`): el curs **Tutorial**, el cicle
+**TUT** i dos mòduls, *TUT1 Primers passos amb els checks* i *TUT2 Accions*, amb 4 alumnes
+ficticis que tenen cadascun un `servidor` (els contenidors `alumne01`…`alumne04` de la demo).
+L'estructura és un exemple d'ús: tipus d'equip, variable de mòdul, credencial, checks local i
+ssh amb paràmetres i info, un check opcional per duplicar i accions Ansible i ssh amb checks de
+verificació. És la base de dades de la demo (`DemoSeeder`).
+
+Els textos són a l'app (enunciats, descripcions, info) i [docs/tutorial.md](docs/tutorial.md)
+se'n genera: `php artisan heimdeye:tutorial` (amb el tutorial a la BBDD).
 
 ## Variables
 

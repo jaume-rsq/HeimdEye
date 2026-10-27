@@ -35,7 +35,7 @@ case "${1:-web}" in
     web)
         php artisan migrate --force
         if [ "${HEIMDEYE_SEED:-false}" = "true" ] && [ "$(PGPASSWORD="$DB_PASSWORD" psql -h "${DB_HOST:-db}" -p "${DB_PORT:-5432}" -U "$DB_USERNAME" -d "$DB_DATABASE" -tAc 'select count(*) from usuaris')" = "0" ]; then
-            php artisan db:seed --force
+            php artisan db:seed --force --class="${HEIMDEYE_SEEDER:-DatabaseSeeder}"
         fi
         exec frankenphp php-server --root public --listen :8080
         ;;

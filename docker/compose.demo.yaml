@@ -27,6 +27,13 @@ x-limits: &limits
 services:
   app:
     <<: *runner
+    environment:
+      HEIMDEYE_DEMO: "true"
+      HEIMDEYE_RUNNER_WRAPPER: heimdeye-sandbox
+      HEIMDEYE_SSH_KEY_PATH: /keys/students/id_ed25519
+      # La primera vegada, només el tutorial i l'administrador.
+      HEIMDEYE_SEED: "true"
+      HEIMDEYE_SEEDER: DemoSeeder
     depends_on:
       keys:
         condition: service_completed_successfully
@@ -68,32 +75,32 @@ services:
       - students-key:/keys/students:ro
     networks: [runner, alumnes]
 
-  alumne1:
+  alumne01:
     <<: *limits
     build: alumne
     image: heimdeye-alumne:latest
-    hostname: alumne1
+    hostname: alumne01
     volumes: [students-key:/keys/students:ro]
     networks: [alumnes]
 
-  alumne2:
+  alumne02:
     <<: *limits
     image: heimdeye-alumne:latest
-    hostname: alumne2
+    hostname: alumne02
     volumes: [students-key:/keys/students:ro]
     networks: [alumnes]
 
-  alumne3:
+  alumne03:
     <<: *limits
     image: heimdeye-alumne:latest
-    hostname: alumne3
+    hostname: alumne03
     volumes: [students-key:/keys/students:ro]
     networks: [alumnes]
 
-  alumne4:
+  alumne04:
     <<: *limits
     image: heimdeye-alumne:latest
-    hostname: alumne4
+    hostname: alumne04
     volumes: [students-key:/keys/students:ro]
     networks: [alumnes]
 
