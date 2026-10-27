@@ -2,18 +2,14 @@
 
 namespace App\Filament\Resources\Modules\Pages;
 
-use App\Enums\HostScope;
 use App\Filament\Pages\InventoryOverview;
+use App\Filament\Resources\Modules\Concerns\PreviewsInventory;
 use App\Filament\Resources\Modules\ModuleResource;
-use App\Models\HostType;
 use App\Models\Module;
-use App\Models\Student;
 use App\Support\InventoryGrid;
-use App\Support\VariableResolver;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use Filament\Support\Icons\Heroicon;
 
 /**
  * Equips, variables i secrets d'un mòdul. La previsualització es calcula amb l'esborrany;
@@ -23,6 +19,8 @@ use Filament\Support\Icons\Heroicon;
  */
 class EditModuleInventory extends EditRecord
 {
+    use PreviewsInventory;
+
     protected static string $resource = ModuleResource::class;
 
     public function getTitle(): string
