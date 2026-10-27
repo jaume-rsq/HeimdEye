@@ -46,6 +46,7 @@ services:
 
   keys:
     image: heimdeye:latest
+    pull_policy: never
     command: keys
     restart: "no"
     volumes:
@@ -55,6 +56,7 @@ services:
 
   sandbox:
     image: heimdeye:latest
+    pull_policy: never
     command: sandbox
     restart: unless-stopped
     depends_on:
@@ -79,6 +81,7 @@ services:
     <<: *limits
     build: alumne
     image: heimdeye-alumne:latest
+    pull_policy: build
     hostname: alumne01
     volumes: [students-key:/keys/students:ro]
     networks: [alumnes]
@@ -86,6 +89,7 @@ services:
   alumne02:
     <<: *limits
     image: heimdeye-alumne:latest
+    pull_policy: never
     hostname: alumne02
     volumes: [students-key:/keys/students:ro]
     networks: [alumnes]
@@ -93,6 +97,7 @@ services:
   alumne03:
     <<: *limits
     image: heimdeye-alumne:latest
+    pull_policy: never
     hostname: alumne03
     volumes: [students-key:/keys/students:ro]
     networks: [alumnes]
@@ -100,6 +105,7 @@ services:
   alumne04:
     <<: *limits
     image: heimdeye-alumne:latest
+    pull_policy: never
     hostname: alumne04
     volumes: [students-key:/keys/students:ro]
     networks: [alumnes]

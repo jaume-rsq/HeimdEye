@@ -25,7 +25,7 @@ A `docker/.env`:
 | `DB_PASSWORD` | `openssl rand -hex 24` (només fa servir lletres i xifres) |
 | `HEIMDEYE_TRUSTED_PROXIES` | `192.168.20.7` (el cloudflared del pve) |
 | `HEIMDEYE_ADMIN_NAME`, `HEIMDEYE_ADMIN_EMAIL` | el teu nom i correu (l'administrador no entra per la web de la demo) |
-| `SESSION_SECURE_COOKIE` | `true` (afegeix-la) |
+| `SESSION_SECURE_COOKIE` | `true` (afegeix-la). Mentre hi entris per `http://192.168.20.22:8080`, `false` i `APP_URL=http://192.168.20.22:8080`: amb `true` el navegador no desa la cookie sense HTTPS i el login dona «Page expired» (419) |
 
 `HEIMDEYE_DEMO`, `HEIMDEYE_SEED` i el seeder de la demo ja els posa `compose.demo.yaml`.
 
