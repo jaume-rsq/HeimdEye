@@ -32,6 +32,11 @@
         .he-tr pre { white-space: pre-wrap; font-size: .75rem; max-height: 20rem; overflow: auto; background: rgba(128,128,128,.08); padding: .5rem; border-radius: .5rem; margin: 0; }
         .he-tr .row-main { cursor: pointer; }
         .he-tr .row-main:hover td { background: rgba(128,128,128,.05); }
+        .he-tr .blk { cursor: pointer; }
+        .he-tr .blk .agg { display: flex; flex-wrap: wrap; gap: .35rem 1.1rem; align-items: center; font-weight: 400; font-size: .8rem; margin-top: .3rem; }
+        .he-tr .blk .agg .bar { width: 7rem; display: inline-block; vertical-align: middle; }
+        .he-tr .pos { font-variant-numeric: tabular-nums; white-space: nowrap; opacity: .75; }
+        .he-tr .caret { display: inline-block; width: 1rem; transition: transform .15s; }
     </style>
 
     <div class="he-tr">
@@ -121,7 +126,13 @@
                     <button type="button" class="he-btn" style="margin-left: auto" wire:click="verify" wire:confirm="Verificar ara tots els checks del mòdul per a aquest alumne?">Verificar tot el mòdul</button>
                 </div>
 
-                {{-- Taula de checks --}}
+                {{-- Taula de checks: cada bloc es plega clicant-ne la línia --}}
+                @php $blockIds = collect($this->progress)->map(fn ($g) => $g['block']->id)->values(); @endphp
+                <div x-data="{ closed: {}, all(v) { {{ $blockIds->toJson() }}.forEach(id => this.closed[id] = v) } }" wire:key="taula-{{ $modul }}">
+                <div style="display: flex; gap: .5rem; justify-content: flex-end; margin-bottom: .5rem">
+                    <button type="button" class="he-btn" x-on:click="all(true)">Plegar tots els blocs</button>
+                    <button type="button" class="he-btn" x-on:click="all(false)">Desplegar-los</button>
+                </div>
                 <x-filament::section>
                     @if ($this->progress === [])
                         <div class="sub">Cap check amb aquests filtres.</div>
@@ -130,6 +141,7 @@
                             <table>
                                 <thead>
                                     <tr>
+                                        <th title="Bloc.tasca.check: l'ordre en què s'han d'anar assolint">Pos.</th>
                                         <th>Check</th>
                                         <th>Estat</th>
                                         <th>Darrera execució</th>
@@ -141,12 +153,37 @@
                                     </tr>
                                 </thead>
                                 @foreach ($this->progress as $group)
+                                    @php
+                                        $blockId = $group['block']->id;
+                                        $sum = $group['resum'];
+                                    @endphp
                                     <tbody>
-                                        <tr class="blk"><td colspan="8">Bloc {{ $group['block']->numero }}: {{ $group['block']->titol }}</td></tr>
+                                        <tr class="blk" x-on:click="closed[{{ $blockId }}] = ! closed[{{ $blockId }}]">
+                                            <td colspan="9">
+                                                <span class="caret" x-bind:style="closed[{{ $blockId }}] ? 'transform: rotate(-90deg)' : ''">▾</span>
+                                                Bloc {{ $group['block']->numero }}: {{ $group['block']->titol }}
+                                                <div class="agg" style="padding-left: 1rem">
+                                                    <span><strong>{{ $sum['assolits'] }}/{{ $sum['total'] }}</strong> checks assolits</span>
+                                                    <span>
+                                                        <span @class(['bar', 'done' => $sum['percentatge'] === 100])><span style="width: {{ $sum['percentatge'] }}%"></span></span>
+                                                        obligatoris {{ $sum['obligatoris'] }}/{{ $sum['obligatoris_total'] }} · {{ $sum['percentatge'] }}%
+                                                    </span>
+                                                    <span><strong>{{ $fmt($sum['punts']) }}</strong> / {{ $fmt($sum['punts_maxims']) }} punts</span>
+                                                    @if ($sum['errors'])
+                                                        <span style="color: rgb(217,119,6)">{{ $sum['errors'] }} amb error</span>
+                                                    @endif
+                                                    <span class="sub">darrer assoliment: {{ $sum['darrer_assoliment']?->format('d/m/Y H:i') ?? '—' }}</span>
+                                                    @if ($group['block']->data_inici || $group['block']->data_fi)
+                                                        <span class="sub">{{ $group['block']->data_inici?->format('d/m') ?? '…' }} – {{ $group['block']->data_fi?->format('d/m/Y') ?? '…' }}</span>
+                                                    @endif
+                                                </div>
+                                            </td>
+                                        </tr>
                                     </tbody>
                                     @foreach ($group['tasks'] as $t)
-                                        <tbody>
+                                        <tbody x-show="! closed[{{ $blockId }}]">
                                             <tr class="grp">
+                                                <td class="pos">{{ $group['block']->numero }}.{{ $t['task']->posicio }}</td>
                                                 <td colspan="7">{{ $t['task']->titol }} <span class="sub">· {{ $t['assolits'] }}/{{ $t['total'] }} assolits</span></td>
                                                 <td style="text-align: right"><button type="button" class="he-btn" wire:click="verify(null, {{ $t['task']->id }})">Verificar la tasca</button></td>
                                             </tr>
@@ -157,9 +194,10 @@
                                                 $state = $r['state'];
                                                 $last = $r['darrera'];
                                             @endphp
-                                            <tbody x-data="{ open: false }" wire:key="chk-{{ $check->id }}">
+                                            <tbody x-data="{ open: false }" x-show="! closed[{{ $blockId }}]" wire:key="chk-{{ $check->id }}">
                                                 <tr class="row-main" x-on:click="open = ! open">
-                                                    <td>
+                                                    <td class="pos">{{ $check->positionLabel() }}</td>
+                                                    <td style="min-width: 14rem">
                                                         <strong>{{ $check->nom }}</strong>
                                                         <div class="sub">{{ $check->tipus->value }} · {{ $check->punts }} punts{{ $r['compta'] ? '' : ' · no compta (no ha començat o desactivat)' }}</div>
                                                     </td>
@@ -187,12 +225,13 @@
                                                     <td style="text-align: right"><strong>{{ $fmt($r['punts']) }}</strong></td>
                                                     <td style="max-width: 16rem">{{ $state?->comentari_professor }}</td>
                                                     <td style="text-align: right; white-space: nowrap" x-on:click.stop>
+                                                        <button type="button" class="he-btn" wire:click="mountAction('info', { check: {{ $check->id }} })" title="Objectiu, justificació i codi amb les dades de l'alumne">Info</button>
                                                         <button type="button" class="he-btn" wire:click="verify({{ $check->id }})">Verificar</button>
                                                         <button type="button" class="he-btn" wire:click="mountAction('correct', { check: {{ $check->id }} })">Corregir</button>
                                                     </td>
                                                 </tr>
                                                 <tr x-show="open" x-cloak>
-                                                    <td colspan="8" style="background: rgba(128,128,128,.04)">
+                                                    <td colspan="9" style="background: rgba(128,128,128,.04)">
                                                         <div style="display: grid; gap: 1rem; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr)">
                                                             <div>
                                                                 <div class="sub" style="margin-bottom: .3rem">Sortida de la darrera execució</div>
@@ -222,6 +261,7 @@
                         </div>
                     @endif
                 </x-filament::section>
+                </div>
             @endif
         @endif
     </div>

@@ -78,7 +78,7 @@ class Leaderboard
         return [
             'blocks' => $blocks->all(),
             'rows' => $rows,
-            'punts_maxims' => (float) $checks->sum(fn (Check $c) => $c->data_limit ? $c->pointsFor($c->data_limit) : $c->punts),
+            'punts_maxims' => (float) $checks->sum(fn (Check $c) => self::maxPoints($c)),
         ];
     }
 
@@ -90,6 +90,12 @@ class Leaderboard
         }
 
         return $state->data_primer_assoliment ? $check->pointsFor($state->data_primer_assoliment) : (float) $check->punts;
+    }
+
+    /** Punts màxims d'un check: amb el bonus, si té data límit. */
+    public static function maxPoints(Check $check): float
+    {
+        return $check->data_limit ? $check->pointsFor($check->data_limit) : (float) $check->punts;
     }
 
     /** Un check compta si està activat a mà, o si no està desactivat i ja ha començat. */
