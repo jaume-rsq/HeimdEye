@@ -62,8 +62,10 @@ class StudentImporter
      */
     public function attributes(array $row): array
     {
-        $table = (int) preg_replace('/\D/', '', $row['taula']);
-        if ($table < 1 || ! str_contains($row['email'], '@')) {
+        $digits = preg_replace('/\D/', '', $row['taula']);
+        $table = (int) $digits;
+        // La taula 0 és vàlida; el que no ho és és una taula sense cap número.
+        if ($digits === '' || ! str_contains($row['email'], '@')) {
             throw new InvalidArgumentException("Fila no vàlida: taula «{$row['taula']}», correu «{$row['email']}».");
         }
 

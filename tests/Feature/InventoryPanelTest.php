@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Enums\VariableScope;
 use App\Filament\Pages\InventoryOverview;
 use App\Filament\Resources\Modules\ModuleResource;
+use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
 use App\Models\Credential;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Models\Variable;
 use App\Support\InventoryGrid;
 use App\Support\VariableResolver;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -109,11 +111,12 @@ class InventoryPanelTest extends TestCase
         $this->get('/admin/alumnes')->assertOk()->assertSee($this->student->usuari);
 
         Livewire::test(EditStudent::class, ['record' => $this->student->id])
-            ->fillForm(['alies' => 'Fènix', 'variables' => ['ip_router' => '198.51.100.99']])
+            ->fillForm(['alies' => 'Fènix', 'num_taula' => 0, 'x' => 0, 'variables' => ['ip_router' => '198.51.100.99']])
             ->call('save')
             ->assertHasNoFormErrors();
 
         $this->assertSame('Fènix', $this->student->fresh()->alies);
+        $this->assertSame(0, $this->student->fresh()->num_taula, 'la taula 0 és vàlida');
         $this->assertSame('198.51.100.99', $this->student->fresh()->variables['ip_router']);
     }
 
@@ -131,5 +134,31 @@ class InventoryPanelTest extends TestCase
         $module = Module::where('codi', '9991')->sole();
 
         $this->get(ModuleResource::getUrl())->assertRedirect(ModuleResource::getUrl('edit', ['record' => $module]));
+    }
+
+    public function test_a_new_student_sheet_can_be_linked_to_a_user_so_it_can_enter_its_panel(): void
+    {
+        $user = User::create(['nom' => 'Prova', 'email' => 'prova@example.com', 'password' => 'secret', 'rol' => Role::Student, 'es_actiu' => true]);
+        $teacher = auth()->user();
+        $this->actingAs($user)->get('/alumne')->assertForbidden();
+
+        $this->actingAs($teacher);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        Livewire::test(CreateStudent::class)
+            ->fillForm([
+                'usuari' => 'prova', 'nom_complet' => 'Prova Alumne', 'num_taula' => 0, 'x' => 0, 'usuari_id' => $user->id,
+                'curs_id' => $this->student->curs_id, 'cicle_id' => $this->student->cicle_id,
+            ])
+            ->call('create')
+            ->assertHasNoFormErrors();
+
+        $this->actingAs($user->fresh())->followingRedirects()->get('/alumne')->assertOk();
+
+        $this->actingAs($teacher);
+        Filament::setCurrentPanel(Filament::getPanel('admin'));
+        Livewire::test(CreateStudent::class)
+            ->fillForm(['usuari' => 'altra', 'nom_complet' => 'Altra', 'usuari_id' => $user->id, 'curs_id' => $this->student->curs_id, 'cicle_id' => $this->student->cicle_id])
+            ->call('create')
+            ->assertHasFormErrors(['usuari_id' => 'unique']);
     }
 }

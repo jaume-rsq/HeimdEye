@@ -158,4 +158,13 @@ class StudentImportTest extends TestCase
         $this->get('/admin/alumnes')->assertOk()->assertSee('Importar llista');
         $this->get('/admin/alumnes/importar')->assertOk()->assertSee('Arrossega aquí el fitxer CSV');
     }
+
+    public function test_table_zero_is_valid_but_a_table_without_number_is_not(): void
+    {
+        $row = ['xarxa' => '10.0.0.0/24', 'taula' => '0', 'alumne' => 'Prova Zero', 'email' => 'zero@example.com', 'alum' => 'u00'];
+        $this->assertSame(0, $this->importer->attributes($row)['num_taula']);
+
+        $this->expectException(InvalidArgumentException::class);
+        $this->importer->attributes([...$row, 'taula' => 'taula']);
+    }
 }
