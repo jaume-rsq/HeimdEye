@@ -50,11 +50,11 @@ systemctl daemon-reload
 
 cat <<MSG
 
-Fet. Passos que queden (són al README, secció Producció):
+Fet. Passos que queden (són a docs/produccio.md):
   1. Crear l'usuari i la BBDD heimdeye al Postgres.
   2. Omplir $BASE/shared/.env (APP_KEY, DB_PASSWORD, CF_ACCESS_*, APP_URL, admin).
   3. Copiar la clau SSH a $HOME_DIR/.ssh/id_ed25519 i la llista d'alumnes a $HOME_DIR/students.csv.
   4. Primer desplegament: sudo -u heimdeye -H env SKIP_CI=1 $SRC/deploy.sh
   5. sudo systemctl enable --now heimdeye-queue@{1..4} heimdeye-schedule.timer heimdeye-deploy.timer
-  6. Tallafoc: el port 8080 només des de 192.168.20.7 (cloudflared).
+  6. Tallafoc: el port 8080 només des del cloudflared (i Require ip a deploy/apache/heimdeye.conf).
 MSG
