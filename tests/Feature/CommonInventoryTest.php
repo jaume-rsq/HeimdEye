@@ -2,13 +2,13 @@
 
 namespace Tests\Feature;
 
-use App\Enums\CredentialType;
+use App\Enums\Level;
 use App\Enums\Role;
-use App\Enums\VariableScope;
-use App\Filament\Resources\Credentials\Pages\ManageCredentials;
+use App\Enums\SecretType;
+use App\Filament\Resources\Secrets\Pages\ManageSecrets;
 use App\Filament\Resources\Variables\Pages\ManageVariables;
 use App\Models\AcademicYear;
-use App\Models\Credential;
+use App\Models\Secret;
 use App\Models\User;
 use App\Models\Variable;
 use Filament\Actions\Testing\TestAction;
@@ -16,7 +16,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-/** Variables comunes (globals i de curs) i credencials. */
+/** Variables i secrets comuns (globals i de curs). */
 class CommonInventoryTest extends TestCase
 {
     use RefreshDatabase;
@@ -43,49 +43,66 @@ class CommonInventoryTest extends TestCase
         $year = AcademicYear::where('es_actual', true)->firstOrFail();
 
         Livewire::test(ManageVariables::class)
-            ->callAction('create', ['abast' => VariableScope::Course->value, 'curs_id' => $year->id, 'clau' => 'ip_zabbix', 'valor' => '198.51.100.250'])
+            ->callAction('create', ['nivell' => Level::Course->value, 'curs_id' => $year->id, 'clau' => 'ip_zabbix', 'valor' => '198.51.100.250'])
             ->assertHasNoActionErrors();
 
-        $variable = Variable::where('abast', VariableScope::Course)->where('clau', 'ip_zabbix')->firstOrFail();
+        $variable = Variable::where('nivell', Level::Course)->where('clau', 'ip_zabbix')->firstOrFail();
         $this->assertSame($year->id, $variable->curs_id);
 
         Livewire::test(ManageVariables::class)
-            ->callAction('create', ['abast' => VariableScope::Course->value, 'curs_id' => $year->id, 'clau' => 'ip_zabbix', 'valor' => 'x'])
+            ->callAction('create', ['nivell' => Level::Course->value, 'curs_id' => $year->id, 'clau' => 'ip_zabbix', 'valor' => 'x'])
             ->assertHasActionErrors(['clau']);
 
         Livewire::test(ManageVariables::class)
-            ->callAction('create', ['abast' => VariableScope::Global->value, 'curs_id' => $year->id, 'clau' => 'nom_nou', 'valor' => 'x'])
+            ->callAction('create', ['nivell' => Level::Global->value, 'curs_id' => $year->id, 'clau' => 'nom_nou', 'valor' => 'x'])
             ->assertHasNoActionErrors();
         $this->assertNull(Variable::where('clau', 'nom_nou')->value('curs_id'));
     }
 
-    public function test_credential_secrets_are_write_only(): void
+    public function test_common_secrets_are_write_only(): void
     {
-        $credential = Credential::where('nom', 'API Zabbix')->firstOrFail();
+        $secret = Secret::where('clau', 'api_zabbix')->firstOrFail();
 
-        Livewire::test(ManageCredentials::class)
-            ->callAction(TestAction::make('edit')->table($credential), ['secret' => 'contrasenya-nova'])
+        Livewire::test(ManageSecrets::class)
+            ->callAction(TestAction::make('edit')->table($secret), ['valor' => 'contrasenya-nova'])
             ->assertHasNoActionErrors();
-        $this->assertSame('contrasenya-nova', $credential->fresh()->secret);
+        $this->assertSame('contrasenya-nova', $secret->fresh()->valor);
 
-        Livewire::test(ManageCredentials::class)
-            ->mountAction(TestAction::make('edit')->table($credential))
-            ->assertActionDataSet(['secret' => null])
+        Livewire::test(ManageSecrets::class)
+            ->mountAction(TestAction::make('edit')->table($secret))
+            ->assertActionDataSet(['valor' => null])
             ->setActionData(['nom_usuari' => 'altre'])
             ->callMountedAction()
             ->assertHasNoActionErrors();
-        $this->assertSame('contrasenya-nova', $credential->fresh()->secret);
-        $this->assertSame('altre', $credential->fresh()->nom_usuari);
+        $this->assertSame('contrasenya-nova', $secret->fresh()->valor);
+        $this->assertSame('altre', $secret->fresh()->nom_usuari);
     }
 
-    public function test_the_list_says_where_a_credential_is_used(): void
+    public function test_common_secrets_are_global_or_of_a_course_and_unique_per_level(): void
     {
-        Credential::create(['nom' => 'Sense ús', 'tipus' => CredentialType::Ssh, 'nom_usuari' => 'ningu']);
+        $year = AcademicYear::where('es_actual', true)->firstOrFail();
 
-        Livewire::test(ManageCredentials::class)
+        Livewire::test(ManageSecrets::class)
+            ->callAction('create', ['nivell' => Level::Course->value, 'curs_id' => $year->id, 'clau' => 'token_curs', 'tipus' => SecretType::Value->value, 'valor' => 'abc'])
+            ->assertHasNoActionErrors();
+        $secret = Secret::where('clau', 'token_curs')->firstOrFail();
+        $this->assertSame(Level::Course, $secret->nivell);
+        $this->assertSame($year->id, $secret->curs_id);
+        $this->assertNull($secret->modul_id);
+
+        Livewire::test(ManageSecrets::class)
+            ->callAction('create', ['nivell' => Level::Global->value, 'clau' => 'jaume', 'tipus' => SecretType::Value->value])
+            ->assertHasActionErrors(['clau']);
+    }
+
+    public function test_the_list_says_where_a_secret_gives_access(): void
+    {
+        Secret::create(['nivell' => Level::Global, 'clau' => 'sense_us', 'tipus' => SecretType::SshKey, 'nom_usuari' => 'ningu']);
+
+        Livewire::test(ManageSecrets::class)
             ->assertOk()
             ->assertSee('2 tipus d&#039;equip', false)
             ->assertSee('1 mòdul')
-            ->assertSee('enlloc');
+            ->assertSee('sense_us');
     }
 }

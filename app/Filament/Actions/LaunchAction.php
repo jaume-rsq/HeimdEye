@@ -108,9 +108,9 @@ class LaunchAction
             RowPicker::make('equips')
                 ->label('Tipus d\'equip')
                 ->helperText('Cap marcat = tots els que fa servir el codi.')
-                ->headers(['Tipus', 'Grup Ansible', 'Abast', 'Nom de host', 'Adreça', 'Credencial'])
+                ->headers(['Tipus', 'Grup Ansible', 'Abast', 'Nom de host', 'Adreça', 'Accés'])
                 ->rows($record->module->hostTypes->sortBy('posicio')->mapWithKeys(fn (HostType $t) => [$t->nom => [
-                    $t->nom, $t->grup_ansible, $t->abast->value, $t->nom_host, $t->adreca, $t->credential?->nom ?? '—',
+                    $t->nom, $t->grup_ansible, $t->abast->value, $t->nom_host, $t->adreca, $t->access?->clau ?? '—',
                 ]])->all())
                 ->visible($record->module->hostTypes->isNotEmpty()),
             Fieldset::make('Paràmetres')

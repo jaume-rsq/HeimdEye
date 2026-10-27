@@ -3,7 +3,9 @@
 namespace App\Filament\Resources\Modules\Schemas;
 
 use App\Enums\HostScope;
-use App\Enums\VariableScope;
+use App\Enums\Level;
+use App\Enums\SecretType;
+use App\Filament\Resources\Secrets\Schemas\SecretFields;
 use App\Models\Module;
 use App\Models\Student;
 use Filament\Forms\Components\KeyValue;
@@ -36,10 +38,10 @@ class ModuleInventoryForm
                     ->tabs([
                         Tab::make('Tipus d\'equip')
                             ->schema([
-                                Select::make('credencial_id')
-                                    ->label('Credencial per defecte del mòdul')
-                                    ->relationship('credential', 'nom')
-                                    ->helperText('La fan servir els equips que no en tenen cap.'),
+                                Select::make('secret_acces_id')
+                                    ->label('Accés per defecte del mòdul')
+                                    ->options(fn (?Module $record) => SecretFields::accessOptions($record))
+                                    ->helperText('Un secret d\'usuari i contrasenya o de clau SSH. El fan servir els equips que no en tenen cap.'),
                                 Repeater::make('hostTypes')
                                     ->label('Tipus d\'equip')
                                     ->relationship()
@@ -59,7 +61,10 @@ class ModuleInventoryForm
                                             ->required(),
                                         TextInput::make('nom_host')->label('Nom de host')->required()->live(onBlur: true)->helperText('Plantilla: pve{{num_taula}}-{{usuari}}'),
                                         TextInput::make('adreca')->label('Adreça')->required()->live(onBlur: true)->helperText('Plantilla: {{ip_pve}}'),
-                                        Select::make('credencial_id')->label('Credencial')->relationship('credential', 'nom')->placeholder('La del mòdul'),
+                                        Select::make('secret_acces_id')
+                                            ->label('Accés')
+                                            ->options(fn ($livewire) => SecretFields::accessOptions($livewire->getRecord()))
+                                            ->placeholder('El del mòdul'),
                                         KeyValue::make('variables_connexio')
                                             ->label('Variables de connexió')
                                             ->keyLabel('Variable Ansible')
@@ -82,7 +87,7 @@ class ModuleInventoryForm
                                         TextInput::make('valor')->required()->live(onBlur: true),
                                         TextInput::make('descripcio'),
                                     ])
-                                    ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [...$data, 'abast' => VariableScope::Module->value])
+                                    ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [...$data, 'nivell' => Level::Module->value])
                                     ->defaultItems(0)
                                     ->addActionLabel('Afegir variable'),
                                 View::make('filament.variable-help'),
@@ -92,20 +97,14 @@ class ModuleInventoryForm
                                 Repeater::make('secrets')
                                     ->hiddenLabel()
                                     ->relationship()
-                                    ->table([
-                                        TableColumn::make('Clau'),
-                                        TableColumn::make('Valor'),
-                                        TableColumn::make('Descripció'),
-                                    ])
-                                    ->schema([
-                                        TextInput::make('clau')->required()->regex(self::KEY_RULE)->distinct(),
-                                        TextInput::make('valor')
-                                            ->password()
-                                            ->revealable()
-                                            ->placeholder('Deixa-ho buit per no canviar-lo')
-                                            ->dehydrated(fn (?string $state) => filled($state)),
-                                        TextInput::make('descripcio'),
-                                    ])
+                                    ->collapsible()
+                                    ->itemLabel(fn (array $state) => trim(($state['clau'] ?? '').' · '.(SecretType::tryFrom((string) ($state['tipus'] ?? ''))?->label() ?? ''), ' ·'))
+                                    ->columns(3)
+                                    ->schema(array_map(
+                                        fn ($field) => $field->getName() === 'clau' ? $field->distinct() : $field,
+                                        SecretFields::make(),
+                                    ))
+                                    ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [...$data, 'nivell' => Level::Module->value])
                                     ->defaultItems(0)
                                     ->addActionLabel('Afegir secret'),
                                 View::make('filament.secret-help'),

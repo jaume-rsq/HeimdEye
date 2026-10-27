@@ -4,13 +4,15 @@ namespace Tests\Feature;
 
 use App\Enums\CheckStatus;
 use App\Enums\Executor;
+use App\Enums\Level;
+use App\Enums\SecretType;
 use App\Jobs\RunCheck;
 use App\Models\Check;
 use App\Models\CheckRun;
 use App\Models\CheckStudent;
-use App\Models\Credential;
 use App\Models\Module;
 use App\Models\RunBatch;
+use App\Models\Secret;
 use App\Models\Student;
 use App\Models\Task;
 use App\Runner\CheckResult;
@@ -156,13 +158,14 @@ class RunnerTest extends TestCase
 
     public function test_credential_header_replaces_the_module_credential(): void
     {
-        Credential::where('nom', 'API Zabbix')->sole()->update(['secret' => 'zbx-secret-1']);
-        Credential::create(['nom' => 'SSH altre', 'tipus' => 'ssh', 'nom_usuari' => 'altre']);
+        Secret::where('clau', 'api_zabbix')->sole()->update(['valor' => 'zbx-secret-1']);
+        Secret::create(['nivell' => Level::Global, 'clau' => 'ssh_altre', 'tipus' => SecretType::SshKey, 'nom_usuari' => 'altre']);
 
+        // Pel nom antic de la credencial ("SSH altre" és ssh_altre) o per la clau del secret.
         $ssh = $this->execute($this->check("# credencial: SSH altre\necho \"user=\$HE_SSH_USER\""));
         $this->assertSame('user=altre', $ssh->message);
 
-        $password = $this->execute($this->check("# credencial: API Zabbix\necho \"\$HE_CRED_USER \$HE_CRED_PASSWORD\""));
+        $password = $this->execute($this->check("# credencial: api_zabbix\necho \"\$HE_CRED_USER \$HE_CRED_PASSWORD\""));
         $this->assertSame('ansible ********', $password->message);
 
         $unknown = $this->execute($this->check("# credencial: No hi és\ntrue"));
@@ -200,7 +203,7 @@ class RunnerTest extends TestCase
         $result = $this->execute($this->check('[ -n "$HE_SECRET_JAUME_PASSWORD" ]'));
 
         $this->assertSame(CheckStatus::Error, $result->status);
-        $this->assertStringContainsString('jaume_password no té valor', $result->message);
+        $this->assertStringContainsString('jaume no té valor', $result->message);
     }
 
     public function test_a_variable_that_cannot_be_computed_for_the_student_is_an_error(): void
@@ -330,7 +333,34 @@ class RunnerTest extends TestCase
         $result = $this->execute($this->check("# hosts: tancats\necho \"\$HE_SECRET_JAUME_PASSWORD\"", Executor::Ssh));
 
         $this->assertSame(CheckStatus::Error, $result->status);
-        $this->assertStringContainsString('jaume_password', $result->message);
+        $this->assertStringContainsString('HE_SECRET_JAUME_PASSWORD', $result->message);
+    }
+
+    public function test_secrets_of_every_level_reach_the_code_by_field(): void
+    {
+        Secret::where('clau', 'jaume')->sole()->update(['valor' => 'contrasenya-global']);
+        $result = $this->execute($this->check('echo "$HE_SECRET_JAUME_USER $HE_SECRET_JAUME_PASSWORD"'));
+        $this->assertSame('jaume ********', $result->message);
+
+        // Un del mòdul amb la mateixa clau tapa el global.
+        Module::where('codi', '9991')->sole()->secrets()->create(['clau' => 'jaume', 'tipus' => SecretType::Login, 'nom_usuari' => 'altre', 'valor' => 'del-modul']);
+        $result = $this->execute($this->check('echo "$HE_SECRET_JAUME_USER"; [ "$HE_SECRET_JAUME_PASSWORD" = del-modul ]'));
+        $this->assertSame(CheckStatus::Pass, $result->status);
+        $this->assertSame('altre', $result->message);
+    }
+
+    public function test_ssh_code_can_use_the_user_and_public_key_of_a_secret(): void
+    {
+        $this->closedHostType();
+        Secret::where('clau', 'ssh_jaume')->sole()->update(['clau_publica' => 'ssh-ed25519 AAAA heimdeye']);
+
+        // Arriba a executar-se (i falla perquè l'equip no respon), no el para el validador.
+        $result = $this->execute($this->check("# hosts: tancats\necho \"\$HE_SECRET_SSH_JAUME_PUBKEY\"", Executor::Ssh));
+        $this->assertStringNotContainsString('arribaria en clar', (string) $result->message);
+
+        $result = $this->execute($this->check("# hosts: tancats\ncat \"\$HE_SECRET_SSH_JAUME_KEY_FILE\"", Executor::Ssh));
+        $this->assertSame(CheckStatus::Error, $result->status);
+        $this->assertStringContainsString('arribaria en clar', $result->message);
     }
 
     public function test_secrets_are_matched_by_whole_name(): void

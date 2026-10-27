@@ -2,21 +2,22 @@
 
 namespace App\Runner;
 
-use App\Enums\CredentialType;
 use App\Enums\Executor;
-use App\Models\Credential;
+use App\Enums\SecretType;
 use App\Models\HostType;
 use App\Models\Module;
+use App\Models\Secret;
 use App\Models\Student;
 use App\Runner\Ansible\InventoryBuilder;
 use App\Runner\Ansible\Playbook;
 use App\Support\VariableResolver;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
  * Prepara el context d'execució d'un script (check o acció) per a un alumne: variables,
- * paràmetres calculats per a l'alumne, secrets referenciats, credencial i equips de destinació
+ * paràmetres calculats per a l'alumne, secrets que esmenta, accés i equips de destinació
  * (capçaleres "# credencial:" i "# hosts:", o el "hosts:" dels plays) i, per a Ansible,
  * l'inventari amb només aquests equips. Abans comprova el codi amb CodeValidator.
  * Els fitxers temporals que crea s'esborren amb cleanup().
@@ -61,32 +62,38 @@ class ContextBuilder
         }
 
         $headers = CodeHeaders::parse($code);
-        $override = $headers->credential === null ? null : $this->credentialNamed($headers->credential);
+        $override = $headers->credential === null ? null : $this->accessNamed($module, $headers->credential);
         $vars = $this->resolver->resolve($student, $module);
         $this->assertNoUnresolvedVariables($vars, $code);
         $params = $this->renderParams($params, $vars);
 
-        $secrets = $this->secretsFor($module, $code);
+        $secrets = $this->secretsFor($module, $code, $executor);
         $env = $this->resolver->toEnv($vars);
         foreach ($params as $name => $value) {
             $env[$this->envName('HE_PARAM_', $name)] = $value;
         }
-        foreach ($secrets as $name => $value) {
-            $env[$this->envName('HE_SECRET_', $name)] = $value;
-            $this->mask[] = $value;
+        $extraVars = $params;
+        foreach ($secrets as $secret) {
+            $keyFile = $secret->tipus === SecretType::SshKey ? $this->keyFor($secret) : null;
+            $secretEnv = SecretRefs::env($secret, $keyFile);
+            $env = [...$env, ...array_intersect_key($secretEnv, array_flip(SecretRefs::envNamesIn($code, $secret)))];
+            if ($executor === Executor::Ansible) {
+                $extraVars[$secret->clau] = SecretRefs::ansibleValue($secret, $keyFile);
+            }
+            $this->mask[] = $secret->tipus === SecretType::SshKey ? '' : (string) $secret->valor;
         }
 
-        // Executor local: la credencial de la capçalera o la del mòdul. Només en local, perquè
+        // Executor local: l'accés de la capçalera o el del mòdul. Només en local, perquè
         // l'executor ssh exporta l'entorn a l'equip de l'alumne.
-        $credential = $executor === Executor::Local ? ($override ?? $module->credential) : null;
+        $access = $executor === Executor::Local ? ($override ?? $module->access) : null;
         $sshUser = $sshKey = null;
-        if ($this->isPassword($credential)) {
-            $env['HE_CRED_USER'] = $credential->nom_usuari;
-            $env['HE_CRED_PASSWORD'] = (string) $credential->secret;
-            $this->mask[] = (string) $credential->secret;
-        } elseif ($credential !== null) {
-            $sshUser = $credential->nom_usuari;
-            $sshKey = $this->keyFor($credential);
+        if ($access?->tipus === SecretType::Login) {
+            $env['HE_CRED_USER'] = (string) $access->nom_usuari;
+            $env['HE_CRED_PASSWORD'] = (string) $access->valor;
+            $this->mask[] = (string) $access->valor;
+        } elseif ($access !== null) {
+            $sshUser = $access->nom_usuari;
+            $sshKey = $this->keyFor($access);
         }
         if ($executor === Executor::Local) {
             // Opcions per als ssh que facin els scripts locals: veure SshOptions.
@@ -123,7 +130,7 @@ class ContextBuilder
             targets: $targets,
             inventory: $inventory,
             hosts: $hosts,
-            extraVars: [...$params, ...$secrets],
+            extraVars: $extraVars,
             mask: array_values(array_unique(array_filter($this->mask))),
             checkMode: $checkMode,
             files: $this->files,
@@ -131,19 +138,22 @@ class ContextBuilder
     }
 
     /**
-     * Secrets del mòdul que el codi esmenta pel nom (no se n'entrega cap altre).
+     * Secrets que veu el mòdul i que el codi esmenta (no se n'entrega cap altre): amb bash, per
+     * la variable d'entorn; amb Ansible, també pel nom.
      *
-     * @return array<string, string>
+     * @return Collection<string, Secret>
      */
-    public function secretsFor(Module $module, string $code): array
+    public function secretsFor(Module $module, string $code, Executor $executor): Collection
     {
-        $secrets = $module->secrets->filter(fn ($secret) => Playbook::mentions($code, $secret->clau));
-        $empty = $secrets->filter(fn ($secret) => $secret->valor === null || $secret->valor === '');
+        $secrets = $module->visibleSecrets()->filter(fn (Secret $secret) => $executor === Executor::Ansible
+            ? SecretRefs::inAnsible($code, $secret)
+            : SecretRefs::inBash($code, $secret));
+        $empty = $secrets->filter(fn (Secret $secret) => $secret->tipus !== SecretType::SshKey && ! $secret->hasValue());
         if ($empty->isNotEmpty()) {
-            throw new InvalidArgumentException('El secret '.$empty->pluck('clau')->implode(', ')." no té valor: omple'l a l'inventari del mòdul, pestanya Secrets");
+            throw new InvalidArgumentException('El secret '.$empty->keys()->implode(', ')." no té valor: omple'l a Inventari → Secrets (o a la pestanya Secrets del mòdul)");
         }
 
-        return $secrets->mapWithKeys(fn ($secret) => [$secret->clau => $secret->valor])->all();
+        return $secrets;
     }
 
     /**
@@ -215,16 +225,16 @@ class ContextBuilder
      * @param  Collection<int, HostType>  $types
      * @return list<SshTarget>
      */
-    private function targets(array $vars, Collection $types, ?Credential $override): array
+    private function targets(array $vars, Collection $types, ?Secret $override): array
     {
         return $types->map(function (HostType $type) use ($vars, $override) {
             $connection = $type->variables_connexio ?? [];
             if (($connection['ansible_connection'] ?? 'ssh') !== 'ssh') {
                 throw new InvalidArgumentException("L'equip {$type->nom} es connecta per {$connection['ansible_connection']}, no per SSH");
             }
-            $credential = $override ?? $type->credential ?? $type->module->credential;
-            if ($this->isPassword($credential)) {
-                throw new InvalidArgumentException("La credencial {$credential->nom} no és una credencial SSH");
+            $access = $override ?? $type->access ?? $type->module->access;
+            if ($access?->tipus === SecretType::Login) {
+                throw new InvalidArgumentException("L'accés {$access->clau} és d'usuari i contrasenya, no una clau SSH");
             }
 
             if ($missing = $this->resolver->missing($type->nom_host.' '.$type->adreca, $vars)) {
@@ -235,32 +245,37 @@ class ContextBuilder
             return new SshTarget(
                 name: $this->resolver->render($type->nom_host, $vars),
                 host: $this->resolver->render($type->adreca, $vars),
-                user: $connection['ansible_user'] ?? $credential?->nom_usuari,
-                key: $credential === null ? config('heimdeye.runner.ssh_key_path') : $this->keyFor($credential),
+                user: $connection['ansible_user'] ?? $access?->nom_usuari,
+                key: $access === null ? config('heimdeye.runner.ssh_key_path') : $this->keyFor($access),
                 port: isset($connection['ansible_port']) ? (int) $connection['ansible_port'] : null,
             );
         })->values()->all();
     }
 
-    private function credentialNamed(string $name): Credential
+    /**
+     * El secret de la capçalera "# credencial:", per la clau o pel nom de l'antiga credencial
+     * ("SSH jaume" és ssh_jaume).
+     */
+    private function accessNamed(Module $module, string $name): Secret
     {
-        return Credential::where('nom', $name)->first()
-            ?? throw new InvalidArgumentException("No existeix la credencial {$name}");
+        $secrets = $module->visibleSecrets();
+        $secret = $secrets->get($name) ?? $secrets->get(Str::slug($name, '_'))
+            ?? throw new InvalidArgumentException("No existeix el secret {$name} de la capçalera \"# credencial:\"");
+        if (! $secret->tipus->isAccess()) {
+            throw new InvalidArgumentException("El secret {$secret->clau} de la capçalera \"# credencial:\" no és d'usuari i contrasenya ni una clau SSH");
+        }
+
+        return $secret;
     }
 
-    private function isPassword(?Credential $credential): bool
+    /** Fitxer amb la clau privada desada al secret o, si no en té, la clau configurada. */
+    private function keyFor(Secret $secret): ?string
     {
-        return in_array($credential?->tipus, [CredentialType::Winrm, CredentialType::Password], true);
-    }
-
-    /** Fitxer amb la clau privada desada a la credencial o, si no en té, la clau configurada. */
-    private function keyFor(Credential $credential): ?string
-    {
-        if (! $credential->secret) {
+        if (! $secret->hasValue()) {
             return config('heimdeye.runner.ssh_key_path');
         }
 
-        return $this->files->write("key-{$credential->id}", rtrim($credential->secret)."\n");
+        return $this->files->write("key-{$secret->id}", rtrim((string) $secret->valor)."\n");
     }
 
     private function envName(string $prefix, string $name): string

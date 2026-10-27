@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Level;
 use App\Enums\Role;
-use App\Enums\VariableScope;
 use App\Filament\Resources\Modules\Pages\EditModuleInventory;
 use App\Models\Module;
 use App\Models\Secret;
@@ -59,8 +59,7 @@ class ModuleInventoryTest extends TestCase
 
     public function test_saving_creates_module_variables_and_keeps_secrets_write_only(): void
     {
-        $secret = $this->module->secrets()->firstOrFail();
-        $secret->update(['valor' => 'antic']);
+        $secret = $this->module->secrets()->create(['clau' => 'token_prova', 'valor' => 'antic']);
 
         $page = Livewire::test(EditModuleInventory::class, ['record' => $this->module->id])
             ->assertDontSee('antic');
@@ -72,7 +71,7 @@ class ModuleInventoryTest extends TestCase
             ->assertHasNoFormErrors();
 
         $variable = Variable::where('clau', 'nom_prova')->firstOrFail();
-        $this->assertSame(VariableScope::Module, $variable->abast);
+        $this->assertSame(Level::Module, $variable->nivell);
         $this->assertSame($this->module->id, $variable->modul_id);
         $this->assertSame('antic', $secret->fresh()->valor);
 

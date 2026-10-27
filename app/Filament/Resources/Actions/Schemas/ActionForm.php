@@ -67,7 +67,7 @@ class ActionForm
                             ->label('Codi')
                             ->language(fn (Get $get) => $get('executor') === Executor::Ansible->value ? Language::Yaml : null)
                             ->required()
-                            ->helperText('Amb ssh, cal la capçalera "# hosts: pve, vm_router" a dalt de tot; amb Ansible, el hosts: de cada play (mai "all"). Amb local, capçalera opcional "# credencial: Nom". Cap secret pot arribar en clar a un equip d\'alumne: amb Ansible, només amb password_hash o delegate_to: localhost.'),
+                            ->helperText('Amb ssh, cal la capçalera "# hosts: pve, vm_router" a dalt de tot; amb Ansible, el hosts: de cada play (mai "all"). Els secrets es fan servir com a $HE_SECRET_NOM (bash) o {{ nom }} (Ansible). Cap secret pot arribar en clar a un equip d\'alumne: amb Ansible, només amb password_hash o delegate_to: localhost.'),
                         Repeater::make('parametres')
                             ->label('Paràmetres')
                             ->table([

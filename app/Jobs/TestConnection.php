@@ -49,7 +49,7 @@ class TestConnection implements ShouldQueue
     {
         $module = Module::findOrFail($this->moduleId);
         $students = Student::whereKey($this->studentIds)->orderBy('num_taula')->get();
-        $types = HostType::whereKey($this->typeIds)->where('modul_id', $module->id)->with(['credential', 'module.credential'])->get();
+        $types = HostType::whereKey($this->typeIds)->where('modul_id', $module->id)->with(['access', 'module.access'])->get();
 
         Cache::put(self::cacheKey($this->key), ['resultats' => $tester->test($module, $students, $types)], now()->addHour());
     }

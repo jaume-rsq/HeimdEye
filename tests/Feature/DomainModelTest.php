@@ -3,7 +3,7 @@
 namespace Tests\Feature;
 
 use App\Enums\CheckStatus;
-use App\Enums\VariableScope;
+use App\Enums\Level;
 use App\Models\AcademicYear;
 use App\Models\Check;
 use App\Models\CheckStudent;
@@ -108,15 +108,15 @@ class DomainModelTest extends TestCase
         $module = $student->modules()->firstOrFail();
         $resolver = new VariableResolver;
 
-        Variable::create(['abast' => VariableScope::Global, 'clau' => 'nom_prova', 'valor' => 'global']);
+        Variable::create(['nivell' => Level::Global, 'clau' => 'nom_prova', 'valor' => 'global']);
         $this->assertSame('global', $resolver->resolve($student, $module)['nom_prova']);
 
-        Variable::create(['abast' => VariableScope::Course, 'curs_id' => $module->curs_id, 'clau' => 'nom_prova', 'valor' => 'curs']);
-        Variable::create(['abast' => VariableScope::Course, 'curs_id' => AcademicYear::create(['nom' => '2099/00', 'data_inici' => '2099-09-01', 'data_fi' => '2100-06-30'])->id, 'clau' => 'nom_prova', 'valor' => 'altre curs']);
+        Variable::create(['nivell' => Level::Course, 'curs_id' => $module->curs_id, 'clau' => 'nom_prova', 'valor' => 'curs']);
+        Variable::create(['nivell' => Level::Course, 'curs_id' => AcademicYear::create(['nom' => '2099/00', 'data_inici' => '2099-09-01', 'data_fi' => '2100-06-30'])->id, 'clau' => 'nom_prova', 'valor' => 'altre curs']);
         $this->assertSame('curs', $resolver->resolve($student, $module)['nom_prova']);
 
         // Una plantilla global pot fer servir variables de l'alumne o d'altres plantilles.
-        $module->variables()->create(['abast' => VariableScope::Module, 'clau' => 'nom_prova', 'valor' => '{{nom_taula}}-{{ ip_pve | octet(4) }}']);
+        $module->variables()->create(['nivell' => Level::Module, 'clau' => 'nom_prova', 'valor' => '{{nom_taula}}-{{ ip_pve | octet(4) }}']);
         $vars = $resolver->detailed($student, $module);
         $this->assertSame('Taula03-51', $vars['nom_prova']['valor']);
         $this->assertSame('modul', $vars['nom_prova']['origen']);
@@ -130,7 +130,7 @@ class DomainModelTest extends TestCase
     {
         $student = Student::where('usuari', 'alumne03')->firstOrFail();
         $module = $student->modules()->firstOrFail();
-        $module->variables()->create(['abast' => VariableScope::Module, 'clau' => 'ip_dolenta', 'valor' => '{{ xarxa_aula | host(99) }}']);
+        $module->variables()->create(['nivell' => Level::Module, 'clau' => 'ip_dolenta', 'valor' => '{{ xarxa_aula | host(99) }}']);
 
         $this->assertStringContainsString('ip_dolenta', (new VariableResolver)->detailed($student, $module)['ip_dolenta']['error']);
 

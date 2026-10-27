@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\VariableScope;
+use App\Enums\Level;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,12 +15,12 @@ class Variable extends Model
 {
     protected $table = 'variables';
 
-    protected $fillable = ['abast', 'curs_id', 'modul_id', 'clau', 'valor', 'descripcio'];
+    protected $fillable = ['nivell', 'curs_id', 'modul_id', 'clau', 'valor', 'descripcio'];
 
     protected function casts(): array
     {
         return [
-            'abast' => VariableScope::class,
+            'nivell' => Level::class,
         ];
     }
 
@@ -38,8 +38,8 @@ class Variable extends Model
     public function scopeVisibleFrom(Builder $query, Module $module): void
     {
         $query->where(fn (Builder $q) => $q
-            ->where('abast', VariableScope::Global)
-            ->orWhere(fn (Builder $q) => $q->where('abast', VariableScope::Course)->where('curs_id', $module->curs_id))
-            ->orWhere(fn (Builder $q) => $q->where('abast', VariableScope::Module)->where('modul_id', $module->id)));
+            ->where('nivell', Level::Global)
+            ->orWhere(fn (Builder $q) => $q->where('nivell', Level::Course)->where('curs_id', $module->curs_id))
+            ->orWhere(fn (Builder $q) => $q->where('nivell', Level::Module)->where('modul_id', $module->id)));
     }
 }

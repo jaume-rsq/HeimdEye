@@ -21,7 +21,7 @@ use Illuminate\Database\Seeder;
 class Block05FirewallSeeder extends Seeder
 {
     /**
-     * Comú als checks del router: ssh amb la credencial del mòdul i detecció del sistema.
+     * Comú als checks del router: ssh amb l'accés del mòdul i detecció del sistema.
      * A RouterOS, ':put' escriu el text; a bash, ':' no fa res i no escriu res.
      */
     private const ROUTER = <<<'SH'

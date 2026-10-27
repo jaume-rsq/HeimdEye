@@ -5,7 +5,6 @@ namespace App\Providers;
 use App\Models\AcademicYear;
 use App\Models\Action;
 use App\Models\Block;
-use App\Models\Credential;
 use App\Models\Cycle;
 use App\Models\HostType;
 use App\Models\Module;
@@ -41,10 +40,10 @@ class AppServiceProvider extends ServiceProvider
         }
 
         // Les polítiques només restringeixen en mode demo (App\Support\Demo); fora, ho permeten tot.
-        foreach ([AcademicYear::class, Cycle::class, Module::class, Block::class, Task::class, Student::class, Variable::class, HostType::class, Secret::class] as $model) {
+        foreach ([AcademicYear::class, Cycle::class, Module::class, Block::class, Task::class, Student::class, Variable::class, HostType::class] as $model) {
             Gate::policy($model, DemoReadOnlyPolicy::class);
         }
-        foreach ([User::class, Credential::class] as $model) {
+        foreach ([User::class, Secret::class] as $model) {
             Gate::policy($model, DemoHiddenPolicy::class);
         }
         Gate::policy(Action::class, ActionPolicy::class);
