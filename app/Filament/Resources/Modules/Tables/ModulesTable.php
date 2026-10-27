@@ -2,8 +2,10 @@
 
 namespace App\Filament\Resources\Modules\Tables;
 
+use App\Filament\Resources\Modules\ModuleResource;
 use App\Models\AcademicYear;
 use Filament\Actions\EditAction;
+use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -31,6 +33,7 @@ class ModulesTable
             ])
             ->recordActions([
                 EditAction::make()->label('Equips i variables'),
+                ViewAction::make()->label('Equips i variables')->hidden(fn ($record) => ModuleResource::canEdit($record)),
             ]);
     }
 }

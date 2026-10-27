@@ -15,7 +15,8 @@ class ListModules extends ListRecords
     {
         $modules = Module::whereHas('academicYear', fn ($query) => $query->where('es_actual', true))->limit(2)->pluck('id');
         if ($modules->count() === 1) {
-            $this->redirect(ModuleResource::getUrl('edit', ['record' => $modules->first()]));
+            $module = Module::find($modules->first());
+            $this->redirect(ModuleResource::getUrl(ModuleResource::canEdit($module) ? 'edit' : 'view', ['record' => $module]));
 
             return;
         }

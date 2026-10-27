@@ -26,8 +26,5 @@
             {{ $active ? 'Actiu' : 'Inactiu' }}
         </span>
         <span style="{{ $chip }}"><span style="opacity: .6">Versió</span> {{ $record->currentVersion ? 'v'.$record->currentVersion->versio : 'sense codi' }}</span>
-        @if (filled($record->info))
-            <span style="{{ $chip }}" title="Té informació per a l'alumne">ⓘ info</span>
-        @endif
     </div>
 </div>

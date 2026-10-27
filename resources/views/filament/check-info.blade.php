@@ -8,6 +8,8 @@
             <div style="opacity: .65">Aquest check encara no té informació per a l'alumne (camp «Info» del check).</div>
         @endif
 
+        {{-- Sense alumne (llista de checks) només es mostra el text. --}}
+        @if ($preview !== null)
         <div>
             <div style="font-weight: 600; margin-bottom: .35rem">Codi del check amb les teves dades</div>
             @if ($preview && $preview['codi'] !== null)
@@ -20,5 +22,6 @@
                 Versió v{{ $check->currentVersion?->versio ?? '?' }} · executor {{ $check->executor->value }}. Els secrets no es mostren mai.
             </div>
         </div>
+        @endif
     </div>
 @endif
