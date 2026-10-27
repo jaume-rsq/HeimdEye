@@ -25,8 +25,8 @@ class StudentForm
                         TextInput::make('usuari')->required()->maxLength(255),
                         TextInput::make('nom_complet')->label('Nom complet')->required()->maxLength(255),
                         TextInput::make('alies')->label('Àlies')->helperText('Nom al leaderboard públic.')->maxLength(255),
-                        TextInput::make('num_taula')->label('Taula')->numeric()->minValue(1),
-                        TextInput::make('x')->label('X')->numeric()->helperText('Índex de xarxa: 172.X / 10.X.'),
+                        TextInput::make('num_taula')->label('Taula')->numeric()->minValue(0)->helperText('Pot ser 0 (p. ex. la taula del professor).'),
+                        TextInput::make('x')->label('X')->numeric()->minValue(0)->helperText('Índex de xarxa: 172.X / 10.X.'),
                         Toggle::make('es_actiu')->label('Actiu')->default(true)->inline(false),
                         Select::make('curs_id')
                             ->label('Curs')

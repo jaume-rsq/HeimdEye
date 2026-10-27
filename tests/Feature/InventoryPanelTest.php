@@ -109,11 +109,12 @@ class InventoryPanelTest extends TestCase
         $this->get('/admin/alumnes')->assertOk()->assertSee($this->student->usuari);
 
         Livewire::test(EditStudent::class, ['record' => $this->student->id])
-            ->fillForm(['alies' => 'Fènix', 'variables' => ['ip_router' => '198.51.100.99']])
+            ->fillForm(['alies' => 'Fènix', 'num_taula' => 0, 'x' => 0, 'variables' => ['ip_router' => '198.51.100.99']])
             ->call('save')
             ->assertHasNoFormErrors();
 
         $this->assertSame('Fènix', $this->student->fresh()->alies);
+        $this->assertSame(0, $this->student->fresh()->num_taula, 'la taula 0 és vàlida');
         $this->assertSame('198.51.100.99', $this->student->fresh()->variables['ip_router']);
     }
 
