@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Students\Schemas;
 
+use App\Enums\Role;
 use App\Models\AcademicYear;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
@@ -28,6 +29,13 @@ class StudentForm
                         TextInput::make('num_taula')->label('Taula')->numeric()->minValue(0)->helperText('Pot ser 0 (p. ex. la taula del professor).'),
                         TextInput::make('x')->label('X')->numeric()->minValue(0)->helperText('Índex de xarxa: 172.X / 10.X.'),
                         Toggle::make('es_actiu')->label('Actiu')->default(true)->inline(false),
+                        Select::make('usuari_id')
+                            ->label('Usuari (accés)')
+                            ->relationship('user', 'email', fn (Builder $query) => $query->where('rol', Role::Student))
+                            ->searchable()
+                            ->preload()
+                            ->unique(ignoreRecord: true)
+                            ->helperText('Usuari amb rol alumne que entra a /alumne amb aquesta fitxa. L\'importador l\'enllaça sol.'),
                         Select::make('curs_id')
                             ->label('Curs')
                             ->relationship('academicYear', 'nom')
