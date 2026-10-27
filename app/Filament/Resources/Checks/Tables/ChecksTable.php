@@ -156,8 +156,10 @@ class ChecksTable
                         ->color('gray')
                         ->label('Editar')
                         ->tooltip('Editar darrera versió'),
+                    LaunchCheck::make()
+                        ->hiddenLabel()
+                        ->tooltip('Verificar ara'),
                 ])->buttonGroup(),
-                LaunchCheck::make()->button(),
             ]);
     }
 

@@ -8,6 +8,7 @@ use App\Enums\Executor;
 use App\Enums\Role;
 use App\Enums\RunOrigin;
 use App\Filament\Resources\CheckRuns\Pages\ListCheckRuns;
+use App\Filament\Resources\Checks\CheckResource;
 use App\Filament\Resources\Checks\Pages\CreateCheck;
 use App\Filament\Resources\Checks\Pages\EditCheck;
 use App\Filament\Resources\Checks\Pages\ListChecks;
@@ -48,6 +49,7 @@ class CheckPanelTest extends TestCase
 
         $this->module = Module::where('codi', '9991')->firstOrFail();
         $this->teacher = User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]);
+        $this->teacher->modules()->attach($this->module);
     }
 
     private function task(): Task
@@ -423,5 +425,18 @@ class CheckPanelTest extends TestCase
             ->assertTableColumnStateSet('posicio', "{$task->block->numero}.{$task->posicio}.1", $first)
             ->sortTable('updated_at', 'desc')
             ->assertCanSeeTableRecords([$second, $first], inOrder: true);
+    }
+
+    public function test_only_admins_and_teachers_of_the_module_edit_a_check(): void
+    {
+        $check = $this->check();
+        $other = User::create(['nom' => 'Altre', 'email' => 'altre@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]);
+        $admin = User::create(['nom' => 'Admin', 'email' => 'admin2@example.com', 'password' => 'secret', 'rol' => Role::Admin, 'es_actiu' => true]);
+
+        $this->assertTrue($this->teacher->canEditCheck($check));
+        $this->assertTrue($admin->canEditCheck($check));
+        $this->assertFalse($other->canEditCheck($check));
+
+        $this->actingAs($other)->get(CheckResource::getUrl('edit', ['record' => $check]))->assertForbidden();
     }
 }

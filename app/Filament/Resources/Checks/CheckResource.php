@@ -15,6 +15,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use UnitEnum;
 
 class CheckResource extends Resource
@@ -45,6 +46,17 @@ class CheckResource extends Resource
     public static function table(Table $table): Table
     {
         return ChecksTable::configure($table);
+    }
+
+    /** Editar (i esborrar) un check: un administrador o un professor del seu mòdul. */
+    public static function canEdit(Model $record): bool
+    {
+        return auth()->user()?->canEditCheck($record) ?? false;
+    }
+
+    public static function canDelete(Model $record): bool
+    {
+        return static::canEdit($record);
     }
 
     public static function getPages(): array

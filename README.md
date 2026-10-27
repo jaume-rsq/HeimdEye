@@ -355,6 +355,7 @@ les accions (vegeu [Accions](#accions)), amb aquestes diferències:
 - A l'editor, **Provar** executa el codi del formulari sense desar-lo per als alumnes triats,
   per la cua. No es desa ni compta per als alumnes. Una versió nova no es pot desar sense
   haver-la provada tal com és, ni si no passa les comprovacions de `hosts:` i de secrets.
+- Editar i esborrar un check: un administrador o un professor del mòdul.
 - **Posició** `bloc.tasca.check` (5.2.1): número del bloc, posició de la tasca i posició del check.
   És l'ordre en què l'alumne els ha d'anar assolint, i el de la llista i del Seguiment.
 - A la llista, cada check ocupa dues línies (nom i descripció; tasca, executor, punts, actiu,
@@ -447,6 +448,10 @@ d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
 - Cada bloc es plega clicant-ne la línia, que mostra els agregats del bloc: checks assolits,
   obligatoris, punts, checks amb error, darrer assoliment i dates del bloc. La columna Pos. dona
   l'ordre dels checks.
+- Cada check ocupa dues línies: a dalt el nom, si és obligatori i els punts, l'estat, el primer
+  assoliment, els punts obtinguts i els botons (Info, Verificar, Corregir i ✎ editar, aquest
+  només per a administradors i professors del mòdul); a sota la darrera execució (resultat, data,
+  versió, durada i missatge). El comentari del professor, si n'hi ha, va en una tercera línia.
 - Botons per verificar ara un check, una tasca o tot el mòdul (per a aquest alumne) i per corregir:
   forçar assolit / no assolit o tornar a automàtic, i deixar un comentari que veurà l'alumne.
 

@@ -6,6 +6,7 @@ use App\Enums\CheckStatus;
 use App\Enums\Role;
 use App\Enums\RunOrigin;
 use App\Filament\Pages\StudentTracking;
+use App\Filament\Resources\Checks\CheckResource;
 use App\Jobs\RunCheck;
 use App\Models\Check;
 use App\Models\CheckRun;
@@ -93,7 +94,7 @@ class StudentTrackingTest extends TestCase
             ->callAction('correct', ['estat' => 'assolit', 'comentari' => 'Revisat a classe'], ['check' => $this->check->id])
             ->assertHasNoActionErrors()
             ->assertSee('Revisat a classe')
-            ->assertSee('corregit per Prof');
+            ->assertSee('✎ Prof');
 
         $state = CheckStudent::where('check_id', $this->check->id)->where('alumne_id', $this->student->id)->firstOrFail();
         $this->assertTrue($state->estat_professor);
@@ -174,5 +175,19 @@ class StudentTrackingTest extends TestCase
             ->assertMountedActionModalSeeHtml('<strong>Objectiu del test:</strong>')
             ->assertMountedActionModalDontSeeHtml('<script>alert(1)</script>')
             ->assertMountedActionModalSee('Codi del check amb les teves dades');
+    }
+
+    public function test_the_edit_icon_is_only_for_who_can_edit_the_check(): void
+    {
+        $editUrl = CheckResource::getUrl('edit', ['record' => $this->check->id]);
+
+        Livewire::test(StudentTracking::class, ['alumne' => $this->student->id])->assertSee($editUrl, false);
+
+        // Un professor que no imparteix el mòdul no el pot editar (aquí, sense mòduls: un admin el veu tot).
+        $this->teacher->modules()->detach();
+        $admin = User::create(['nom' => 'Admin', 'email' => 'admin2@example.com', 'password' => 'secret', 'rol' => Role::Admin, 'es_actiu' => true]);
+        $component = Livewire::actingAs($admin)->test(StudentTracking::class, ['alumne' => $this->student->id]);
+        $this->assertTrue($component->instance()->canEdit($this->check));
+        $this->assertFalse($this->teacher->canEditCheck($this->check));
     }
 }
