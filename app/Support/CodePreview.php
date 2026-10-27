@@ -11,7 +11,7 @@ use InvalidArgumentException;
 /**
  * El codi de la versió vigent d'un check amb les dades d'un alumne: les variables ($HE_IP_ROUTER
  * o, a Ansible, {{ ip_router }}) i els paràmetres ($HE_PARAM_NOM o {{ NOM }}) es canvien pel seu
- * valor. Els secrets i les credencials no es canvien mai: es queden com al codi.
+ * valor. Els secrets no es canvien mai: es queden com al codi.
  */
 class CodePreview
 {

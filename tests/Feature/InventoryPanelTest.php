@@ -2,15 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Level;
 use App\Enums\Role;
-use App\Enums\VariableScope;
 use App\Filament\Pages\InventoryOverview;
 use App\Filament\Resources\Modules\ModuleResource;
 use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
-use App\Models\Credential;
 use App\Models\Module;
+use App\Models\Secret;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\Variable;
@@ -43,8 +43,8 @@ class InventoryPanelTest extends TestCase
 
     public function test_each_variable_says_where_it_comes_from(): void
     {
-        Variable::create(['abast' => VariableScope::Global, 'clau' => 'nom_prova', 'valor' => 'example.test']);
-        Variable::create(['abast' => VariableScope::Course, 'curs_id' => $this->module->curs_id, 'clau' => 'nom_curs', 'valor' => 'curs']);
+        Variable::create(['nivell' => Level::Global, 'clau' => 'nom_prova', 'valor' => 'example.test']);
+        Variable::create(['nivell' => Level::Course, 'curs_id' => $this->module->curs_id, 'clau' => 'nom_curs', 'valor' => 'curs']);
         $this->student->update(['variables' => [...$this->student->variables ?? [], 'ip_router' => '198.51.100.99']]);
 
         $vars = app(VariableResolver::class)->detailed($this->student->fresh(), $this->module);
@@ -91,14 +91,14 @@ class InventoryPanelTest extends TestCase
 
     public function test_the_student_sheet_shows_the_ansible_inventory_with_passwords_masked(): void
     {
-        Credential::where('nom', 'WinRM Windows Server')->first()->update(['secret' => 'SuperSecret123']);
+        Secret::where('clau', 'jaume')->sole()->update(['valor' => 'SuperSecret123']);
 
         Livewire::test(EditStudent::class, ['record' => $this->student->id])
             ->assertOk()
             ->assertSee('Variables pròpies')
             ->assertSee('172.21.0.0/22')
             ->set('pestanya', 'equips')
-            ->assertSee('WinRM Windows Server')
+            ->assertSee('ssh_jaume (del mòdul)')
             ->set('pestanya', 'ansible')
             ->assertSee('ansible_password')
             ->assertDontSee('SuperSecret123')

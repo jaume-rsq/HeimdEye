@@ -69,7 +69,7 @@ trait PreviewsInventory
                 'nom_host' => $item['nom_host'] ?? '',
                 'adreca' => $item['adreca'] ?? '',
                 'variables_connexio' => array_filter($item['variables_connexio'] ?? [], fn ($v, $k) => filled($k), ARRAY_FILTER_USE_BOTH),
-                'credencial_id' => $item['credencial_id'] ?? null,
+                'secret_acces_id' => $item['secret_acces_id'] ?? null,
             ]);
             $hosts[] = ['tipus' => $type, ...$grid->host($type, $type->isGlobal() ? $common : $values)];
         }

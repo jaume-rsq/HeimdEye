@@ -2,10 +2,10 @@
 
 namespace App\Runner\Ansible;
 
-use App\Enums\CredentialType;
-use App\Models\Credential;
+use App\Enums\SecretType;
 use App\Models\HostType;
 use App\Models\Module;
+use App\Models\Secret;
 use App\Models\Student;
 use App\Runner\TempFiles;
 use App\Support\VariableResolver;
@@ -95,24 +95,24 @@ class InventoryBuilder
             $hostVars[$key] = is_string($value) ? $this->resolver->render($value, $vars) : $value;
         }
 
-        return [...$hostVars, ...$this->credentialVars($type->credential ?? $type->module->credential)];
+        return [...$hostVars, ...$this->accessVars($type->access ?? $type->module->access)];
     }
 
     /** @return array<string, string> */
-    private function credentialVars(?Credential $credential): array
+    private function accessVars(?Secret $access): array
     {
-        if ($credential === null) {
+        if ($access === null) {
             return [];
         }
 
-        $vars = ['ansible_user' => $credential->nom_usuari];
-        if (in_array($credential->tipus, [CredentialType::Winrm, CredentialType::Password], true)) {
-            if ($credential->secret) {
-                $vars['ansible_password'] = $credential->secret;
-                $this->mask[] = $credential->secret;
+        $vars = ['ansible_user' => (string) $access->nom_usuari];
+        if ($access->tipus === SecretType::Login) {
+            if ($access->hasValue()) {
+                $vars['ansible_password'] = (string) $access->valor;
+                $this->mask[] = (string) $access->valor;
             }
-        } elseif ($credential->secret) {
-            $vars['ansible_ssh_private_key_file'] = $this->files->write("key-{$credential->id}", rtrim($credential->secret)."\n");
+        } elseif ($access->hasValue()) {
+            $vars['ansible_ssh_private_key_file'] = $this->files->write("key-{$access->id}", rtrim((string) $access->valor)."\n");
         } elseif ($path = config('heimdeye.runner.ssh_key_path')) {
             $vars['ansible_ssh_private_key_file'] = $path;
         }

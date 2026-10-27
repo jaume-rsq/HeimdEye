@@ -12,7 +12,7 @@ use Illuminate\Database\Seeder;
  *
  * Contracte dels checks: codi de sortida 0 = assolit; stdout = missatge.
  * Les variables arriben com a entorn HE_* (HE_IP_PVE, HE_IP_ROUTER...). Als checks
- * locals, el runner hi afegeix la credencial del mòdul: HE_SSH_USER i HE_SSH_KEY.
+ * locals, el runner hi afegeix l'accés del mòdul: HE_SSH_USER i HE_SSH_KEY.
  * Els checks ssh diuen amb la capçalera "# hosts:" a quins equips s'executen.
  */
 class Block02ProxmoxSeeder extends Seeder
@@ -66,7 +66,7 @@ class Block02ProxmoxSeeder extends Seeder
                 'nom' => 'Hi ha alguna VM definida',
                 'executor' => Executor::Ssh,
                 'punts' => 2,
-                // qm necessita root: l'usuari de la credencial ha de poder fer sudo -n qm list.
+                // qm necessita root: l'usuari de l'accés ha de poder fer sudo -n qm list.
                 'codi' => <<<'SH'
                     # hosts: pve
                     out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }

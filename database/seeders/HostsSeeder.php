@@ -2,15 +2,16 @@
 
 namespace Database\Seeders;
 
-use App\Enums\CredentialType;
 use App\Enums\Executor;
 use App\Enums\HostScope;
-use App\Models\Credential;
+use App\Enums\Level;
+use App\Enums\SecretType;
 use App\Models\Module;
+use App\Models\Secret;
 use Illuminate\Database\Seeder;
 
 /**
- * Tipus d'equip, secrets i accions del mòdul 9991, equivalents a l'inventari smix2.ini.
+ * Tipus d'equip, secrets d'accés i accions del mòdul 9991, equivalents a l'inventari smix2.ini.
  * Les contrasenyes no es versionen: s'omplen des de l'administració.
  */
 class HostsSeeder extends Seeder
@@ -19,13 +20,14 @@ class HostsSeeder extends Seeder
     {
         $module = Module::where('codi', '9991')->firstOrFail();
 
-        $windows = Credential::firstOrCreate(
-            ['nom' => 'WinRM Windows Server'],
-            ['tipus' => CredentialType::Winrm, 'nom_usuari' => 'jaume'],
+        // Una sola contrasenya de jaume: entra als Windows per WinRM i l'acció la posa als Linux.
+        $windows = Secret::firstOrCreate(
+            ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'jaume'],
+            ['tipus' => SecretType::Login, 'nom_usuari' => 'jaume', 'descripcio' => 'Usuari jaume dels equips dels alumnes (WinRM als Windows)'],
         );
-        $zabbix = Credential::firstOrCreate(
-            ['nom' => 'API Zabbix'],
-            ['tipus' => CredentialType::Password, 'nom_usuari' => 'ansible'],
+        $zabbix = Secret::firstOrCreate(
+            ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'api_zabbix'],
+            ['tipus' => SecretType::Login, 'nom_usuari' => 'ansible', 'descripcio' => 'API del servidor Zabbix'],
         );
 
         $winrm = [
@@ -41,17 +43,17 @@ class HostsSeeder extends Seeder
             ['nom' => 'dns', 'grup_ansible' => 'vm_dns_bind', 'nom_host' => 'dns{{num_taula}}', 'adreca' => '{{ip_dns}}'],
             [
                 'nom' => 'dnswin', 'grup_ansible' => 'vm_dns_windows', 'nom_host' => 'dnswin{{num_taula}}', 'adreca' => '{{ip_dnswin}}',
-                'credencial_id' => $windows->id,
+                'secret_acces_id' => $windows->id,
                 'variables_connexio' => $winrm,
             ],
             [
                 'nom' => 'estacio', 'grup_ansible' => 'estacio_windows', 'nom_host' => 'estacio{{num_taula}}', 'adreca' => '{{ip_estacio}}',
-                'credencial_id' => $windows->id,
+                'secret_acces_id' => $windows->id,
                 'variables_connexio' => $winrm,
             ],
             [
                 'nom' => 'zbx', 'grup_ansible' => 'zabbix', 'abast' => HostScope::Global, 'nom_host' => 'zbx', 'adreca' => '{{ip_zabbix}}',
-                'credencial_id' => $zabbix->id,
+                'secret_acces_id' => $zabbix->id,
                 'variables_connexio' => [
                     'ansible_connection' => 'httpapi',
                     'ansible_network_os' => 'community.zabbix.zabbix',
@@ -65,15 +67,10 @@ class HostsSeeder extends Seeder
             $module->hostTypes()->updateOrCreate(['nom' => $type['nom']], [...$type, 'posicio' => $position + 1]);
         }
 
-        $module->secrets()->firstOrCreate(
-            ['clau' => 'jaume_password'],
-            ['descripcio' => 'Contrasenya de l\'usuari jaume als equips Linux dels alumnes'],
-        );
-
         $actions = [
             [
                 'nom' => 'Contrasenya de l\'usuari jaume',
-                'descripcio' => 'Posa la contrasenya del secret jaume_password a l\'usuari jaume (que entra amb clau).',
+                'descripcio' => 'Posa la contrasenya del secret jaume a l\'usuari jaume dels Linux (que entra amb clau).',
                 'codi' => <<<'YAML'
                     - hosts: pve:vm_router:vm_dns_bind
                       become: true
@@ -82,7 +79,7 @@ class HostsSeeder extends Seeder
                           ansible.builtin.user:
                             name: jaume
                             # Sal fixa perquè el hash no canviï a cada execució (idempotent).
-                            password: "{{ jaume_password | password_hash('sha512', 'heimdeye') }}"
+                            password: "{{ jaume.password | password_hash('sha512', 'heimdeye') }}"
                     YAML,
             ],
             [

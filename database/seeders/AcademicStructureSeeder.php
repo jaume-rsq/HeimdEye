@@ -2,20 +2,20 @@
 
 namespace Database\Seeders;
 
-use App\Enums\CredentialType;
+use App\Enums\Level;
 use App\Enums\ModuleKind;
 use App\Enums\Role;
-use App\Enums\VariableScope;
+use App\Enums\SecretType;
 use App\Models\AcademicYear;
-use App\Models\Credential;
 use App\Models\Cycle;
 use App\Models\Module;
+use App\Models\Secret;
 use App\Models\User;
 use App\Models\Variable;
 use Illuminate\Database\Seeder;
 
 /**
- * Curs 2026/27, cicles, variables globals de l'aula, credencial SSH,
+ * Curs 2026/27, cicles, variables globals de l'aula, clau SSH,
  * administrador i el mòdul combinat de SMIX2.
  */
 class AcademicStructureSeeder extends Seeder
@@ -38,13 +38,13 @@ class AcademicStructureSeeder extends Seeder
             'ip_zentyal' => '192.168.20.254',
             'nom_domini' => 'smix2.julioantonio.cat',
         ] as $key => $value) {
-            Variable::updateOrCreate(['abast' => VariableScope::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => $key], ['valor' => $value]);
+            Variable::updateOrCreate(['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => $key], ['valor' => $value]);
         }
 
-        // La clau privada no es versiona: s'afegeix des de l'administració.
-        $credential = Credential::firstOrCreate(
-            ['nom' => 'SSH jaume'],
-            ['tipus' => CredentialType::Ssh, 'nom_usuari' => 'jaume'],
+        // La clau privada no es versiona: s'afegeix des de l'administració (Secrets comuns).
+        $sshKey = Secret::firstOrCreate(
+            ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'ssh_jaume'],
+            ['tipus' => SecretType::SshKey, 'nom_usuari' => 'jaume', 'descripcio' => 'Clau SSH de HeimdEye per entrar als equips Linux dels alumnes'],
         );
 
         $admin = User::updateOrCreate(
@@ -59,7 +59,7 @@ class AcademicStructureSeeder extends Seeder
                 'descripcio' => 'Mòdul combinat per Serveis de Xarxa, Seguretat Informàtica i Aplicacions Web',
                 'tipus' => ModuleKind::Free,
                 'combina' => ['0227', '0226', '0228'],
-                'credencial_id' => $credential->id,
+                'secret_acces_id' => $sshKey->id,
             ],
         );
 
@@ -76,7 +76,7 @@ class AcademicStructureSeeder extends Seeder
             'nom_taula' => 'Taula{{num_taula}}',
             'nom_dns' => '{{usuari}}',
         ] as $key => $value) {
-            $module->variables()->updateOrCreate(['abast' => VariableScope::Module, 'clau' => $key], ['valor' => $value]);
+            $module->variables()->updateOrCreate(['nivell' => Level::Module, 'clau' => $key], ['valor' => $value]);
         }
 
         $module->teachers()->syncWithoutDetaching([$admin->id]);

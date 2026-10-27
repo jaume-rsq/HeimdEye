@@ -91,7 +91,7 @@ class EditStudent extends EditRecord
         $grid = app(InventoryGrid::class)->build($module, collect([$student]));
         $row = $grid['rows'][0];
 
-        $types = $module->hostTypes()->with('credential')->orderBy('posicio')->get();
+        $types = $module->hostTypes()->with('access')->orderBy('posicio')->get();
         $files = new TempFiles;
         try {
             $builder = new InventoryBuilder(app(VariableResolver::class), $files);

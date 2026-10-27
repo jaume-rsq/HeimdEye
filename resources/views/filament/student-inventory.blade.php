@@ -68,7 +68,7 @@
                             <td class="mono sub">
                                 @foreach ($type->variables_connexio ?? [] as $k => $v)<div>{{ $k }}={{ is_scalar($v) ? var_export($v, true) : json_encode($v) }}</div>@endforeach
                             </td>
-                            <td>{{ $type->credential?->nom ?? ($type->module->credential ? $type->module->credential->nom.' (del mòdul)' : '—') }}</td>
+                            <td>{{ $type->access?->clau ?? ($type->module->access ? $type->module->access->clau.' (del mòdul)' : '—') }}</td>
                         </tr>
                     @endforeach
                 </tbody>

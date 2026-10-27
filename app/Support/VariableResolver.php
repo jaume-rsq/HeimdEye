@@ -87,7 +87,7 @@ class VariableResolver
 
         $layers = ['global' => [], 'curs' => [], 'modul' => []];
         foreach ($rows as $row) {
-            $layers[$row->abast->value][$row->clau] = $row->valor;
+            $layers[$row->nivell->value][$row->clau] = $row->valor;
         }
 
         return $layers;

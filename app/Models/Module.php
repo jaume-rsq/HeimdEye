@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasManyThrough;
+use Illuminate\Support\Collection;
 
 class Module extends Model
 {
@@ -15,7 +16,7 @@ class Module extends Model
 
     protected $fillable = [
         'curs_id', 'cicle_id', 'codi', 'nom', 'descripcio', 'tipus',
-        'combina', 'credencial_id',
+        'combina', 'secret_acces_id',
     ];
 
     protected function casts(): array
@@ -36,9 +37,10 @@ class Module extends Model
         return $this->belongsTo(Cycle::class, 'cicle_id');
     }
 
-    public function credential(): BelongsTo
+    /** Accés per defecte als equips (un secret d'usuari i contrasenya o de clau SSH). */
+    public function access(): BelongsTo
     {
-        return $this->belongsTo(Credential::class, 'credencial_id');
+        return $this->belongsTo(Secret::class, 'secret_acces_id');
     }
 
     public function teachers(): BelongsToMany
@@ -67,9 +69,22 @@ class Module extends Model
         return $this->hasMany(Variable::class, 'modul_id');
     }
 
+    /** Secrets propis del mòdul (els que veu, amb els globals i els del curs, a visibleSecrets). */
     public function secrets(): HasMany
     {
         return $this->hasMany(Secret::class, 'modul_id');
+    }
+
+    /**
+     * Secrets que veu el mòdul, per clau: un de mòdul tapa un de curs, que tapa un de global.
+     *
+     * @return Collection<string, Secret>
+     */
+    public function visibleSecrets(): Collection
+    {
+        return Secret::query()->visibleFrom($this)->get()
+            ->sortBy(fn (Secret $secret) => $secret->nivell->rank())
+            ->keyBy('clau');
     }
 
     public function actions(): HasMany

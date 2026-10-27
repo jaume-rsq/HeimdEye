@@ -9,6 +9,7 @@ use App\Models\Action;
 use App\Models\ActionRun;
 use App\Models\Module;
 use App\Models\RunBatch;
+use App\Models\Secret;
 use App\Models\Student;
 use App\Models\Task;
 use App\Runner\ActionRunner;
@@ -151,6 +152,37 @@ class AnsibleTest extends TestCase
         $this->assertSame(ActionStatus::Ok, $run->estat);
         $this->assertStringContainsString('La contrasenya és ********', $run->sortida);
         $this->assertStringNotContainsString('molt-secreta-123', $run->sortida);
+    }
+
+    public function test_a_login_secret_is_a_dictionary_and_its_name_alone_is_just_text(): void
+    {
+        Secret::where('clau', 'jaume')->sole()->update(['valor' => 'molt-secreta-123']);
+        $action = $this->action(<<<'YAML'
+            - hosts: locals
+              gather_facts: false
+              tasks:
+                - ansible.builtin.debug:
+                    msg: "usuari {{ jaume.user }} hash {{ jaume.password | password_hash('sha512', 'heimdeye') | length > 0 }}"
+            YAML);
+        $this->launch($action, ['local']);
+        $run = $this->runFor($action, 'alumne01');
+        $this->assertSame(ActionStatus::Ok, $run->estat);
+        $this->assertStringContainsString('usuari jaume hash True', $run->sortida);
+
+        // Sense valor, "jaume" com a text no demana el secret.
+        Secret::where('clau', 'jaume')->sole()->update(['valor' => null]);
+        $plain = $this->action("- hosts: locals\n  gather_facts: false\n  tasks:\n    - ansible.builtin.debug:\n        msg: usuari jaume\n");
+        $this->launch($plain, ['local']);
+        $this->assertSame(ActionStatus::Ok, $this->runFor($plain, 'alumne01')->estat);
+    }
+
+    public function test_the_password_of_a_login_secret_cannot_reach_the_student_host(): void
+    {
+        Secret::where('clau', 'jaume')->sole()->update(['valor' => 'molt-secreta-123']);
+        $action = $this->action("- hosts: locals\n  tasks:\n    - ansible.builtin.debug:\n        msg: \"{{ jaume.password }}\"\n");
+
+        $this->expectExceptionMessage('jaume');
+        $this->launch($action, ['local']);
     }
 
     public function test_unreachable_hosts_are_unavailable(): void

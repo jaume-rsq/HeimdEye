@@ -26,7 +26,7 @@ class InventoryGrid
      */
     public function build(Module $module, ?Collection $students = null): array
     {
-        $types = $module->hostTypes()->with('credential')->orderBy('posicio')->get();
+        $types = $module->hostTypes()->with('access')->orderBy('posicio')->get();
         $students ??= $module->students()->where('es_actiu', true)->with('user')->orderBy('num_taula')->get();
 
         $globals = $this->resolver->common($module);

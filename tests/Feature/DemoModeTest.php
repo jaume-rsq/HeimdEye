@@ -65,7 +65,7 @@ class DemoModeTest extends TestCase
         $this->actingAs(Demo::createVisitor());
 
         $this->get('/admin/usuaris')->assertForbidden();
-        $this->get('/admin/credencials')->assertForbidden();
+        $this->get('/admin/secrets')->assertForbidden();
         $this->get(StudentResource::getUrl())->assertOk();
         $this->assertFalse(StudentResource::canCreate());
         $this->assertFalse(StudentResource::canEdit(Student::firstOrFail()));
@@ -157,6 +157,6 @@ class DemoModeTest extends TestCase
 
         $this->assertTrue(CheckResource::canEdit($this->check()));
         $this->assertTrue(StudentResource::canCreate());
-        $this->get('/admin/credencials')->assertOk();
+        $this->get('/admin/secrets')->assertOk();
     }
 }

@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\Variables;
 
-use App\Enums\VariableScope;
+use App\Enums\Level;
 use App\Filament\Resources\Modules\Schemas\ModuleInventoryForm;
 use App\Filament\Resources\Variables\Pages\ManageVariables;
 use App\Models\AcademicYear;
@@ -50,7 +50,7 @@ class VariableResource extends Resource
 
     public static function getEloquentQuery(): Builder
     {
-        return parent::getEloquentQuery()->whereIn('abast', [VariableScope::Global, VariableScope::Course]);
+        return parent::getEloquentQuery()->whereIn('nivell', [Level::Global, Level::Course]);
     }
 
     public static function form(Schema $schema): Schema
@@ -58,17 +58,17 @@ class VariableResource extends Resource
         return $schema
             ->columns(2)
             ->components([
-                Select::make('abast')
-                    ->options([VariableScope::Global->value => 'Global (tots els cursos)', VariableScope::Course->value => 'D\'un curs'])
-                    ->default(VariableScope::Global->value)
+                Select::make('nivell')
+                    ->options([Level::Global->value => 'Global (tots els cursos)', Level::Course->value => 'D\'un curs'])
+                    ->default(Level::Global->value)
                     ->required()
                     ->live(),
                 Select::make('curs_id')
                     ->label('Curs')
                     ->relationship('academicYear', 'nom')
                     ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
-                    ->visible(fn (Get $get) => $get('abast') === VariableScope::Course->value)
-                    ->required(fn (Get $get) => $get('abast') === VariableScope::Course->value),
+                    ->visible(fn (Get $get) => $get('nivell') === Level::Course->value)
+                    ->required(fn (Get $get) => $get('nivell') === Level::Course->value),
                 TextInput::make('clau')
                     ->label('Variable')
                     ->required()
@@ -80,18 +80,18 @@ class VariableResource extends Resource
             ]);
     }
 
-    /** Una variable només pot sortir una vegada a cada àmbit (global, o cada curs). */
+    /** Una variable només pot sortir una vegada a cada nivell (global, o cada curs). */
     private static function uniqueInScope(Get $get, ?Variable $record): Closure
     {
         return function (string $attribute, mixed $value, Closure $fail) use ($get, $record) {
             $exists = Variable::query()
-                ->where('abast', $get('abast'))
+                ->where('nivell', $get('nivell'))
                 ->where('clau', $value)
-                ->when($get('abast') === VariableScope::Course->value, fn ($q) => $q->where('curs_id', $get('curs_id')))
+                ->when($get('nivell') === Level::Course->value, fn ($q) => $q->where('curs_id', $get('curs_id')))
                 ->when($record, fn ($q) => $q->whereKeyNot($record->getKey()))
                 ->exists();
             if ($exists) {
-                $fail('Ja hi ha una variable amb aquest nom en aquest àmbit.');
+                $fail('Ja hi ha una variable amb aquest nom en aquest nivell.');
             }
         };
     }
@@ -109,15 +109,15 @@ class VariableResource extends Resource
             ->columns([
                 TextColumn::make('clau')->label('Variable')->fontFamily('mono')->searchable()->sortable(),
                 TextColumn::make('valor')->label('Valor')->fontFamily('mono')->searchable(),
-                TextColumn::make('abast')
-                    ->label('Àmbit')
+                TextColumn::make('nivell')
+                    ->label('Nivell')
                     ->badge()
-                    ->formatStateUsing(fn (VariableScope $state, Variable $record) => $state === VariableScope::Global ? 'global' : 'curs '.$record->academicYear?->nom)
-                    ->color(fn (VariableScope $state) => $state === VariableScope::Global ? 'gray' : 'info'),
+                    ->formatStateUsing(fn (Level $state, Variable $record) => $state === Level::Global ? 'global' : 'curs '.$record->academicYear?->nom)
+                    ->color(fn (Level $state) => $state === Level::Global ? 'gray' : 'info'),
                 TextColumn::make('descripcio')->label('Descripció')->placeholder('—')->wrap(),
             ])
             ->filters([
-                SelectFilter::make('abast')->label('Àmbit')->options([VariableScope::Global->value => 'Global', VariableScope::Course->value => 'Curs']),
+                SelectFilter::make('nivell')->label('Nivell')->options([Level::Global->value => 'Global', Level::Course->value => 'Curs']),
                 SelectFilter::make('curs_id')->label('Curs')->relationship('academicYear', 'nom'),
             ])
             ->recordActions([
@@ -129,7 +129,7 @@ class VariableResource extends Resource
     /** Una variable global no té curs. */
     public static function normalize(array $data): array
     {
-        if (($data['abast'] ?? null) !== VariableScope::Course->value) {
+        if (($data['nivell'] ?? null) !== Level::Course->value) {
             $data['curs_id'] = null;
         }
         $data['modul_id'] = null;

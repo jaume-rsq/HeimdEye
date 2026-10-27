@@ -3,17 +3,17 @@
 namespace Database\Seeders;
 
 use App\Enums\CheckKind;
-use App\Enums\CredentialType;
 use App\Enums\Executor;
+use App\Enums\Level;
 use App\Enums\ModuleKind;
-use App\Enums\VariableScope;
+use App\Enums\SecretType;
 use App\Models\AcademicYear;
 use App\Models\Action;
 use App\Models\Block;
 use App\Models\Check;
-use App\Models\Credential;
 use App\Models\Cycle;
 use App\Models\Module;
+use App\Models\Secret;
 use App\Models\Student;
 use App\Models\User;
 use Illuminate\Database\Seeder;
@@ -25,7 +25,7 @@ use Illuminate\Database\Seeder;
  * checks, fa servir les accions per configurar els equips dels alumnes i crea els seus.
  *
  * L'estructura mateixa és un exemple: curs → cicle → mòduls → blocs → tasques → checks, amb
- * alumnes, un tipus d'equip, una variable de mòdul, una credencial i accions amb verificació.
+ * alumnes, un tipus d'equip, una variable de mòdul, una clau SSH i accions amb verificació.
  * Tots els textos (enunciat, descripció i info) són els que es veuen a l'app; heimdeye:tutorial
  * els exporta a docs/demo-tutorial.md.
  */
@@ -42,9 +42,9 @@ class TutorialSeeder extends Seeder
         $cycle = Cycle::updateOrCreate(['codi' => self::CYCLE], ['nom' => 'Tutorial de HeimdEye']);
 
         // Sense clau desada: fa servir HEIMDEYE_SSH_KEY_PATH, que a la demo només és al contenidor de proves.
-        $credential = Credential::firstOrCreate(
-            ['nom' => 'SSH alumnes de la demo'],
-            ['tipus' => CredentialType::Ssh, 'nom_usuari' => 'alumne'],
+        $access = Secret::firstOrCreate(
+            ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'ssh_demo'],
+            ['tipus' => SecretType::SshKey, 'nom_usuari' => 'alumne', 'descripcio' => 'SSH als equips dels alumnes de la demo'],
         );
 
         $students = collect([
@@ -57,8 +57,8 @@ class TutorialSeeder extends Seeder
             ['cicle_id' => $cycle->id, 'nom_complet' => $s[2], 'alies' => strtok($s[2], ' '), 'num_taula' => $s[0], 'x' => $s[0], 'es_actiu' => true],
         ));
 
-        $checks = $this->module($year, $cycle, $credential, 'TUT1', 'Primers passos amb els checks', 1);
-        $actions = $this->module($year, $cycle, $credential, 'TUT2', 'Accions: configurar els equips dels alumnes', 2);
+        $checks = $this->module($year, $cycle, $access, 'TUT1', 'Primers passos amb els checks', 1);
+        $actions = $this->module($year, $cycle, $access, 'TUT2', 'Accions: configurar els equips dels alumnes', 2);
         foreach ([$checks, $actions] as $module) {
             $module->students()->syncWithoutDetaching($students->pluck('id'));
             $module->teachers()->syncWithoutDetaching(User::where('rol', 'admin')->pluck('id'));
@@ -69,7 +69,7 @@ class TutorialSeeder extends Seeder
     }
 
     /** Mòdul del tutorial amb l'equip de cada alumne ("servidor") i la seva adreça com a variable. */
-    private function module(AcademicYear $year, Cycle $cycle, Credential $credential, string $code, string $name, int $position): Module
+    private function module(AcademicYear $year, Cycle $cycle, Secret $access, string $code, string $name, int $position): Module
     {
         $module = Module::updateOrCreate(
             ['curs_id' => $year->id, 'cicle_id' => $cycle->id, 'codi' => $code],
@@ -77,11 +77,11 @@ class TutorialSeeder extends Seeder
                 'nom' => $name,
                 'descripcio' => "Tutorial de HeimdEye, part {$position}.",
                 'tipus' => ModuleKind::Free,
-                'credencial_id' => $credential->id,
+                'secret_acces_id' => $access->id,
             ],
         );
         $module->variables()->updateOrCreate(
-            ['abast' => VariableScope::Module, 'clau' => 'ip_servidor'],
+            ['nivell' => Level::Module, 'clau' => 'ip_servidor'],
             ['valor' => 'alumne{{num_taula}}'],
         );
         $module->hostTypes()->updateOrCreate(
@@ -123,10 +123,10 @@ class TutorialSeeder extends Seeder
             [
                 'nom' => 'HeimdEye entra per SSH al servidor',
                 'executor' => Executor::Ssh,
-                'descripcio' => 'HeimdEye entra al servidor de l\'alumne per SSH amb la credencial del mòdul i hi executa l\'script.',
+                'descripcio' => 'HeimdEye entra al servidor de l\'alumne per SSH amb l\'accés del mòdul i hi executa l\'script.',
                 'info' => $this->info(
                     'veure l\'executor **ssh**: el mateix bash, però executat a l\'equip de l\'alumne.',
-                    'la capçalera `# hosts: servidor` diu a quins tipus d\'equip s\'executa (Inventari → Equips i variables). L\'usuari i la clau són els de la credencial del mòdul; la clau no surt mai del servidor HeimdEye.',
+                    'la capçalera `# hosts: servidor` diu a quins tipus d\'equip s\'executa (Inventari → Equips i variables). L\'usuari i la clau són els de l\'accés del mòdul (un secret de tipus clau SSH); la clau no surt mai del servidor HeimdEye.',
                 ),
                 'codi' => <<<'SH'
                     # hosts: servidor

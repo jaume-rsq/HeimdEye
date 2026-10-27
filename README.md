@@ -129,7 +129,7 @@ document de seguretat de la demo).
 | --- | --- | --- |
 | Checks i accions | Crear, provar i executar. Editar o esborrar només els que ha creat ell | Tot |
 | Cursos, mòduls, blocs, tasques, alumnes, equips, variables | Només lectura | Tot |
-| Usuaris i credencials | No els veu | Tot |
+| Usuaris i secrets comuns | No els veu | Tot |
 | Execucions | Màxim `HEIMDEYE_DEMO_MAX_TIMEOUT` s (30) i `HEIMDEYE_DEMO_RUNS_PER_HOUR` per hora (60) | Màxim de temps igual |
 
 `heimdeye:demo-cleanup` (cada hora) esborra els visitants sense activitat en les darreres
@@ -160,7 +160,7 @@ màxim i les variables, i els esborra. La clau dels alumnes només és al sandbo
 El tutorial de HeimdEye és un curs a part (`TutorialSeeder`): el curs **Tutorial**, el cicle
 **TUT** i dos mòduls, *TUT1 Primers passos amb els checks* i *TUT2 Accions*, amb 4 alumnes
 ficticis que tenen cadascun un `servidor` (els contenidors `alumne01`…`alumne04` de la demo).
-L'estructura és un exemple d'ús: tipus d'equip, variable de mòdul, credencial, checks local i
+L'estructura és un exemple d'ús: tipus d'equip, variable de mòdul, clau SSH d'accés, checks local i
 ssh amb paràmetres i info, un check opcional per duplicar i accions Ansible i ssh amb checks de
 verificació. És la base de dades de la demo (`DemoSeeder`).
 
@@ -169,7 +169,7 @@ se'n genera: `php artisan heimdeye:tutorial` (amb el tutorial a la BBDD).
 
 ## Variables
 
-Totes les variables són a la taula `variables`, amb un àmbit (`abast`): `global`, `curs`
+Totes les variables són a la taula `variables`, amb un nivell (`nivell`): `global`, `curs`
 (`curs_id`) o `modul` (`modul_id`). El valor pot ser una plantilla que en fa servir d'altres:
 `{{x}}`, `{{ xarxa_aula | host(3) }}` (tercera adreça útil), `{{ xarxa_aula | host(-1) }}`
 (darrera), `{{ ip_pve | octet(4) }}`.
@@ -193,8 +193,9 @@ Curs (`cursos`) → Cicle (`cicles`) → Mòdul (`moduls`) → Bloc (`blocs`) �
 Els noms de taules i camps són en català (sense accents); les classes PHP es mantenen en anglès
 (`Module`, `Student`...) i cada model declara la seva `$table`.
 
-- `moduls`: oficial o lliure (`combina` llista els mòduls oficials que agrupa), amb la
-  credencial per defecte. Les variables són a `variables` (vegeu «Variables»).
+- `moduls`: oficial o lliure (`combina` llista els mòduls oficials que agrupa), amb l'accés
+  per defecte als equips (`secret_acces_id`). Les variables són a `variables` (vegeu «Variables»)
+  i els secrets a `secrets` (vegeu «Equips, inventari Ansible i secrets»).
 - `alumnes` pertanyen a un curs i un cicle i es matriculen a mòduls (`modul_alumne`).
   Els professors s'assignen a mòduls (`modul_professor`).
 - `checks`: tipus obligatori/opcional, punts, `es_actiu` (null = segueix `actiu_des`/`actiu_fins`),
@@ -232,22 +233,32 @@ sempre se sap quin codi exacte va córrer.
   l'alumne (vegeu «Variables» i `App\Support\VariableResolver`). A Ansible són variables de
   grup de l'alumne (`{{ ip_pve }}`, `{{ nom_taula }}`...).
 - **Paràmetres:** `HE_PARAM_<NOM>` a `local` i `ssh`; a Ansible, una variable amb el seu nom.
-- **Secrets del mòdul:** el codi només rep els que esmenta pel nom, com a paraula sencera
-  (`HE_SECRET_<NOM>` o la variable Ansible), i a la sortida desada surten com a `********`.
+- **Secrets:** el codi només rep els que esmenta (els globals, els del curs i els del mòdul; un
+  de mòdul tapa un de curs, que tapa un de global), i a la sortida desada surten com a `********`:
+
+  | Tipus | bash (`local`, `ssh`) | Ansible |
+  | --- | --- | --- |
+  | valor | `HE_SECRET_<NOM>` | `{{ nom }}` |
+  | usuari i contrasenya | `HE_SECRET_<NOM>_USER`, `HE_SECRET_<NOM>_PASSWORD` | `{{ nom.user }}`, `{{ nom.password }}` |
+  | clau SSH | `HE_SECRET_<NOM>_USER`, `_KEY_FILE` (ruta a la clau privada), `_PUBKEY` | `{{ nom.user }}`, `{{ nom.key_file }}`, `{{ nom.pubkey }}` |
+
+  En bash només compta la variable d'entorn i només se'n donen les que surten al codi; a Ansible,
+  el nom dins d'una expressió (`{{ }}` o un `when:`): fora d'una expressió, `jaume` és un text.
   Cap secret no pot arribar en clar a un equip d'alumne, on l'alumne és root: amb `ssh`, el
-  codi no en pot esmentar cap; amb Ansible, només dins una expressió amb `password_hash` (a
-  l'equip hi arriba el hash) o en una tasca amb `delegate_to: localhost`. Si no, el codi no es
-  pot desar ni executar. La comprovació és de text i, en cas de dubte, rebutja.
+  codi només pot fer servir `_USER` i `_PUBKEY`; amb Ansible, la resta (el valor, `password`,
+  `key_file`) només dins una expressió amb `password_hash` (a l'equip hi arriba el hash) o en
+  una tasca amb `delegate_to: localhost`. Si no, el codi no es pot desar ni executar. La
+  comprovació és de text i, en cas de dubte, rebutja.
 
 ### Capçaleres
 
-Les primeres línies de comentari del codi poden declarar on i amb quina credencial s'executa,
+Les primeres línies de comentari del codi poden declarar on i amb quin accés s'executa,
 amb el format `# clau: valor`. Són comentaris normals, així que l'script es pot provar a mà tal
 com està. Es llegeixen fins a la primera línia de codi; els altres comentaris s'ignoren.
 
 ```bash
 # hosts: pve
-# credencial: SSH jaume
+# credencial: ssh_jaume
 out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
 ```
 
@@ -256,23 +267,25 @@ out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
   Si falta, o un grup no existeix, el codi no es pot desar i l'execució dona `error`. A Ansible
   fa aquesta feina el `hosts:` de cada play, amb les mateixes regles. `all`, comodins i
   variables no hi són permesos: cal dir els grups concrets.
-- `# credencial: <nom>`: credencial a fer servir en lloc de la per defecte (pel nom). Si no
-  existeix, `error`.
+- `# credencial: <nom>`: secret d'usuari i contrasenya o de clau SSH a fer servir d'accés en
+  lloc del per defecte. Accepta també el nom de les antigues credencials (`SSH jaume` és
+  `ssh_jaume`). Si no existeix, `error`. Queda per compatibilitat i desapareixerà: per a
+  l'executor `local`, n'hi ha prou d'esmentar el secret (`$HE_SECRET_API_ZABBIX_PASSWORD`).
 
 ### Executors
 
-| Executor | On s'executa | Equips | Credencial |
+| Executor | On s'executa | Equips | Accés |
 | --- | --- | --- | --- |
-| `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | La de `# credencial:` o la del mòdul. Una credencial SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); una de contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). |
-| `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els globals, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | La de `# credencial:`, o la del tipus d'equip, o la del mòdul. Port i usuari de `variables_connexio` (`ansible_port`, `ansible_user`) si n'hi ha. |
-| `ansible` | `ansible-playbook` al servidor, un per alumne, amb l'inventari generat a partir dels tipus d'equip. | Els dels grups del `hosts:` dels plays: l'inventari només porta aquests. | La de cada tipus d'equip (o la del mòdul). |
+| `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | El de `# credencial:` o el del mòdul. Una clau SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); un usuari i contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). |
+| `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els globals, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | El de `# credencial:`, o el del tipus d'equip, o el del mòdul. Port i usuari de `variables_connexio` (`ansible_port`, `ansible_user`) si n'hi ha. |
+| `ansible` | `ansible-playbook` al servidor, un per alumne, amb l'inventari generat a partir dels tipus d'equip. | Els dels grups del `hosts:` dels plays: l'inventari només porta aquests. | El de cada tipus d'equip (o el del mòdul). |
 
 Amb `ssh` i diversos equips, el resultat és `pass` només si passa a tots; si no, és el del
 primer equip que falla, i el missatge comença pel nom de l'equip (`router01: ...`). La sortida
 desada porta un bloc per equip.
 
 Codis de sortida especials: amb `ssh`, el 255 (no connecta, clau rebutjada...) és
-`unavailable`. Un codi que no es pot executar (falta una variable, capçalera o credencial) és
+`unavailable`. Un codi que no es pot executar (falta una variable, capçalera o secret) és
 `error`. Amb Ansible, si cap equip de l'alumne no ha executat res (el `hosts:` no en
 coincideix cap), també és `error`, mai `ok` ni `pass`. Un check d'Ansible que canvia alguna
 cosa (`changed`) dona `error`: un check només llegeix (cal `changed_when: false` a les tasques
@@ -324,7 +337,7 @@ La nocturna la llança el scheduler (`HEIMDEYE_NIGHTLY_AT`, per defecte 02:00); 
   la cua propi (`RunCheck`), amb la versió vigent quan es posa a la cua: és la que s'executa i
   la que queda registrada. Si el treball falla abans de tenir resultat, queda una execució en
   estat `error` amb el motiu. Executat a mà (sense `--queue`) no hi ha reintents.
-- Clau SSH: la de la credencial (vegeu la taula d'executors) si en té una de desada; si no,
+- Clau SSH: la del secret d'accés (vegeu la taula d'executors) si en té una de desada; si no,
   `HEIMDEYE_SSH_KEY_PATH`; si tampoc, la clau per defecte de l'usuari que executa el worker.
 - Aïllament: `HEIMDEYE_RUNNER_WRAPPER` embolcalla cada execució, per exemple
   `systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%`.
@@ -366,7 +379,7 @@ les accions (vegeu [Accions](#accions)), amb aquestes diferències:
 - **Info per a l'alumne** (Markdown): objectiu del test i justificació. Es mostra en una finestra
   des del check (botó Info del Seguiment) amb el codi de la versió vigent amb les dades de
   l'alumne: `$HE_VAR`, `${HE_PARAM_NOM}` o, a Ansible, `{{ var }}` es canvien pel seu valor; els
-  secrets i les credencials no es mostren mai.
+  secrets no es mostren mai.
 - Esborrar un check l'esborra del tot (no hi ha paperera): versions, execucions, estat dels
   alumnes i assoliments. L'avís diu quant es perd i quines accions el fan servir per verificar.
   Esborrar una acció també avisa de les versions i execucions que es perden.
@@ -374,15 +387,18 @@ les accions (vegeu [Accions](#accions)), amb aquestes diferències:
 ## Equips, inventari Ansible i secrets
 
 Cada mòdul defineix els seus **tipus d'equip** (`tipus_equip`): grup Ansible, nom del host i
-adreça (plantilles amb variables de l'alumne), variables de connexió i credencial. Els de
+adreça (plantilles amb variables de l'alumne), variables de connexió i accés. Els de
 tipus `alumne` en generen un per alumne; els `global` (com el Zabbix) un de sol.
 A partir d'aquí es genera l'inventari en JSON, equivalent a `smix2.ini`: grups per tipus
 (`pve`, `vm_router`, `vm_dns_bind`...), un grup per alumne (`taula01`...) amb les seves
 variables, i `alumnes`. Vegeu `database/seeders/HostsSeeder.php`.
 
-Els **secrets** del mòdul (`secrets`, xifrats amb `APP_KEY`) fan de vault: un playbook o
-script rep només els que anomena (com a variable Ansible o `HE_SECRET_*`), i a la sortida
-desada apareixen com a `********`. Els valors s'omplen des de l'administració, mai al repositori.
+Els **secrets** (`secrets`, xifrats amb `APP_KEY`) fan de vault. Tenen un **nivell** (global, curs
+o mòdul, com les variables) i un **tipus**: valor, usuari i contrasenya, o clau SSH (amb la clau
+pública, que no és secreta). Els d'usuari i contrasenya i els de clau SSH fan també d'**accés**:
+el mòdul en té un per defecte i cada tipus d'equip en pot dir un altre. Un playbook o script rep
+només els que esmenta (vegeu «Contracte del codi»), i a la sortida desada apareixen com a
+`********`. Els valors s'omplen des de l'administració, mai al repositori.
 
 Els checks `ssh` fan servir aquests mateixos grups amb la capçalera `# hosts:`, i els checks
 també poden ser playbooks (`executor = ansible`).
@@ -403,9 +419,10 @@ també poden ser playbooks (`executor = ansible`).
   En desar, si alguna plantilla no es pot calcular per a algun alumne, ho avisa. Els secrets
   no es tornen a mostrar: un camp buit vol dir que no canvia.
 - **Variables comunes** (`/admin/variables`): les globals i les de cada curs, agrupades per prefix.
-  Un nom només pot sortir una vegada a cada àmbit.
-- **Credencials** (`/admin/credencials`): SSH (clau privada), WinRM i usuari/contrasenya, amb on
-  es fan servir (mòduls, tipus d'equip i capçaleres `# credencial:`). El secret no es torna a mostrar.
+  Un nom només pot sortir una vegada a cada nivell.
+- **Secrets comuns** (`/admin/secrets`): els globals i els de cada curs (claus SSH, usuaris i
+  contrasenyes, valors), amb on fan d'accés (mòduls, tipus d'equip i capçaleres `# credencial:`).
+  El valor no es torna a mostrar. Els del mòdul són a la pestanya Secrets d'«Equips i variables».
 
 ### Al panell (menú Administració)
 

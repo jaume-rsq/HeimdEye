@@ -5,6 +5,7 @@ namespace App\Runner;
 use App\Enums\Executor;
 use App\Models\HostType;
 use App\Models\Module;
+use App\Models\Secret;
 use App\Runner\Ansible\Playbook;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
@@ -14,8 +15,9 @@ use InvalidArgumentException;
  *
  * - ssh i Ansible han de dir a quins grups d'equips van (capçalera "# hosts:" o el "hosts:"
  *   dels plays), sense "all": l'inventari només porta aquests equips;
- * - cap secret no pot arribar en clar a un equip d'alumne: amb ssh, el codi no en pot esmentar
- *   cap; amb Ansible, només passat per password_hash o en tasques amb delegate_to: localhost.
+ * - cap secret no pot arribar en clar a un equip d'alumne: amb ssh, el codi només pot fer servir
+ *   l'usuari i la clau pública d'un secret; amb Ansible, la resta només passada per password_hash
+ *   o en tasques amb delegate_to: localhost.
  */
 class CodeValidator
 {
@@ -62,10 +64,10 @@ class CodeValidator
     /** @throws InvalidArgumentException */
     public function assertNoLeakedSecrets(Module $module, Executor $executor, string $code): void
     {
-        $names = $module->secrets->pluck('clau')->all();
+        $secrets = $module->visibleSecrets();
         $leaked = match ($executor) {
-            Executor::Ssh => array_values(array_filter($names, fn ($name) => Playbook::mentions($code, $name))),
-            Executor::Ansible => Playbook::parse($code)->leakedSecrets($names),
+            Executor::Ssh => $secrets->flatMap(fn (Secret $secret) => SecretRefs::sensitiveEnvNamesIn($code, $secret))->values()->all(),
+            Executor::Ansible => Playbook::parse($code)->leakedSecrets($secrets->keys()->all()),
             default => [],
         };
         if ($leaked === []) {
@@ -73,7 +75,7 @@ class CodeValidator
         }
 
         throw new InvalidArgumentException(match ($executor) {
-            Executor::Ssh => 'El codi esmenta el secret '.implode(', ', $leaked).': amb l\'executor ssh arribaria en clar a l\'equip de l\'alumne',
+            Executor::Ssh => 'El codi fa servir '.implode(', ', $leaked).': amb l\'executor ssh arribaria en clar a l\'equip de l\'alumne (només es poden fer servir _USER i _PUBKEY)',
             default => 'El secret '.implode(', ', $leaked).' arribaria en clar a l\'equip de l\'alumne: fes-lo servir amb password_hash o en una tasca amb delegate_to: localhost',
         });
     }

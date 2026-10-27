@@ -2,6 +2,7 @@
 
 namespace App\Runner\Ansible;
 
+use App\Runner\SecretRefs;
 use InvalidArgumentException;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
@@ -79,9 +80,10 @@ final class Playbook
     /**
      * Secrets que arribarien en clar a un equip: els que surten dins una expressió Jinja
      * sense password_hash, en una tasca que no s'executa al servidor (delegate_to: localhost).
+     * L'usuari i la clau pública d'un secret (jaume.user, jaume.pubkey) no compten.
      * És una comprovació de text: en cas de dubte, compta com a fuita.
      *
-     * @param  list<string>  $secrets  noms dels secrets del mòdul
+     * @param  list<string>  $secrets  claus dels secrets que veu el mòdul
      * @return list<string> noms dels secrets que es filtrarien
      */
     public function leakedSecrets(array $secrets): array
@@ -160,7 +162,7 @@ final class Playbook
                 continue;
             }
             foreach ($secrets as $secret) {
-                if (self::mentions($expression, $secret)) {
+                if (SecretRefs::sensitiveIn($expression, $secret)) {
                     $leaks[] = $secret;
                 }
             }
@@ -170,8 +172,8 @@ final class Playbook
     }
 
     /**
-     * El text esmenta el secret com a paraula sencera, pel nom (jaume_password, no
-     * jaume_password2) o com a variable d'entorn (HE_SECRET_JAUME_PASSWORD).
+     * El text esmenta el nom com a paraula sencera (heimdeye_ssh_pubkey_file, no
+     * heimdeye_ssh_pubkey_file2) o com a variable d'entorn HE_SECRET_<NOM>.
      */
     public static function mentions(string $text, string $name): bool
     {

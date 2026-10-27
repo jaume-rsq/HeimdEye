@@ -12,7 +12,7 @@ class HostType extends Model
 
     protected $fillable = [
         'modul_id', 'nom', 'grup_ansible', 'abast', 'nom_host', 'adreca',
-        'variables_connexio', 'credencial_id', 'posicio',
+        'variables_connexio', 'secret_acces_id', 'posicio',
     ];
 
     protected function casts(): array
@@ -28,9 +28,10 @@ class HostType extends Model
         return $this->belongsTo(Module::class, 'modul_id');
     }
 
-    public function credential(): BelongsTo
+    /** Accés a l'equip; si no en té, el del mòdul. */
+    public function access(): BelongsTo
     {
-        return $this->belongsTo(Credential::class, 'credencial_id');
+        return $this->belongsTo(Secret::class, 'secret_acces_id');
     }
 
     public function isGlobal(): bool
