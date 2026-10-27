@@ -41,7 +41,7 @@ class Block05FirewallSeederTest extends TestCase
         $this->assertCount(12, $checks);
         $this->assertSame(8, $checks->where('tipus', CheckKind::Required)->sum('punts'));
         $this->assertSame(11, $checks->where('tipus', CheckKind::Optional)->sum('punts'));
-        $this->assertTrue($checks->every(fn (Check $c) => filled($c->descripcio) && $c->versions()->count() === 1));
+        $this->assertTrue($checks->every(fn (Check $c) => filled($c->descripcio) && filled($c->info) && $c->versions()->count() === 1));
     }
 
     public function test_block_5_code_passes_the_save_rules(): void
