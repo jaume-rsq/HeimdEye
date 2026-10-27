@@ -21,7 +21,7 @@ class Check extends Model
     protected $table = 'checks';
 
     protected $fillable = [
-        'tasca_id', 'nom', 'descripcio', 'executor', 'tipus', 'punts',
+        'tasca_id', 'nom', 'descripcio', 'info', 'executor', 'tipus', 'punts',
         'es_actiu', 'actiu_des', 'actiu_fins', 'data_limit', 'bonus_puntualitat_pct', 'posicio',
     ];
 
@@ -96,6 +96,34 @@ class Check extends Model
                 ->whereNull('es_actiu')
                 ->where(fn (Builder $q) => $q->whereNull('actiu_des')->orWhereDate('actiu_des', '<=', $day))
                 ->where(fn (Builder $q) => $q->whereNull('actiu_fins')->orWhereDate('actiu_fins', '>=', $day))));
+    }
+
+    /**
+     * Posició del check dins del mòdul: número del bloc, posició de la tasca i posició del check
+     * (5.2.1). És l'ordre en què l'alumne els ha d'anar assolint. Cal tenir carregats task.block.
+     */
+    public function positionLabel(): string
+    {
+        return "{$this->task?->block?->numero}.{$this->task?->posicio}.{$this->posicio}";
+    }
+
+    /** Ordena com positionLabel(): mòdul, bloc, tasca i check. */
+    public function scopeOrderByPosition(Builder $query, string $direction = 'asc'): Builder
+    {
+        $task = fn (string $column) => Task::query()
+            ->join('blocs', 'blocs.id', '=', 'tasques.bloc_id')
+            ->whereColumn('tasques.id', 'checks.tasca_id')
+            ->select($column)
+            ->limit(1);
+
+        return $query
+            ->orderBy($task('blocs.modul_id'), $direction)
+            ->orderBy($task('blocs.posicio'), $direction)
+            ->orderBy($task('blocs.numero'), $direction)
+            ->orderBy($task('tasques.posicio'), $direction)
+            ->orderBy('checks.tasca_id', $direction)
+            ->orderBy('checks.posicio', $direction)
+            ->orderBy('checks.id', $direction);
     }
 
     /** Punts que dona el check si es va assolir per primer cop en aquesta data. */

@@ -14,6 +14,7 @@ use App\Models\Module;
 use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\User;
+use App\Support\CodePreview;
 use App\Support\StudentProgress;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
@@ -125,5 +126,53 @@ class StudentTrackingTest extends TestCase
         if ($other) {
             $component->assertDontSee($other->nom);
         }
+    }
+
+    public function test_block_summary_counts_every_check_and_rows_follow_the_position(): void
+    {
+        CheckStudent::create(['check_id' => $this->check->id, 'alumne_id' => $this->student->id, 'estat_professor' => true]);
+        $task = $this->check->task;
+        $last = $task->checks()->create(['nom' => 'Darrer', 'executor' => $this->check->executor, 'es_actiu' => true, 'posicio' => 99]);
+        $first = $task->checks()->create(['nom' => 'Primer', 'executor' => $this->check->executor, 'es_actiu' => true, 'posicio' => 0]);
+
+        $groups = app(StudentProgress::class)->build($this->student, $this->module, ['tasca' => $task->id, 'estat' => 'pendents']);
+        $block = collect($groups)->firstWhere('block.id', $task->bloc_id);
+        $all = Check::where('tasca_id', $task->id)->orWhereHas('task', fn ($q) => $q->where('bloc_id', $task->bloc_id))->get()
+            ->filter(fn (Check $c) => $c->isActiveOn());
+
+        // El filtre amaga l'assolit, però el resum del bloc el compta.
+        $this->assertSame(1, $block['resum']['assolits']);
+        $this->assertSame($all->count(), $block['resum']['total']);
+        $names = array_map(fn ($r) => $r['check']->nom, $block['tasks'][0]['rows']);
+        $this->assertSame('Primer', $names[0]);
+        $this->assertSame('Darrer', end($names));
+        $this->assertSame("{$task->block->numero}.{$task->posicio}.99", $last->load('task.block')->positionLabel());
+    }
+
+    public function test_code_preview_uses_the_student_data_but_never_secrets(): void
+    {
+        $this->check->versions()->create([
+            'versio' => 99,
+            'codi' => 'echo $HE_USUARI ${HE_PARAM_DESTI} $HE_SECRET_CLAU $HE_NO_EXISTEIX',
+            'parametres' => [['name' => 'DESTI', 'label' => null, 'default' => 'ns1.{{ usuari }}']],
+            'temps_max_seg' => 10,
+        ]);
+        $check = $this->check->fresh(['currentVersion', 'task.block.module']);
+
+        $preview = app(CodePreview::class)->for($check, $this->student);
+
+        $this->assertSame("echo {$this->student->usuari} ns1.{$this->student->usuari} \$HE_SECRET_CLAU \$HE_NO_EXISTEIX", $preview['codi']);
+    }
+
+    public function test_info_popup_shows_the_markdown_and_the_code(): void
+    {
+        $this->check->update(['info' => "**Objectiu del test:** que el router respon.\n\n<script>alert(1)</script>"]);
+
+        Livewire::test(StudentTracking::class)
+            ->mountAction('info', ['check' => $this->check->id])
+            ->assertActionMounted('info')
+            ->assertMountedActionModalSeeHtml('<strong>Objectiu del test:</strong>')
+            ->assertMountedActionModalDontSeeHtml('<script>alert(1)</script>')
+            ->assertMountedActionModalSee('Codi del check amb les teves dades');
     }
 }

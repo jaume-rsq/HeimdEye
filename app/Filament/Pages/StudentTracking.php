@@ -11,6 +11,7 @@ use App\Models\Student;
 use App\Models\Task;
 use App\Models\User;
 use App\Runner\CheckRunner;
+use App\Support\CodePreview;
 use App\Support\Leaderboard;
 use App\Support\StudentProgress;
 use BackedEnum;
@@ -193,7 +194,7 @@ class StudentTracking extends Page
     #[Computed]
     public function blocks(): Collection
     {
-        return $this->module()?->blocks()->with('tasks')->orderBy('numero')->get() ?? collect();
+        return $this->module()?->blocks()->with('tasks')->reorder()->orderBy('posicio')->orderBy('numero')->get() ?? collect();
     }
 
     /** Alumne anterior i següent de la llista, per anar-hi sense perdre el filtre. */
@@ -245,6 +246,38 @@ class StudentTracking extends Page
             ->body($errors ? implode("\n", $errors) : 'El resultat surt aquí quan acaba (recarrega la pàgina).')
             ->send();
         unset($this->progress, $this->cards);
+    }
+
+    /**
+     * Informació pedagògica del check, com la veurà l'alumne: el text del professor (objectiu i
+     * justificació) i el codi amb les dades reals de l'alumne.
+     */
+    public function infoAction(): Action
+    {
+        return Action::make('info')
+            ->label('Info')
+            ->modalHeading(fn (array $arguments) => $this->visibleCheck($arguments)?->nom)
+            ->modalWidth(Width::FourExtraLarge)
+            ->modalContent(function (array $arguments) {
+                $check = $this->visibleCheck($arguments);
+
+                return view('filament.check-info', [
+                    'check' => $check,
+                    'preview' => $check && $this->student() ? app(CodePreview::class)->for($check, $this->student()) : null,
+                ]);
+            })
+            ->modalSubmitAction(false)
+            ->modalCancelActionLabel('Tancar');
+    }
+
+    /** Un check del mòdul triat (els arguments venen del navegador). */
+    private function visibleCheck(array $arguments): ?Check
+    {
+        $module = $this->module();
+
+        return $module ? Check::whereIn('tasca_id', $module->tasks()->select('tasques.id'))
+            ->with(['currentVersion', 'task.block.module'])
+            ->find($arguments['check'] ?? 0) : null;
     }
 
     /** Correcció del professor: Automàtic (sense correcció), Assolit o No assolit, amb un comentari. */

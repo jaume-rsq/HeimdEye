@@ -355,6 +355,15 @@ les accions (vegeu [Accions](#accions)), amb aquestes diferències:
 - A l'editor, **Provar** executa el codi del formulari sense desar-lo per als alumnes triats,
   per la cua. No es desa ni compta per als alumnes. Una versió nova no es pot desar sense
   haver-la provada tal com és, ni si no passa les comprovacions de `hosts:` i de secrets.
+- **Posició** `bloc.tasca.check` (5.2.1): número del bloc, posició de la tasca i posició del check.
+  És l'ordre en què l'alumne els ha d'anar assolint, i el de la llista i del Seguiment.
+- A la llista, cada check ocupa dues línies (nom i descripció; tasca, executor, punts, actiu,
+  versió) i les icones van agrupades en un quadre. «Modificat» diu «fa 20 minuts» les dues
+  primeres hores; després, la data i l'hora.
+- **Info per a l'alumne** (Markdown): objectiu del test i justificació. Es mostra en una finestra
+  des del check (botó Info del Seguiment) amb el codi de la versió vigent amb les dades de
+  l'alumne: `$HE_VAR`, `${HE_PARAM_NOM}` o, a Ansible, `{{ var }}` es canvien pel seu valor; els
+  secrets i les credencials no es mostren mai.
 - Esborrar un check l'esborra del tot (no hi ha paperera): versions, execucions, estat dels
   alumnes i assoliments. L'avís diu quant es perd i quines accions el fan servir per verificar.
   Esborrar una acció també avisa de les versions i execucions que es perden.
@@ -435,6 +444,9 @@ d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
   estat (amb la correcció del professor), darrera execució, missatge, primer assoliment, punts i comentari.
 - Clicant una fila es veu la sortida de la darrera execució i l'historial reduït als canvis d'estat
   (amb la data de cada canvi i quantes execucions hi ha hagut amb aquell estat).
+- Cada bloc es plega clicant-ne la línia, que mostra els agregats del bloc: checks assolits,
+  obligatoris, punts, checks amb error, darrer assoliment i dates del bloc. La columna Pos. dona
+  l'ordre dels checks.
 - Botons per verificar ara un check, una tasca o tot el mòdul (per a aquest alumne) i per corregir:
   forçar assolit / no assolit o tornar a automàtic, i deixar un comentari que veurà l'alumne.
 

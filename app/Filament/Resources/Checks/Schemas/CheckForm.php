@@ -12,6 +12,7 @@ use Filament\Forms\Components\CodeEditor;
 use Filament\Forms\Components\CodeEditor\Enums\Language;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\MarkdownEditor;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
@@ -31,6 +32,8 @@ use Filament\Schemas\Schema;
 class CheckForm
 {
     public const VERSION_FIELDS = ['codi', 'parametres', 'temps_max_seg'];
+
+    public const INFO_TEMPLATE = "**Objectiu del test:** què es vol validar.\n\n**Justificació:** per què cal aquesta funcionalitat.\n";
 
     public static function configure(Schema $schema): Schema
     {
@@ -65,6 +68,12 @@ class CheckForm
                             ->disabledOn('edit')
                             ->helperText('No es pot canviar un cop creat el check.'),
                         Textarea::make('descripcio')->label('Descripció')->rows(2)->columnSpanFull(),
+                        MarkdownEditor::make('info')
+                            ->label('Info per a l\'alumne')
+                            ->default(self::INFO_TEMPLATE)
+                            ->toolbarButtons([['bold', 'italic', 'link'], ['bulletList', 'orderedList', 'codeBlock'], ['undo', 'redo']])
+                            ->helperText('Es mostra a l\'alumne en una finestra des del check, en Markdown, seguida del codi del check amb les seves dades.')
+                            ->columnSpanFull(),
                         Select::make('tipus')
                             ->options(collect(CheckKind::cases())->mapWithKeys(fn (CheckKind $k) => [$k->value => $k->value]))
                             ->default(CheckKind::Required->value)

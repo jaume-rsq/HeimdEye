@@ -2,7 +2,6 @@
 
 namespace App\Filament\Resources\Checks\Tables;
 
-use App\Enums\CheckKind;
 use App\Enums\CheckOverview;
 use App\Enums\CheckStatus;
 use App\Enums\Executor;
@@ -14,11 +13,13 @@ use App\Models\Check;
 use App\Models\Module;
 use App\Support\CheckSummary;
 use Filament\Actions\Action;
+use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Columns\ViewColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
@@ -36,45 +37,33 @@ class ChecksTable
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['task.block.module', 'currentVersion']))
-            ->defaultSort('updated_at', 'desc')
+            ->defaultSort('posicio')
             ->columns([
+                TextColumn::make('posicio')
+                    ->label('Posició')
+                    ->state(fn (Check $record) => $record->positionLabel())
+                    ->tooltip('Bloc.tasca.check: l\'ordre en què l\'alumne els ha d\'anar assolint')
+                    ->fontFamily('mono')
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderByPosition($direction)),
                 IconColumn::make('estat')
                     ->label('Estat')
                     ->state(fn (Check $record) => self::summary($record)->overview()->value)
                     ->icon(fn (string $state) => CheckOverview::from($state)->icon())
                     ->color(fn (string $state) => CheckOverview::from($state)->color())
                     ->tooltip(fn (Check $record) => self::summary($record)->overview()->label().': '.self::summary($record)->describe()),
-                TextColumn::make('nom')
-                    ->searchable()
-                    ->sortable()
-                    ->weight('bold')
-                    ->description(fn (Check $record) => $record->descripcio)
-                    ->wrap(),
-                TextColumn::make('task.titol')
-                    ->label('Tasca')
-                    ->description(fn (Check $record) => "Bloc {$record->task->block->numero} · {$record->task->block->module->nom}")
-                    ->wrap(),
-                TextColumn::make('executor')
-                    ->badge()
-                    ->color('gray'),
-                TextColumn::make('punts')
-                    ->description(fn (Check $record) => $record->tipus === CheckKind::Optional ? 'opcional' : null),
-                IconColumn::make('actiu')
-                    ->label('Actiu')
-                    ->state(fn (Check $record) => $record->isActiveOn())
-                    ->boolean()
-                    ->tooltip(fn (Check $record) => match (true) {
-                        $record->es_actiu !== null => $record->es_actiu ? 'Actiu (forçat)' : 'Inactiu (forçat)',
-                        default => 'Segons les dates: '.($record->actiu_des?->format('d/m/Y') ?? '…').' – '.($record->actiu_fins?->format('d/m/Y') ?? '…'),
-                    }),
-                TextColumn::make('currentVersion.versio')
-                    ->label('Versió')
-                    ->prefix('v')
-                    ->placeholder('sense codi'),
+                ViewColumn::make('nom')
+                    ->label('Check')
+                    ->view('filament.checks.check-cell')
+                    ->searchable(['nom', 'descripcio'])
+                    ->sortable(),
                 TextColumn::make('updated_at')
                     ->label('Modificat')
-                    ->since()
-                    ->dateTimeTooltip('d/m/Y H:i')
+                    // Fa poc: «fa 20 minuts»; si no, la data i l'hora en dues línies.
+                    ->formatStateUsing(fn ($state) => $state->greaterThan(now()->subHours(2))
+                        ? e($state->diffForHumans())
+                        : $state->format('d/m/Y').'<br>'.$state->format('H:i:s'))
+                    ->html()
+                    ->dateTimeTooltip('d/m/Y H:i:s')
                     ->sortable(),
             ])
             ->filters([
@@ -140,31 +129,34 @@ class ChecksTable
             ->filtersFormColumns(5)
             ->deferFilters(false)
             ->recordActions([
-                Action::make('versions')
-                    ->label('Versions')
-                    ->icon(Heroicon::OutlinedRectangleStack)
-                    ->color('gray')
-                    ->iconButton()
-                    ->tooltip('Versions')
-                    ->url(fn (Check $record) => CheckResource::getUrl('versions', ['record' => $record])),
-                Action::make('historial')
-                    ->label('Historial')
-                    ->icon(Heroicon::OutlinedClock)
-                    ->color('gray')
-                    ->iconButton()
-                    ->tooltip('Historial d\'execucions')
-                    ->url(fn (Check $record) => CheckResource::getUrl('runs', ['record' => $record])),
-                Action::make('duplicar')
-                    ->label('Duplicar')
-                    ->icon(Heroicon::OutlinedDocumentDuplicate)
-                    ->color('gray')
-                    ->iconButton()
-                    ->tooltip('Duplicar com a base d\'un check nou')
-                    ->url(fn (Check $record) => CheckResource::getUrl('create', ['copia' => $record->id])),
-                EditAction::make()
-                    ->label('Editar darrera versió')
-                    ->iconButton()
-                    ->tooltip('Editar darrera versió'),
+                ActionGroup::make([
+                    Action::make('versions')
+                        ->hiddenLabel()
+                        ->color('gray')
+                        ->label('Versions')
+                        ->icon(Heroicon::OutlinedRectangleStack)
+                        ->tooltip('Versions')
+                        ->url(fn (Check $record) => CheckResource::getUrl('versions', ['record' => $record])),
+                    Action::make('historial')
+                        ->hiddenLabel()
+                        ->color('gray')
+                        ->label('Historial')
+                        ->icon(Heroicon::OutlinedClock)
+                        ->tooltip('Historial d\'execucions')
+                        ->url(fn (Check $record) => CheckResource::getUrl('runs', ['record' => $record])),
+                    Action::make('duplicar')
+                        ->hiddenLabel()
+                        ->color('gray')
+                        ->label('Duplicar')
+                        ->icon(Heroicon::OutlinedDocumentDuplicate)
+                        ->tooltip('Duplicar com a base d\'un check nou')
+                        ->url(fn (Check $record) => CheckResource::getUrl('create', ['copia' => $record->id])),
+                    EditAction::make()
+                        ->hiddenLabel()
+                        ->color('gray')
+                        ->label('Editar')
+                        ->tooltip('Editar darrera versió'),
+                ])->buttonGroup(),
                 LaunchCheck::make()->button(),
             ]);
     }

@@ -409,17 +409,19 @@ class CheckPanelTest extends TestCase
         $this->assertSame($source->posicio + 1, $copy->posicio);
     }
 
-    public function test_the_list_shows_the_last_modified_checks_first(): void
+    public function test_the_list_is_ordered_by_position(): void
     {
         $this->actingAs($this->teacher);
-        $old = $this->check();
-        $old->forceFill(['updated_at' => now()->subWeek()])->saveQuietly();
-        $recent = $this->check();
-        $recent->forceFill(['updated_at' => now()->subDay()])->saveQuietly();
+        $second = $this->check();
+        $second->forceFill(['posicio' => 2, 'updated_at' => now()->subDay()])->saveQuietly();
+        $first = $this->check();
+        $first->forceFill(['posicio' => 1, 'updated_at' => now()->subWeek()])->saveQuietly();
+        $task = $first->task;
 
-        Livewire::test(ListChecks::class)->assertCanSeeTableRecords([$recent, $old], inOrder: true);
-
-        $old->versions()->create(['versio' => 2, 'codi' => 'echo nova', 'temps_max_seg' => 10]);
-        Livewire::test(ListChecks::class)->assertCanSeeTableRecords([$old->fresh(), $recent], inOrder: true);
+        Livewire::test(ListChecks::class)
+            ->assertCanSeeTableRecords([$first, $second], inOrder: true)
+            ->assertTableColumnStateSet('posicio', "{$task->block->numero}.{$task->posicio}.1", $first)
+            ->sortTable('updated_at', 'desc')
+            ->assertCanSeeTableRecords([$second, $first], inOrder: true);
     }
 }
