@@ -59,7 +59,7 @@ class EditStudent extends EditRecord
                 ->color('gray')
                 ->url(fn () => StudentTracking::getUrl(['alumne' => $this->record->id])),
             Action::make('conjunt')
-                ->label('Vista de conjunt')
+                ->label('Inventari')
                 ->icon(Heroicon::OutlinedSquares2x2)
                 ->color('gray')
                 ->url(fn () => InventoryOverview::getUrl(['modul' => $this->modul])),

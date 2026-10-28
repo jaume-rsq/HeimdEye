@@ -18,7 +18,7 @@ trait PreviewsInventory
     {
         return [
             Action::make('conjunt')
-                ->label('Vista de conjunt')
+                ->label('Inventari')
                 ->icon(Heroicon::OutlinedSquares2x2)
                 ->color('gray')
                 ->url(fn () => InventoryOverview::getUrl(['modul' => $this->record->id])),
@@ -44,16 +44,9 @@ trait PreviewsInventory
             return null;
         }
 
-        $moduleVars = [];
-        foreach ($state['variables'] ?? [] as $item) {
-            if (filled($item['clau'] ?? null)) {
-                $moduleVars[$item['clau']] = (string) ($item['valor'] ?? '');
-            }
-        }
-
         $resolver = app(VariableResolver::class);
         $grid = app(InventoryGrid::class);
-        $vars = $resolver->detailed($student, $this->record, $moduleVars);
+        $vars = $resolver->detailed($student, $this->record);
         $values = array_map(fn (array $v) => $v['valor'], $vars);
         $common = $resolver->common($this->record);
 

@@ -25,7 +25,7 @@ use UnitEnum;
 
 /**
  * Equips comuns: tipus d'equip globals (el servidor Zabbix) o d'un curs (pve, router...), que
- * veuen tots els mòduls (o els del curs). Els d'un mòdul es gestionen a "Equips i variables".
+ * veuen tots els mòduls (o els del curs). Els d'un mòdul es gestionen a "Equips del mòdul".
  */
 class HostTypeResource extends Resource
 {

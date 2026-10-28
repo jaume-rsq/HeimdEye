@@ -251,7 +251,7 @@ class ContextBuilder
     private function keyFor(Secret $secret): string
     {
         return SecretRefs::keyFile($secret, $this->files)
-            ?? throw new InvalidArgumentException("El secret {$secret->clau} no té clau privada: posa-la a Inventari → Secrets comuns (o a la pestanya Secrets del mòdul)");
+            ?? throw new InvalidArgumentException("El secret {$secret->clau} no té clau privada: posa-la a Inventari → Secrets");
     }
 
     private function envName(string $prefix, string $name): string

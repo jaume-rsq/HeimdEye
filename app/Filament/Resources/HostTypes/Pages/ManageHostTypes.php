@@ -17,7 +17,7 @@ class ManageHostTypes extends ManageRecords
 
     public function getSubheading(): ?string
     {
-        return 'Tipus d\'equip globals o d\'un curs, que veuen tots els seus mòduls. Un del mòdul amb el mateix nom els tapa; els d\'un mòdul es gestionen a «Equips i variables».';
+        return 'Tipus d\'equip globals o d\'un curs, que veuen tots els seus mòduls. Un del mòdul amb el mateix nom els tapa; els d\'un mòdul es gestionen a «Equips del mòdul».';
     }
 
     protected function getHeaderActions(): array

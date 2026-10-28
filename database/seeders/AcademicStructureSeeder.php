@@ -41,7 +41,7 @@ class AcademicStructureSeeder extends Seeder
             Variable::updateOrCreate(['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => $key], ['valor' => $value]);
         }
 
-        // La clau privada no es versiona: s'afegeix des de l'administració (Secrets comuns).
+        // La clau privada no es versiona: s'afegeix des de l'administració (Inventari → Secrets).
         $sshKey = Secret::firstOrCreate(
             ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'ssh_jaume'],
             ['tipus' => SecretType::SshKey, 'nom_usuari' => 'jaume', 'descripcio' => 'Clau SSH de HeimdEye per entrar als equips Linux dels alumnes'],

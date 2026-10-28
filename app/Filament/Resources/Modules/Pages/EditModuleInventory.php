@@ -25,7 +25,7 @@ class EditModuleInventory extends EditRecord
 
     public function getTitle(): string
     {
-        return 'Equips i variables · '.trim("{$this->record->codi} {$this->record->nom}");
+        return 'Equips del mòdul · '.trim("{$this->record->codi} {$this->record->nom}");
     }
 
     /** Comprova les plantilles desades contra tots els alumnes actius. */

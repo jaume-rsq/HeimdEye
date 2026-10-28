@@ -108,7 +108,7 @@ sudo install -o heimdeye -g heimdeye -m 600 students.csv /var/lib/heimdeye/stude
 
 Fes una clau SSH nova per a HeimdEye (`ssh-keygen -t ed25519 -C heimdeye`), no la teva personal:
 si cal revocar-la, només afecta HeimdEye. Després del primer desplegament, desa-la en un secret
-(Inventari → Secrets comuns) amb
+(Inventari → Secrets) amb
 `sudo -u heimdeye php artisan heimdeye:import-key ssh_jaume /var/lib/heimdeye/.ssh/id_ed25519 --ruta --usuari=jaume`
 (amb `--ruta` la clau es queda al fitxer i el secret només en té la ruta).
 

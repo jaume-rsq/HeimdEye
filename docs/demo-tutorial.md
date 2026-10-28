@@ -42,7 +42,7 @@ HeimdEye entra al servidor de l'alumne per SSH amb l'accés del mòdul i hi exec
 
 **Objectiu del test:** veure l'executor **ssh**: el mateix bash, però executat a l'equip de l'alumne.
 
-**Justificació:** la capçalera `# hosts: servidor` diu a quins tipus d'equip s'executa (Inventari → Equips i variables). L'usuari i la clau són els de l'accés del mòdul (un secret de tipus clau SSH); la clau no surt mai del servidor HeimdEye.
+**Justificació:** la capçalera `# hosts: servidor` diu a quins tipus d'equip s'executa (Inventari → Equips del mòdul). L'usuari i la clau són els de l'accés del mòdul (un secret de tipus clau SSH); la clau no surt mai del servidor HeimdEye.
 
 ```bash
 # hosts: servidor

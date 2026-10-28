@@ -3,15 +3,12 @@
 namespace App\Filament\Resources\Modules\Schemas;
 
 use App\Enums\Level;
-use App\Enums\SecretType;
 use App\Filament\Resources\HostTypes\Schemas\HostTypeFields;
 use App\Filament\Resources\Secrets\Schemas\SecretFields;
 use App\Models\Module;
 use App\Models\Student;
 use Filament\Forms\Components\Repeater;
-use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Tabs;
 use Filament\Schemas\Components\Tabs\Tab;
@@ -19,8 +16,8 @@ use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 
 /**
- * Inventari d'un mòdul: tipus d'equip, variables i secrets, amb una previsualització
- * per a un alumne que es calcula amb el formulari tal com està, sense desar.
+ * Tipus d'equip d'un mòdul, amb una previsualització per a un alumne que es calcula amb el
+ * formulari tal com està, sense desar. Les variables i els secrets són a la pantalla Inventari.
  */
 class ModuleInventoryForm
 {
@@ -53,43 +50,7 @@ class ModuleInventoryForm
                                     ->schema(HostTypeFields::make(fn ($livewire) => SecretFields::accessOptions($livewire->getRecord())))
                                     ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [...$data, 'nivell' => Level::Module->value]),
                                 View::make('filament.host-type-help'),
-                            ]),
-                        Tab::make('Variables')
-                            ->schema([
-                                Repeater::make('variables')
-                                    ->hiddenLabel()
-                                    ->relationship()
-                                    ->table([
-                                        TableColumn::make('Variable'),
-                                        TableColumn::make('Valor o plantilla'),
-                                        TableColumn::make('Descripció'),
-                                    ])
-                                    ->schema([
-                                        TextInput::make('clau')->required()->regex(self::KEY_RULE)->distinct()->live(onBlur: true),
-                                        TextInput::make('valor')->required()->live(onBlur: true),
-                                        TextInput::make('descripcio'),
-                                    ])
-                                    ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [...$data, 'nivell' => Level::Module->value])
-                                    ->defaultItems(0)
-                                    ->addActionLabel('Afegir variable'),
-                                View::make('filament.variable-help'),
-                            ]),
-                        Tab::make('Secrets')
-                            ->schema([
-                                Repeater::make('secrets')
-                                    ->hiddenLabel()
-                                    ->relationship()
-                                    ->collapsible()
-                                    ->itemLabel(fn (array $state) => trim(($state['clau'] ?? '').' · '.(SecretType::tryFrom((string) ($state['tipus'] ?? ''))?->label() ?? ''), ' ·'))
-                                    ->columns(3)
-                                    ->schema(array_map(
-                                        fn ($field) => $field->getName() === 'clau' ? $field->distinct() : $field,
-                                        SecretFields::make(),
-                                    ))
-                                    ->mutateRelationshipDataBeforeCreateUsing(fn (array $data) => [...$data, 'nivell' => Level::Module->value])
-                                    ->defaultItems(0)
-                                    ->addActionLabel('Afegir secret'),
-                                View::make('filament.secret-help'),
+                                View::make('filament.inventory-moved-help')->viewData(fn (?Module $record) => ['moduleId' => $record?->id]),
                             ]),
                     ]),
                 Section::make('Previsualització')

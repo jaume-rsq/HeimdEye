@@ -32,8 +32,8 @@ class ModulesTable
                     ->default(fn () => AcademicYear::where('es_actual', true)->value('id')),
             ])
             ->recordActions([
-                EditAction::make()->label('Equips i variables'),
-                ViewAction::make()->label('Equips i variables')->hidden(fn ($record) => ModuleResource::canEdit($record)),
+                EditAction::make()->label('Equips'),
+                ViewAction::make()->label('Equips')->hidden(fn ($record) => ModuleResource::canEdit($record)),
             ]);
     }
 }

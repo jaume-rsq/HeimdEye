@@ -30,7 +30,7 @@ class ModuleResource extends Resource
 
     protected static string|UnitEnum|null $navigationGroup = 'Inventari';
 
-    protected static ?string $navigationLabel = 'Equips i variables';
+    protected static ?string $navigationLabel = 'Equips del mòdul';
 
     protected static ?int $navigationSort = 3;
 

@@ -415,24 +415,25 @@ també poden ser playbooks (`executor = ansible`).
 
 ### Al panell (menú Inventari)
 
-- **Vista de conjunt** (`/admin/inventari`): alumnes × equips o alumnes × variables d'un mòdul,
-  amb l'origen de cada valor i les plantilles que no es poden calcular en vermell.
-  El botó ▶ prova la connexió d'un equip, d'una columna (un tipus d'equip per a tots els alumnes),
-  d'un alumne (tots els seus equips) o d'un equip únic, amb el mateix inventari que les accions:
-  `ping` als Linux, `win_ping` als Windows (cal la col·lecció `ansible.windows`) i, a les API
-  (`httpapi`), només que el port sigui obert. Va per la cua i no desa res.
+- **Inventari** (`/admin/inventari`): una sola pantalla amb un selector de mòdul (o «Només comuns»,
+  per als globals i els del curs actual) i pestanyes:
+  - **Alumnes**: alumnes × equips o alumnes × variables, amb l'origen de cada valor i les plantilles
+    que no es poden calcular en vermell. El botó ▶ prova la connexió d'un equip, d'una columna (un
+    tipus d'equip per a tots els alumnes), d'un alumne (tots els seus equips) o d'un equip únic, amb
+    el mateix inventari que les accions: `ping` als Linux, `win_ping` als Windows (cal la col·lecció
+    `ansible.windows`) i, a les API (`httpapi`), només que el port sigui obert. Va per la cua i no desa res.
+  - **Variables**: una fila per variable amb el valor global, el del curs i el del mòdul; en negreta
+    el que mana. Un clic a una casella l'edita (o la crea) en aquell nivell, amb una previsualització
+    per a un alumne; en desar, avisa si alguna plantilla deixa de calcular-se. Un nom només pot sortir
+    una vegada a cada nivell.
+  - **Secrets**: igual, però el valor no es torna a mostrar (un camp buit vol dir que no canvia) i
+    es diu on fa d'accés cada secret (mòduls i tipus d'equip). Els visitants de la demo no la veuen.
+  Les antigues `/admin/variables` i `/admin/secrets` porten a aquestes pestanyes.
 - **Alumnes** (`/admin/alumnes`): dades, variables pròpies i l'inventari calculat de cada alumne
   (variables, equips, inventari Ansible amb les contrasenyes emmascarades i activitat).
   **Importar llista** (`/admin/alumnes/importar`) carrega la llista de l'aula a un mòdul.
-- **Equips i variables** (`/admin/moduls`): tipus d'equip, variables i secrets de cada mòdul.
-  La previsualització calcula, per a l'alumne triat, el que hi ha al formulari sense desar-ho.
-  En desar, si alguna plantilla no es pot calcular per a algun alumne, ho avisa. Els secrets
-  no es tornen a mostrar: un camp buit vol dir que no canvia.
-- **Variables comunes** (`/admin/variables`): les globals i les de cada curs, agrupades per prefix.
-  Un nom només pot sortir una vegada a cada nivell.
-- **Secrets comuns** (`/admin/secrets`): els globals i els de cada curs (claus SSH, usuaris i
-  contrasenyes, valors), amb on fan d'accés (mòduls i tipus d'equip).
-  El valor no es torna a mostrar. Els del mòdul són a la pestanya Secrets d'«Equips i variables».
+- **Equips del mòdul** (`/admin/moduls`): tipus d'equip i accés per defecte de cada mòdul. La
+  previsualització calcula, per a l'alumne triat, el que hi ha al formulari sense desar-ho.
 - **Equips comuns** (`/admin/equips`): els tipus d'equip globals i de cada curs. Un nom només pot
   sortir una vegada a cada nivell; l'accés es tria entre els secrets globals i els del curs.
 

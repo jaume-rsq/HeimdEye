@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\Executor;
 use App\Enums\Role;
 use App\Filament\Auth\DemoLogin;
+use App\Filament\Pages\InventoryOverview;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Filament\Resources\Modules\ModuleResource;
@@ -65,7 +66,11 @@ class DemoModeTest extends TestCase
         $this->actingAs(Demo::createVisitor());
 
         $this->get('/admin/usuaris')->assertForbidden();
-        $this->get('/admin/secrets')->assertForbidden();
+        Livewire::test(InventoryOverview::class, ['modul' => $this->module->id, 'pestanya' => 'secrets'])
+            ->assertSet('pestanya', 'variables')
+            ->assertDontSee('api_zabbix')
+            ->assertActionHidden('createVariable')
+            ->assertActionHidden('createSecret');
         $this->get(StudentResource::getUrl())->assertOk();
         $this->assertFalse(StudentResource::canCreate());
         $this->assertFalse(StudentResource::canEdit(Student::firstOrFail()));
@@ -81,8 +86,11 @@ class DemoModeTest extends TestCase
         $this->actingAs($visitor)->get(ModuleResource::getUrl('edit', ['record' => $this->module]))->assertForbidden();
         $this->actingAs($visitor)->get(ModuleResource::getUrl('view', ['record' => $this->module]))
             ->assertOk()
-            ->assertSee('clau_demo')
             ->assertDontSee('no-es-veu');
+        Livewire::actingAs($visitor)->test(InventoryOverview::class, ['modul' => $this->module->id, 'pestanya' => 'variables'])
+            ->assertOk()
+            ->assertSee('xarxa_lan')
+            ->assertDontSee('clau_demo');
     }
 
     public function test_visitors_only_edit_what_they_created(): void
@@ -157,6 +165,9 @@ class DemoModeTest extends TestCase
 
         $this->assertTrue(CheckResource::canEdit($this->check()));
         $this->assertTrue(StudentResource::canCreate());
-        $this->get('/admin/secrets')->assertOk();
+        Livewire::test(InventoryOverview::class, ['modul' => $this->module->id, 'pestanya' => 'secrets'])
+            ->assertSet('pestanya', 'secrets')
+            ->assertSee('api_zabbix')
+            ->assertActionVisible('createSecret');
     }
 }

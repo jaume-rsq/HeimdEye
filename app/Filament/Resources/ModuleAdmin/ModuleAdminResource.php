@@ -36,7 +36,7 @@ use UnitEnum;
 
 /**
  * Mòduls amb els seus blocs i tasques. Els equips i les variables del mòdul es configuren a
- * Inventari → Equips i variables. No es pot esborrar res que tingui checks a dins (s'endurien
+ * Inventari → Equips del mòdul. No es pot esborrar res que tingui checks a dins (s'endurien
  * els resultats dels alumnes), ni un mòdul amb alumnes o accions.
  */
 class ModuleAdminResource extends Resource
@@ -164,7 +164,7 @@ class ModuleAdminResource extends Resource
             ->recordActions([
                 EditAction::make(),
                 Action::make('inventari')
-                    ->label('Equips i variables')
+                    ->label('Equips del mòdul')
                     ->icon(Heroicon::OutlinedServerStack)
                     ->url(fn (Module $record) => ModuleResource::getUrl('edit', ['record' => $record])),
                 self::deleteAction(),

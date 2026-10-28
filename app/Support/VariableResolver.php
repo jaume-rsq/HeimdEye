@@ -53,12 +53,13 @@ class VariableResolver
      * Les mateixes variables que resolve(), amb d'on surt cada valor (global, curs, modul,
      * alumne o propia), si amaga el d'una capa inferior i l'error, si n'hi ha.
      *
-     * $moduleVars substitueix les variables del mòdul desades (per previsualitzar un esborrany).
+     * $draft canvia valors desats sense desar-los, per previsualitzar un esborrany:
+     * [nivell => [variable => valor]], on un valor null treu la variable d'aquell nivell.
      *
-     * @param  array<string, string>|null  $moduleVars
+     * @param  array<string, array<string, ?string>>  $draft
      * @return array<string, array{valor: string, origen: string, tapa: bool, error: ?string}>
      */
-    public function detailed(Student $student, Module $module, ?array $moduleVars = null): array
+    public function detailed(Student $student, Module $module, array $draft = []): array
     {
         $fields = array_filter([
             'usuari' => $student->usuari,
@@ -69,8 +70,14 @@ class VariableResolver
         ], fn ($value) => $value !== null);
 
         $layers = $this->layers($module);
-        if ($moduleVars !== null) {
-            $layers['modul'] = $moduleVars;
+        foreach ($draft as $level => $vars) {
+            foreach ($vars as $key => $value) {
+                if ($value === null) {
+                    unset($layers[$level][$key]);
+                } else {
+                    $layers[$level][$key] = $value;
+                }
+            }
         }
 
         return $this->compute([
