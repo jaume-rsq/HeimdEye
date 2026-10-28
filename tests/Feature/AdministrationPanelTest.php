@@ -100,4 +100,35 @@ class AdministrationPanelTest extends TestCase
 
         $this->assertSame(2, Student::whereKey($students->modelKeys())->where('es_actiu', false)->count());
     }
+
+    public function test_students_can_be_deleted_in_bulk_after_typing_esborrar(): void
+    {
+        $students = Student::orderBy('num_taula')->limit(2)->get();
+        $kept = Student::count() - 2;
+        $action = TestAction::make('esborrar')->table()->bulk();
+
+        Livewire::test(ListStudents::class)
+            ->selectTableRecords($students->modelKeys())
+            ->mountAction($action)
+            ->assertSee($students[0]->nom_complet)
+            ->setActionData(['confirmacio' => 'si'])
+            ->callMountedAction()
+            ->assertHasFormErrors(['confirmacio']);
+        $this->assertSame($kept + 2, Student::count());
+
+        Livewire::test(ListStudents::class)
+            ->selectTableRecords($students->modelKeys())
+            ->callAction($action, ['confirmacio' => 'esborrar'])
+            ->assertHasNoFormErrors();
+        $this->assertSame($kept, Student::count());
+    }
+
+    public function test_list_filters_are_kept_when_coming_back(): void
+    {
+        $module = Module::where('codi', '9991')->firstOrFail();
+
+        Livewire::test(ListStudents::class)->filterTable('modul', $module->id);
+
+        Livewire::test(ListStudents::class)->assertSet('tableFilters.modul.value', (string) $module->id);
+    }
 }

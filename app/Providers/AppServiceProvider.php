@@ -16,6 +16,7 @@ use App\Models\Variable;
 use App\Policies\ActionPolicy;
 use App\Policies\DemoHiddenPolicy;
 use App\Policies\DemoReadOnlyPolicy;
+use Filament\Tables\Table;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
@@ -47,5 +48,12 @@ class AppServiceProvider extends ServiceProvider
             Gate::policy($model, DemoHiddenPolicy::class);
         }
         Gate::policy(Action::class, ActionPolicy::class);
+
+        // Totes les llistes recorden els filtres, la cerca i l'ordre en tornar-hi (p. ex. des de l'historial d'un check).
+        Table::configureUsing(fn (Table $table) => $table
+            ->persistFiltersInSession()
+            ->persistSearchInSession()
+            ->persistColumnSearchesInSession()
+            ->persistSortInSession());
     }
 }
