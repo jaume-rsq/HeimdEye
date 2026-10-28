@@ -57,6 +57,49 @@ return [
         ),
     ],
 
+    3 => [
+        'HeimdEye entra al router Linux' => $info(
+            'comprovar que HeimdEye pot entrar al teu router Linux per SSH com a jaume, amb clau i amb sudo sense contrasenya.',
+            'tots els altres checks del bloc consulten el router des d\'aquí. Administrar un equip de xarxa per SSH amb clau, sense contrasenya, és el que es fa en un entorn real; el sudo sense contrasenya permet que les eines d\'administració (i HeimdEye) llegeixin la configuració de xarxa sense compartir cap contrasenya.',
+        ),
+        'El router té tres interfícies a les tres xarxes' => $info(
+            'validar que el router Linux té una interfície a l\'aula, una a la LAN i una a la DMZ, cadascuna amb adreça de la seva xarxa.',
+            'un router és, per definició, un equip amb una interfície a cada xarxa que uneix. Si falta una interfície o dues comparteixen xarxa, el router no pot separar ni connectar les zones. Tenir la LAN i la DMZ en interfícies diferents és el que després permet filtrar el trànsit entre elles.',
+        ),
+        'Ruta per defecte cap a l\'aula' => $info(
+            'comprovar que el router té una ruta per defecte i que surt per la interfície de l\'aula.',
+            'el router només coneix les xarxes on té una interfície. Per a tota la resta (Internet, altres xarxes de l\'aula) necessita una ruta per defecte cap a la seva passarel·la. Sense ella, els equips de la LAN i la DMZ arribarien al router, però el trànsit no passaria d\'allà.',
+        ),
+        'IP forwarding actiu' => $info(
+            'validar que el kernel de Linux reenvia paquets d\'una interfície a una altra (net.ipv4.ip_forward = 1).',
+            'per defecte, Linux descarta els paquets que no són per a ell: és un equip, no un router. Activar l\'IP forwarding és el que converteix una màquina amb tres targetes en una passarel·la. Sense això, tota la resta de configuració (adreces, rutes, NAT) no serveix de res.',
+        ),
+        'IP forwarding persistent' => $info(
+            'comprovar que l\'IP forwarding queda configurat als fitxers de sysctl i no només activat a mà.',
+            'escriure 1 a /proc/sys/net/ipv4/ip_forward funciona fins al primer reinici. Un router que deixa de reenviar després d\'un tall de llum o d\'una actualització és una avaria difícil de diagnosticar. La configuració ha de sobreviure en arrencar.',
+        ),
+        'El router encamina entre la LAN i la DMZ' => $info(
+            'validar que el router sap encaminar un paquet de la LAN cap a la DMZ i viceversa, per interfícies diferents.',
+            'és la prova que el router funciona com a tal: rep un paquet per una interfície i el treu per una altra segons la taula d\'encaminament. Es comprova preguntant al kernel pel camí que seguiria el paquet, que és el que diagnostica un administrador quan un ping entre xarxes no arriba.',
+        ),
+        'NAT de sortida (masquerade o SNAT)' => $info(
+            'comprovar que el router té una regla de NAT de sortida que substitueix l\'adreça privada de l\'origen per la seva.',
+            'les adreces privades de la LAN i la DMZ no són encaminables fora de la xarxa: la resta d\'equips no sabria tornar-hi la resposta. El NAT de sortida fa que tot el trànsit surti amb l\'adreça del router, que sí que és vàlida a l\'aula. És com surten a Internet totes les xarxes domèstiques i moltes d\'empresa.',
+        ),
+        'El NAT de sortida ha tractat trànsit' => $info(
+            'comprovar que la regla de NAT de sortida ja ha traduït paquets, és a dir, que algú n\'ha fet servir de veritat.',
+            'una regla escrita no demostra que funcioni. Mirar els comptadors és la manera ràpida de saber si el trànsit passa per ella, i el que fa un administrador quan no està segur que una regla s\'està aplicant. Només es pot comprovar amb iptables, que és on hi ha els comptadors.',
+        ),
+        'Regla DNAT cap a la xarxa privada' => $info(
+            'validar que el router té una regla de NAT de destinació que reenvia un port seu cap a una màquina de la LAN o de la DMZ.',
+            'els equips de la xarxa privada no són accessibles des de fora. Per publicar un servei (una web, un SSH) sense exposar la màquina, el router rep les connexions en un port seu i les redirigeix a l\'equip intern. És el port forwarding que es fa a qualsevol router d\'internet.',
+        ),
+        'El servei publicat respon des de l\'aula' => $info(
+            'comprovar que, des de la xarxa de l\'aula, el port publicat amb DNAT respon de debò.',
+            'tenir la regla no vol dir que el servei sigui accessible: pot faltar el servei, la ruta de tornada o el forwarding. Provar la connexió real des de fora, com ho faria un usuari, és l\'única verificació fiable d\'un servei publicat.',
+        ),
+    ],
+
     5 => [
         'HeimdEye entra al router (Linux o MikroTik)' => $info(
             'comprovar que HeimdEye pot entrar al router per SSH amb la clau del professor i saber quin dels dos routers (Linux o MikroTik) està engegat ara.',

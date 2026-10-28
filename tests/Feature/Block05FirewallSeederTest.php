@@ -73,6 +73,23 @@ class Block05FirewallSeederTest extends TestCase
         $this->assertSame('ara no respon el router Linux', $result->message);
     }
 
+    public function test_router_detection_tells_linux_from_no_connection(): void
+    {
+        $detect = (new \ReflectionClassConstant(Block05FirewallSeeder::class, 'ROUTER'))->getValue();
+        $cases = [
+            // ssh entra a un Linux: ":put" no hi existeix.
+            'echo "bash: :put: command not found" >&2; return 127' => 'linux',
+            'echo routeros' => 'mikrotik',
+            'return 255' => 'cap',
+        ];
+
+        foreach ($cases as $ssh => $expected) {
+            $process = new Process(['bash', '-c', "ssh() { {$ssh}; }\n{$detect}\necho \$sistema"]);
+            $process->setEnv(['HE_SSH_USER' => 'jaume', 'HE_IP_ROUTER' => '192.0.2.1', 'HE_SSH_KEY' => ''])->run();
+            $this->assertSame($expected, trim($process->getOutput()), $ssh);
+        }
+    }
+
     /** @return Collection<int, Check> */
     private function checks()
     {

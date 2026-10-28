@@ -38,7 +38,8 @@ class Block08DhcpSeeder extends Seeder
         [ -n "$HE_SSH_KEY" ] && opts+=(-i "$HE_SSH_KEY")
         r() { ssh "${opts[@]}" "$HE_SSH_USER@$HE_IP_ROUTER" "$@"; }
         so=$(r ':put routeros' 2>/dev/null); rc=$?
-        if [ $rc -ne 0 ]; then sistema=cap
+        # Només 255 vol dir que ssh no entra: un Linux respon 127 perquè «:put» no hi existeix.
+        if [ $rc -eq 255 ]; then sistema=cap
         elif [ "$(echo "$so" | tr -d '\r')" = routeros ]; then sistema=mikrotik
         else sistema=linux; fi
         [ $sistema = cap ] && { echo "HeimdEye no pot entrar al router ($HE_IP_ROUTER)"; exit 1; }

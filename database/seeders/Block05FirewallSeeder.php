@@ -22,7 +22,8 @@ class Block05FirewallSeeder extends Seeder
 {
     /**
      * Comú als checks del router: ssh amb l'accés del mòdul i detecció del sistema.
-     * A RouterOS, ':put' escriu el text; a bash, ':' no fa res i no escriu res.
+     * A RouterOS, ':put' escriu el text; a un Linux, ':put' no existeix (codi 127, sense sortida).
+     * Només el codi 255 vol dir que ssh no ha pogut entrar.
      */
     private const ROUTER = <<<'SH'
         # HE_SSH_OPTS: no desa les claus de host (els alumnes reinstal·len les VM).
@@ -30,7 +31,8 @@ class Block05FirewallSeeder extends Seeder
         [ -n "$HE_SSH_KEY" ] && opts+=(-i "$HE_SSH_KEY")
         r() { ssh "${opts[@]}" "$HE_SSH_USER@$HE_IP_ROUTER" "$@"; }
         so=$(r ':put routeros' 2>/dev/null); rc=$?
-        if [ $rc -ne 0 ]; then sistema=cap
+        # Només 255 vol dir que ssh no entra: un Linux respon 127 perquè «:put» no hi existeix.
+        if [ $rc -eq 255 ]; then sistema=cap
         elif [ "$(echo "$so" | tr -d '\r')" = routeros ]; then sistema=mikrotik
         else sistema=linux; fi
         SH;
