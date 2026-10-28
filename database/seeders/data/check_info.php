@@ -9,6 +9,54 @@
 $info = fn (string $objectiu, string $justificacio): string => "**Objectiu del test:** {$objectiu}\n\n**Justificació:** {$justificacio}\n";
 
 return [
+
+    2 => [
+        'SSH al servidor Proxmox' => $info(
+            'comprovar que HeimdEye pot entrar al teu Proxmox per SSH com a jaume, amb la seva clau.',
+            'administrar un servidor per SSH amb clau, sense contrasenya, és la manera habitual de treballar en un entorn real. Tots els altres checks del bloc consulten el Proxmox des d\'aquí: si aquest falla, no es pot verificar res més.',
+        ),
+        'SSH amb bones pràctiques al Proxmox' => $info(
+            'validar que el servei SSH no admet l\'autenticació per contrasenya i que root no pot entrar amb contrasenya.',
+            'un SSH exposat amb contrasenyes és l\'objectiu de milers d\'intents automàtics de força bruta cada dia. Amb només claus, un atacant necessita la clau privada, no endevinar una paraula. I root amb contrasenya és el compte que tothom prova primer.',
+        ),
+        'Hi ha alguna VM definida' => $info(
+            'comprovar que el Proxmox té almenys una màquina virtual creada.',
+            'el Proxmox no serveix de res sense màquines virtuals: és el mínim per dir que el datacenter ha començat a funcionar. Els checks següents (SPICE, còpies, snapshots) treballen sobre aquestes VM.',
+        ),
+        'Els bridges vmbr0, vmbr1 i vmbr2 existeixen' => $info(
+            'validar que els tres commutadors virtuals (bridges) que fan servir les VM existeixen al host.',
+            'els bridges són el «commutador» al qual es connecten les VM. Saber quines xarxes hi ha disponibles (aula, LAN, DMZ) és el primer que cal conèixer d\'un hipervisor, i és el que permet decidir a quina xarxa va cada VM. No es demana que estiguin UP: un bridge sense VM en marxa no té portadora.',
+        ),
+        'Alguna VM configurada per a SPICE' => $info(
+            'comprovar que almenys una VM té l\'adaptador de pantalla qxl, necessari per fer servir SPICE.',
+            'SPICE ofereix millor rendiment gràfic, portapapers compartit i redirecció d\'USB, però no funciona amb l\'adaptador per defecte. Configurar-lo és el que permet comparar-lo amb VNC i triar el mètode adequat a cada situació.',
+        ),
+        'PBS connectat com a emmagatzematge' => $info(
+            'validar que el Proxmox té un emmagatzematge de tipus Proxmox Backup Server i que està actiu.',
+            'les còpies de seguretat s\'han de guardar fora del servidor que protegeixen: si el disc del Proxmox mor, les còpies hi moririen també. El PBS és un servidor a part, amb deduplicació i verificació, pensat per a això. Un storage inactiu vol dir que el PBS no respon i que les còpies no es poden fer.',
+        ),
+        'Tasca de còpia programada cap al PBS' => $info(
+            'comprovar que hi ha una tasca de còpia activa, amb horari, que desa al PBS.',
+            'una còpia que depèn que algú se\'n recordi acaba no fent-se. Una política de còpies és, sobretot, automatitzar-les amb una freqüència pensada per a quantes dades pots permetre\'t perdre (RPO). Per això es demana una tasca amb horari, no còpies manuals.',
+        ),
+        'Retenció definida per a les còpies' => $info(
+            'validar que la tasca o el storage defineixen quantes còpies es guarden (prune-backups).',
+            'sense retenció, les còpies creixen fins que s\'omple el disc del PBS i totes les còpies futures fallen. Decidir quantes còpies diàries, setmanals i mensuals es conserven és trobar l\'equilibri entre poder tornar enrere i l\'espai que costa.',
+        ),
+        'Hi ha còpies de VM al PBS' => $info(
+            'comprovar que el PBS conté realment còpies de les teves VM.',
+            'una tasca ben configurada no garanteix res fins que s\'ha executat. Una còpia que no existeix no es pot restaurar, i s\'acostuma a descobrir quan ja és massa tard. Mirar què hi ha desat és la primera verificació d\'una política de còpies.',
+        ),
+        'Còpies també al PBS d\'un company' => $info(
+            'validar que tens còpies desades a dos servidors PBS diferents: el de l\'aula i el d\'un company.',
+            'la regla 3-2-1 demana almenys una còpia fora de l\'ubicació principal. Un incendi, un robatori o un error d\'administració que afecti un servidor no ha d\'afectar l\'altre. El servidor d\'un company fa de còpia off-site per a tenir còpies disponibles en cas de desastre.',
+        ),
+        'Alguna VM té snapshots' => $info(
+            'comprovar que almenys una VM té un snapshot fet.',
+            'els snapshots permeten tornar una VM a un punt anterior en segons, i són ideals abans d\'una actualització o d\'un canvi arriscat. Però viuen al mateix emmagatzematge que la VM: no protegeixen d\'un disc que falla. Per això són un complement de les còpies, no un substitut.',
+        ),
+    ],
+
     5 => [
         'HeimdEye entra al router (Linux o MikroTik)' => $info(
             'comprovar que HeimdEye pot entrar al router per SSH amb la clau del professor i saber quin dels dos routers (Linux o MikroTik) està engegat ara.',
@@ -59,6 +107,7 @@ return [
             'perquè les VLAN del router serveixin, el commutador virtual del Proxmox ha de transportar les etiquetes i posar cada màquina a la seva VLAN. És el mateix que configurar els ports d\'un commutador gestionable en una xarxa física.',
         ),
     ],
+
     6 => [
         'SSH a ns1' => $info(
             'comprovar que HeimdEye entra a ns1 per SSH com a jaume, amb clau i sudo sense contrasenya.',
