@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta http-equiv="refresh" content="300">
     <title>Leaderboard · HeimdEye</title>
+    @include('partials.favicons')
     <style>
         :root { --bg: #f9fafb; --card: #fff; --fg: #111827; --accent: rgb(217,119,6); color-scheme: light dark; }
         @media (prefers-color-scheme: dark) { :root { --bg: #0b0f17; --card: #111827; --fg: #f3f4f6; --accent: rgb(251,191,36); } }

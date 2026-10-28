@@ -39,6 +39,7 @@ class StudentPanelProvider extends PanelProvider
                 MyProgress::class,
             ])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.partials.native-controls'))
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('partials.favicons'))
             ->middleware([
                 EncryptCookies::class,
                 AddQueuedCookiesToResponse::class,

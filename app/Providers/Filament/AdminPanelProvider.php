@@ -70,6 +70,7 @@ class AdminPanelProvider extends PanelProvider
                 AccountWidget::class,
             ])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.partials.native-controls'))
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('partials.favicons'))
             ->renderHook(PanelsRenderHook::PAGE_START, fn () => view('filament.demo-banner'))
             ->renderHook(PanelsRenderHook::PAGE_START, fn () => view('filament.queue-warning'))
             ->renderHook(PanelsRenderHook::PAGE_END, fn () => view('filament.back-button'))
