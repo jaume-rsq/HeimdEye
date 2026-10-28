@@ -69,6 +69,15 @@ class RunnerTest extends TestCase
         $this->assertSame(0, $result->exitCode);
     }
 
+    public function test_a_command_that_reads_stdin_does_not_eat_the_rest_of_the_script(): void
+    {
+        // Com ssh sense -n: abans es menjava la resta de l'script i el check passava.
+        $result = $this->execute($this->check("n=\$(cat | wc -c)\necho \"llegit \$n\"\nexit 1"));
+
+        $this->assertSame(CheckStatus::Fail, $result->status);
+        $this->assertSame('llegit 0', $result->message);
+    }
+
     public function test_explicit_message_and_failure(): void
     {
         $result = $this->execute($this->check("echo soroll\necho 'HEIMDEYE_MSG: no hi ha cap VM'\nexit 3"));

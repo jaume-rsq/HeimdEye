@@ -55,7 +55,7 @@ class SshExecutor implements Executor
         return $this->processes->run(
             $command,
             [],
-            $this->exports($context->env).$context->code,
+            $this->exports($context->env).LocalExecutor::stdinScript($context->code),
             $context->timeout,
             fn (int $exitCode) => $exitCode === 255 ? CheckStatus::Unavailable : CheckStatus::Fail,
         );
