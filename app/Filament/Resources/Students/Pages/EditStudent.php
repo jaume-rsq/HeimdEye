@@ -91,11 +91,11 @@ class EditStudent extends EditRecord
         $grid = app(InventoryGrid::class)->build($module, collect([$student]));
         $row = $grid['rows'][0];
 
-        $types = $module->hostTypes()->with('access')->orderBy('posicio')->get();
+        $types = $module->visibleHostTypes();
         $files = new TempFiles;
         try {
             $builder = new InventoryBuilder(app(VariableResolver::class), $files);
-            $json = json_encode($builder->build($module, [$student], $types->reject->isGlobal()), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $json = json_encode($builder->build($module, [$student], $types->reject->isUnique()), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
             $ansible = Masker::mask($json, $builder->mask());
         } catch (\Throwable $e) {
             $ansible = 'No s\'ha pogut generar: '.$e->getMessage();
@@ -105,7 +105,8 @@ class EditStudent extends EditRecord
 
         return [
             'vars' => $row['vars'],
-            'hosts' => $types->reject->isGlobal()->map(fn ($t) => ['tipus' => $t, ...$row['hosts'][$t->nom]])->values(),
+            'access' => $module->access,
+            'hosts' => $types->reject->isUnique()->map(fn ($t) => ['tipus' => $t, ...$row['hosts'][$t->nom]])->values(),
             'globals' => $grid['globals'],
             'ansible' => $ansible,
             'actions' => ActionRun::query()

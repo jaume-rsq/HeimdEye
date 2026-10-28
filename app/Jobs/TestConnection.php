@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Models\HostType;
 use App\Models\Module;
 use App\Models\Student;
 use App\Support\ConnectionTester;
@@ -49,7 +48,7 @@ class TestConnection implements ShouldQueue
     {
         $module = Module::findOrFail($this->moduleId);
         $students = Student::whereKey($this->studentIds)->orderBy('num_taula')->get();
-        $types = HostType::whereKey($this->typeIds)->where('modul_id', $module->id)->with(['access', 'module.access'])->get();
+        $types = $module->visibleHostTypes()->whereIn('id', $this->typeIds)->values();
 
         Cache::put(self::cacheKey($this->key), ['resultats' => $tester->test($module, $students, $types)], now()->addHour());
     }

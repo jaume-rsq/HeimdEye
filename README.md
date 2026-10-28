@@ -277,7 +277,7 @@ out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
 | Executor | On s'executa | Equips | Accés |
 | --- | --- | --- | --- |
 | `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | El de `# credencial:` o el del mòdul. Una clau SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); un usuari i contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). |
-| `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els globals, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | El de `# credencial:`, o el del tipus d'equip, o el del mòdul. Port i usuari de `variables_connexio` (`ansible_port`, `ansible_user`) si n'hi ha. |
+| `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els únics, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | El de `# credencial:`, o el del tipus d'equip, o el del mòdul. Port i usuari de `variables_connexio` (`ansible_port`, `ansible_user`) si n'hi ha. |
 | `ansible` | `ansible-playbook` al servidor, un per alumne, amb l'inventari generat a partir dels tipus d'equip. | Els dels grups del `hosts:` dels plays: l'inventari només porta aquests. | El de cada tipus d'equip (o el del mòdul). |
 
 Amb `ssh` i diversos equips, el resultat és `pass` només si passa a tots; si no, és el del
@@ -386,9 +386,13 @@ les accions (vegeu [Accions](#accions)), amb aquestes diferències:
 
 ## Equips, inventari Ansible i secrets
 
-Cada mòdul defineix els seus **tipus d'equip** (`tipus_equip`): grup Ansible, nom del host i
-adreça (plantilles amb variables de l'alumne), variables de connexió i accés. Els de
-tipus `alumne` en generen un per alumne; els `global` (com el Zabbix) un de sol.
+Els **tipus d'equip** (`tipus_equip`) tenen grup Ansible, nom del host i adreça (plantilles amb
+variables de l'alumne), variables de l'equip (com un `group_vars`) i accés. Com les variables i
+els secrets, tenen un **nivell**: global, curs o mòdul. Un mòdul veu els globals, els del seu curs i
+els seus; si dos es diuen igual, mana el més concret (el del mòdul tapa el del curs, i aquest el
+global). Així el servidor Zabbix es defineix una sola vegada. La casella **Equip únic** diu si n'hi
+ha un de sol per a tothom (el Zabbix) o un per alumne (el pve, el router...). Un equip comú sense
+accés propi fa servir el del mòdul que l'executa.
 A partir d'aquí es genera l'inventari en JSON, equivalent a `smix2.ini`: grups per tipus
 (`pve`, `vm_router`, `vm_dns_bind`...), un grup per alumne (`taula01`...) amb les seves
 variables, i `alumnes`. Vegeu `database/seeders/HostsSeeder.php`.
@@ -416,7 +420,7 @@ també poden ser playbooks (`executor = ansible`).
 - **Vista de conjunt** (`/admin/inventari`): alumnes × equips o alumnes × variables d'un mòdul,
   amb l'origen de cada valor i les plantilles que no es poden calcular en vermell.
   El botó ▶ prova la connexió d'un equip, d'una columna (un tipus d'equip per a tots els alumnes),
-  d'un alumne (tots els seus equips) o d'un equip global, amb el mateix inventari que les accions:
+  d'un alumne (tots els seus equips) o d'un equip únic, amb el mateix inventari que les accions:
   `ping` als Linux, `win_ping` als Windows (cal la col·lecció `ansible.windows`) i, a les API
   (`httpapi`), només que el port sigui obert. Va per la cua i no desa res.
 - **Alumnes** (`/admin/alumnes`): dades, variables pròpies i l'inventari calculat de cada alumne
@@ -431,6 +435,8 @@ també poden ser playbooks (`executor = ansible`).
 - **Secrets comuns** (`/admin/secrets`): els globals i els de cada curs (claus SSH, usuaris i
   contrasenyes, valors), amb on fan d'accés (mòduls, tipus d'equip i capçaleres `# credencial:`).
   El valor no es torna a mostrar. Els del mòdul són a la pestanya Secrets d'«Equips i variables».
+- **Equips comuns** (`/admin/equips`): els tipus d'equip globals i de cada curs. Un nom només pot
+  sortir una vegada a cada nivell; l'accés es tria entre els secrets globals i els del curs.
 
 ### Al panell (menú Administració)
 

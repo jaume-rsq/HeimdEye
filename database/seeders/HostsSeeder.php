@@ -3,9 +3,9 @@
 namespace Database\Seeders;
 
 use App\Enums\Executor;
-use App\Enums\HostScope;
 use App\Enums\Level;
 use App\Enums\SecretType;
+use App\Models\HostType;
 use App\Models\Module;
 use App\Models\Secret;
 use Illuminate\Database\Seeder;
@@ -50,21 +50,25 @@ class HostsSeeder extends Seeder
                 'secret_acces_id' => $windows->id,
                 'variables_connexio' => $winrm,
             ],
-            [
-                'nom' => 'zbx', 'grup_ansible' => 'zabbix', 'abast' => HostScope::Global, 'nom_host' => 'zbx', 'adreca' => '{{ip_zabbix}}',
-                'secret_acces_id' => $zabbix->id,
-                'variables_connexio' => [
-                    'ansible_connection' => 'httpapi',
-                    'ansible_network_os' => 'community.zabbix.zabbix',
-                    'ansible_httpapi_port' => 80,
-                    'ansible_httpapi_use_ssl' => false,
-                    'ansible_zabbix_url_path' => 'zabbix',
-                ],
-            ],
         ];
         foreach ($types as $position => $type) {
             $module->hostTypes()->updateOrCreate(['nom' => $type['nom']], [...$type, 'posicio' => $position + 1]);
         }
+
+        // El servidor Zabbix és un de sol per a tots els cursos i mòduls: es defineix una vegada.
+        $module->hostTypes()->where('nom', 'zbx')->delete();
+        HostType::updateOrCreate(['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'nom' => 'zbx'], [
+            'grup_ansible' => 'zabbix', 'es_unic' => true, 'nom_host' => 'zbx', 'adreca' => '{{ip_zabbix}}',
+            'secret_acces_id' => $zabbix->id,
+            'posicio' => 100,
+            'variables_connexio' => [
+                'ansible_connection' => 'httpapi',
+                'ansible_network_os' => 'community.zabbix.zabbix',
+                'ansible_httpapi_port' => 80,
+                'ansible_httpapi_use_ssl' => false,
+                'ansible_zabbix_url_path' => 'zabbix',
+            ],
+        ]);
 
         // La dels Linux no és la mateixa que la dels Windows.
         $module->secrets()->firstOrCreate(

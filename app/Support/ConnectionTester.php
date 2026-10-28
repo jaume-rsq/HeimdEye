@@ -80,12 +80,12 @@ class ConnectionTester
 
         // Primer, el que no es pot ni provar: alumnes o equips amb plantilles que no es calculen.
         $globals = $this->resolver->common($module);
-        foreach ($types->filter->isGlobal() as $type) {
+        foreach ($types->filter->isUnique() as $type) {
             if ($problems = $this->grid->host($type, $globals)['problemes']) {
                 $results[self::key(null, $type->id)] = ['estat' => 'error', 'missatge' => implode('. ', $problems)];
             }
         }
-        $studentTypes = $types->reject->isGlobal();
+        $studentTypes = $types->reject->isUnique();
         foreach ($studentTypes->isEmpty() ? [] : $students as $student) {
             try {
                 $vars = $this->resolver->resolve($student, $module);

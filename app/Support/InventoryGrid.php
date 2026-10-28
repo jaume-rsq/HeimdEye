@@ -26,11 +26,11 @@ class InventoryGrid
      */
     public function build(Module $module, ?Collection $students = null): array
     {
-        $types = $module->hostTypes()->with('access')->orderBy('posicio')->get();
+        $types = $module->visibleHostTypes();
         $students ??= $module->students()->where('es_actiu', true)->with('user')->orderBy('num_taula')->get();
 
         $globals = $this->resolver->common($module);
-        $globalHosts = $types->filter->isGlobal()->map(fn (HostType $t) => ['tipus' => $t, ...$this->host($t, $globals)])->values()->all();
+        $globalHosts = $types->filter->isUnique()->map(fn (HostType $t) => ['tipus' => $t, ...$this->host($t, $globals)])->values()->all();
 
         $rows = [];
         $keys = [];
@@ -38,7 +38,7 @@ class InventoryGrid
             $vars = $this->resolver->detailed($student, $module);
             $values = array_map(fn (array $v) => $v['valor'], $vars);
             $hosts = [];
-            foreach ($types->reject->isGlobal() as $type) {
+            foreach ($types->reject->isUnique() as $type) {
                 $hosts[$type->nom] = $this->host($type, $values);
             }
             $keys = array_merge($keys, array_keys($vars));
@@ -52,7 +52,7 @@ class InventoryGrid
         }
 
         return [
-            'types' => $types->reject->isGlobal()->values(),
+            'types' => $types->reject->isUnique()->values(),
             'globals' => $globalHosts,
             'rows' => $rows,
             'groups' => self::groups(array_values(array_unique($keys))),
