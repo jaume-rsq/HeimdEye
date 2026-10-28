@@ -34,9 +34,14 @@ class ConnectionTester
     private const TASKS = [
         // Amb raw, sense Python ni directori temporal a l'equip: així també es poden provar els
         // MikroTik. Només compta entrar: l'ordre (":put ok" a RouterOS) a un Linux no existeix.
+        // Sense terminal (-tt): amb terminal RouterOS en vol detectar la mida i la sessió es penja.
+        // El timeout fa que un equip que es penja surti com a error i no aturi la resta.
         'ssh' => <<<'YAML'
                 - name: ssh
                   ansible.builtin.raw: ":put ok"
+                  vars:
+                    ansible_ssh_use_tty: false
+                  timeout: 20
                   changed_when: false
                   failed_when: false
             YAML,

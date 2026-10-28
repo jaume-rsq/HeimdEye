@@ -21,7 +21,7 @@
                 <tr wire:key="type-{{ $name }}" x-show="@js($haystack).includes(search.trim().toLowerCase())">
                     <td class="fix">
                         <span class="mono">{{ $name }}</span>
-                        <div class="sub">grup {{ $cells[$win]->grup_ansible }}{{ $cells[$win]->isUnique() ? ' · equip únic' : '' }}</div>
+                        <div class="sub">grup Ansible {{ $cells[$win]->grup_ansible }}{{ $cells[$win]->isUnique() ? ' · equip únic' : '' }}</div>
                     </td>
                     @foreach ($levels as $level)
                         @php $type = $cells[$level->value] ?? null; @endphp
