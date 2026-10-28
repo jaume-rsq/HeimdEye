@@ -12,7 +12,7 @@ class CheckStudent extends Model
 
     protected $fillable = [
         'check_id', 'alumne_id', 'estat_actual', 'estat_professor', 'comentari_professor',
-        'modificat_per', 'data_primer_assoliment', 'data_ultim_assoliment', 'data_darrera_execucio',
+        'modificat_per', 'data_correccio', 'data_primer_assoliment', 'data_ultim_assoliment', 'data_darrera_execucio',
     ];
 
     protected function casts(): array
@@ -20,6 +20,7 @@ class CheckStudent extends Model
         return [
             'estat_actual' => CheckStatus::class,
             'estat_professor' => 'boolean',
+            'data_correccio' => 'datetime',
             'data_primer_assoliment' => 'datetime',
             'data_ultim_assoliment' => 'datetime',
             'data_darrera_execucio' => 'datetime',

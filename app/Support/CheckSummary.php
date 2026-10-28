@@ -71,9 +71,45 @@ final class CheckSummary
             ->selectRaw('r.check_id, count(*) as n')
             ->pluck('n', 'check_id');
 
+        $counts = $counts->map(fn ($rows) => $rows->mapWithKeys(fn ($row) => [$row->estat => (int) $row->n])->all());
+        $outdated = $outdated->map(fn ($n) => (int) $n);
+
+        // La correcció del professor mana: l'alumne compta com a assolit o no assolit, i no com a
+        // pendent de tornar a comprovar, sigui quina sigui la darrera execució.
+        $corrections = DB::table('check_alumne as ca')
+            ->when($checkIds !== null, fn ($q) => $q->whereIn('ca.check_id', $checkIds))
+            ->whereNotNull('ca.estat_professor')
+            ->join('checks', 'checks.id', '=', 'ca.check_id')
+            ->join('tasques', 'tasques.id', '=', 'checks.tasca_id')
+            ->join('blocs', 'blocs.id', '=', 'tasques.bloc_id')
+            ->join('alumnes', fn ($join) => $join->on('alumnes.id', '=', 'ca.alumne_id')->where('alumnes.es_actiu', true))
+            ->join('modul_alumne', fn ($join) => $join->on('modul_alumne.alumne_id', '=', 'ca.alumne_id')->on('modul_alumne.modul_id', '=', 'blocs.modul_id'))
+            ->leftJoinSub(DB::table('execucions_check')
+                ->where('estat', '!=', CheckStatus::Skipped->value)
+                ->groupBy('check_id', 'alumne_id')
+                ->selectRaw('check_id, alumne_id, max(id) as id'), 'darrera', fn ($join) => $join
+                ->on('darrera.check_id', '=', 'ca.check_id')->on('darrera.alumne_id', '=', 'ca.alumne_id'))
+            ->leftJoin('execucions_check as r', 'r.id', '=', 'darrera.id')
+            ->select('ca.check_id', 'ca.estat_professor', 'r.estat', 'r.versio_check_id')
+            ->get();
+        $currentIds = DB::table('versions_check')->groupBy('check_id')->selectRaw('max(id) as id')->pluck('id')->map(fn ($id) => (int) $id)->all();
+        foreach ($corrections as $row) {
+            $id = $row->check_id;
+            $byCheck = $counts[$id] ?? [];
+            if ($row->estat !== null) {
+                $byCheck[$row->estat]--;
+                if ($row->versio_check_id === null || ! in_array((int) $row->versio_check_id, $currentIds, true)) {
+                    $outdated[$id] = ($outdated[$id] ?? 0) - 1;
+                }
+            }
+            $status = ($row->estat_professor ? CheckStatus::Pass : CheckStatus::Fail)->value;
+            $byCheck[$status] = ($byCheck[$status] ?? 0) + 1;
+            $counts[$id] = array_filter($byCheck);
+        }
+
         return $checks->map(fn ($n, $id) => new self(
             (int) $n,
-            ($counts[$id] ?? collect())->mapWithKeys(fn ($row) => [$row->estat => (int) $row->n])->all(),
+            $counts[$id] ?? [],
             (int) ($outdated[$id] ?? 0),
         ))->all();
     }
@@ -81,7 +117,7 @@ final class CheckSummary
     /**
      * Darrera execució de cada alumne actiu del mòdul, per a la graella del check.
      *
-     * @return list<array{id: int, taula: string, nom: string, estat: ?CheckStatus, versio: ?int, vigent: bool, data: ?string}>
+     * @return list<array{id: int, taula: string, nom: string, estat: ?CheckStatus, versio: ?int, vigent: bool, data: ?string, correccio: ?bool}>
      */
     public static function students(Check $check): array
     {
@@ -92,9 +128,10 @@ final class CheckSummary
             ->groupBy('alumne_id')
             ->selectRaw('max(id)');
         $runs = $check->runs()->whereIn('id', $latest)->with('checkVersion')->get()->keyBy('alumne_id');
+        $corrections = $check->states()->whereNotNull('estat_professor')->pluck('estat_professor', 'alumne_id');
 
         return $check->module->students()->where('es_actiu', true)->orderBy('num_taula')->get()
-            ->map(function ($student) use ($runs, $current, $check) {
+            ->map(function ($student) use ($runs, $current, $check, $corrections) {
                 $run = $runs->get($student->id);
 
                 return [
@@ -105,6 +142,8 @@ final class CheckSummary
                     'versio' => $run?->checkVersion?->versio,
                     'vigent' => $run !== null && $run->versio_check_id === $current,
                     'data' => $run?->data_execucio?->format('d/m H:i'),
+                    // Correcció del professor (true assolit, false no assolit): mana sobre l'execució.
+                    'correccio' => $corrections->has($student->id) ? (bool) $corrections->get($student->id) : null,
                     'url' => StudentTracking::getUrl(['alumne' => $student->id, 'tasca' => $check->tasca_id]),
                 ];
             })->all();
