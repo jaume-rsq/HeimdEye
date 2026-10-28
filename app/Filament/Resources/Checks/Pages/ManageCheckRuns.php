@@ -52,7 +52,13 @@ class ManageCheckRuns extends ManageRelatedRecords
         return $schema->components([
             View::make('filament.students-status')->viewData([
                 'students' => CheckSummary::students($this->getOwnerRecord()),
-                'legend' => 'Verd: assolit amb la versió vigent · verd clar amb número: assolit amb una versió anterior · vermell: no assolit (fail) · taronja: no s\'ha pogut comprovar (error, unavailable, timeout) · gris: mai executat. El número és la versió, si no és la vigent.',
+                'corrections' => $this->getOwnerRecord()->states()
+                    ->whereNotNull('data_correccio')
+                    ->whereHas('student', fn ($q) => $q->where('es_actiu', true))
+                    ->with(['student', 'teacherUpdatedBy'])
+                    ->orderByDesc('data_correccio')
+                    ->get(),
+                'legend' => 'Verd: assolit amb la versió vigent · verd clar amb número: assolit amb una versió anterior · vermell: no assolit (fail) · taronja: no s\'ha pogut comprovar (error, unavailable, timeout) · gris: mai executat. El número és la versió, si no és la vigent. ✎: corregit pel professor (mana sobre l\'execució).',
             ]),
             Group::make([
                 $this->getTabsContentComponent(),

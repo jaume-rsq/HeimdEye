@@ -219,7 +219,7 @@
                                                     <td style="white-space: nowrap">
                                                         <span class="chip" style="background: {{ $r['assolit'] ? 'rgb(22,163,74)' : 'rgb(107,114,128)' }}">{{ $r['assolit'] ? 'Assolit' : 'No assolit' }}</span>
                                                         @if ($r['corregit'])
-                                                            <span class="sub" title="{{ $state->updated_at?->format('d/m/Y H:i') }}">✎ {{ $state->teacherUpdatedBy?->nom ?: 'professor' }}</span>
+                                                            <span class="sub" title="{{ $state->data_correccio?->format('d/m/Y H:i') }}">✎ {{ $state->teacherUpdatedBy?->nom ?: 'professor' }}</span>
                                                         @endif
                                                     </td>
                                                     <td style="white-space: nowrap">
@@ -277,8 +277,13 @@
                                                                 <div class="sub" style="margin-bottom: .3rem">Canvis d'estat ({{ $r['execucions'] }} execucions)</div>
                                                                 @forelse ($r['canvis'] as $c)
                                                                     <div style="margin-bottom: .35rem">
+                                                                        @if (isset($c['professor']))
+                                                                            <span class="dot" style="background: {{ $c['estat'] ? $statusColor($c['estat']) : 'rgb(107,114,128)' }}"></span><strong>✎ {{ match ($c['estat']) { \App\Enums\CheckStatus::Pass => 'assolit', \App\Enums\CheckStatus::Fail => 'no assolit', default => 'automàtic' } }}</strong>
+                                                                            <span class="sub">correcció de {{ $c['professor'] }} el {{ $c['data']?->format('d/m/Y H:i') }}</span>
+                                                                        @else
                                                                         <span class="dot" style="background: {{ $statusColor($c['estat']) }}"></span><strong>{{ $c['estat']->value }}</strong>
                                                                         <span class="sub">des del {{ $c['data']?->format('d/m/Y H:i') }}{{ $c['versio'] ? ' · v'.$c['versio'] : '' }}{{ $c['execucions'] > 1 ? ' · '.$c['execucions'].' execucions igual' : '' }}</span>
+                                                                        @endif
                                                                         @if ($c['missatge'])<div class="sub" style="padding-left: .9rem">{{ \Illuminate\Support\Str::limit($c['missatge'], 140) }}</div>@endif
                                                                     </div>
                                                                 @empty

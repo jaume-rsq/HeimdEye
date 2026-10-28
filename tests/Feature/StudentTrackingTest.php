@@ -15,6 +15,7 @@ use App\Models\Module;
 use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\User;
+use App\Support\CheckSummary;
 use App\Support\CodePreview;
 use App\Support\StudentProgress;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -104,6 +105,33 @@ class StudentTrackingTest extends TestCase
             ->callAction('correct', ['estat' => 'auto', 'comentari' => ''], ['check' => $this->check->id]);
         $this->assertNull($state->fresh()->estat_professor);
         $this->assertNull($state->fresh()->comentari_professor);
+    }
+
+    public function test_teacher_correction_shows_in_the_history_and_in_the_check_summary(): void
+    {
+        $this->addRun(CheckStatus::Fail, '2026-10-20 03:00');
+        $this->assertSame(1, CheckSummary::for($this->check)->counts['fail'] ?? 0);
+
+        Livewire::test(StudentTracking::class, ['alumne' => $this->student->id])
+            ->callAction('correct', ['estat' => 'assolit', 'comentari' => 'Revisat a classe'], ['check' => $this->check->id])
+            ->assertSee('correcció de Prof');
+
+        $groups = app(StudentProgress::class)->build($this->student, $this->module, ['tasca' => $this->check->tasca_id]);
+        $row = collect($groups[0]['tasks'][0]['rows'])->firstWhere('check.id', $this->check->id);
+        $this->assertSame('Prof', $row['canvis'][0]['professor']);
+        $this->assertSame(CheckStatus::Pass, $row['canvis'][0]['estat']);
+        $this->assertSame(CheckStatus::Fail, $row['canvis'][1]['estat']);
+
+        // La correcció mana sobre la darrera execució: compta com a assolit, no com a fail.
+        $summary = CheckSummary::for($this->check);
+        $this->assertSame(1, $summary->counts['pass'] ?? 0);
+        $this->assertArrayNotHasKey('fail', $summary->counts);
+        $this->assertTrue(collect(CheckSummary::students($this->check))->firstWhere('id', $this->student->id)['correccio']);
+
+        $this->get(CheckResource::getUrl('runs', ['record' => $this->check->id]))
+            ->assertOk()
+            ->assertSee('Correccions del professor')
+            ->assertSee('Revisat a classe');
     }
 
     public function test_verify_queues_the_checks_of_a_task(): void

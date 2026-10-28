@@ -57,7 +57,7 @@ class StudentProgress
                 'a_temps' => $state?->data_primer_assoliment && $check->data_limit ? $state->data_primer_assoliment->lessThanOrEqualTo($check->data_limit) : null,
                 'darrera' => $history->last(),
                 'execucions' => $history->count(),
-                'canvis' => self::changes($history),
+                'canvis' => self::withCorrection(self::changes($history), $state),
             ];
         });
 
@@ -121,6 +121,35 @@ class StudentProgress
             'errors' => $counted->filter(fn (array $r) => $r['darrera'] !== null && ! in_array($r['darrera']->estat, [CheckStatus::Pass, CheckStatus::Fail], true))->count(),
             'darrer_assoliment' => $counted->where('assolit', true)->map(fn (array $r) => $r['state']?->data_primer_assoliment)->filter()->max(),
         ];
+    }
+
+    /**
+     * Afegeix la darrera correcció del professor als canvis d'estat, al seu lloc per data. estat és
+     * Pass (assolit), Fail (no assolit) o null (ha tornat a l'automàtic).
+     *
+     * @param  list<array<string, mixed>>  $changes  de la més recent a la més antiga
+     * @return list<array<string, mixed>>
+     */
+    public static function withCorrection(array $changes, ?CheckStudent $state): array
+    {
+        if ($state?->data_correccio === null) {
+            return $changes;
+        }
+
+        $changes[] = [
+            'estat' => match ($state->estat_professor) {
+                true => CheckStatus::Pass,
+                false => CheckStatus::Fail,
+                null => null,
+            },
+            'data' => $state->data_correccio,
+            'missatge' => $state->comentari_professor,
+            'versio' => null,
+            'execucions' => 0,
+            'professor' => $state->teacherUpdatedBy?->nom ?: 'professor',
+        ];
+
+        return collect($changes)->sortByDesc(fn (array $c) => $c['data']?->getTimestamp() ?? 0)->values()->all();
     }
 
     /**

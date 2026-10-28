@@ -339,7 +339,10 @@ class StudentTracking extends Page
                     default => null,
                 };
                 $state->comentari_professor = filled($data['comentari']) ? $data['comentari'] : null;
-                $state->modificat_per = Auth::id();
+                if ($state->isDirty(['estat_professor', 'comentari_professor'])) {
+                    $state->modificat_per = Auth::id();
+                    $state->data_correccio = now();
+                }
                 $state->save();
 
                 Notification::make()->success()->title('Correcció desada')->send();
