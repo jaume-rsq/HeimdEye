@@ -405,7 +405,8 @@ variables, i `alumnes`. Vegeu `database/seeders/HostsSeeder.php`.
 Els **secrets** (`secrets`, xifrats amb `APP_KEY`) fan de vault. Tenen un **nivell** (global, curs
 o mòdul, com les variables) i un **tipus**: valor, usuari i contrasenya, o clau SSH (amb la clau
 pública, que no és secreta). Els d'usuari i contrasenya i els de clau SSH fan també d'**accés**:
-el mòdul en té un per defecte i cada tipus d'equip en pot dir un altre. Un playbook o script rep
+el mòdul en té un per defecte i cada tipus d'equip en pot dir un altre. Amb Ansible, la contrasenya
+d'un accés d'usuari i contrasenya serveix també per al sudo (`become: true`). Un playbook o script rep
 només els que esmenta (vegeu «Contracte del codi»), i a la sortida desada apareixen com a
 `********`. Els valors s'omplen des de l'administració, mai al repositori.
 

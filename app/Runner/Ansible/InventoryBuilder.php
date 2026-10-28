@@ -115,7 +115,9 @@ class InventoryBuilder
         $vars = ['ansible_user' => (string) $access->nom_usuari];
         if ($access->tipus === SecretType::Login) {
             if ($access->hasValue()) {
+                // La mateixa contrasenya serveix per al sudo de `become: true` (p. ex. per treure-la).
                 $vars['ansible_password'] = (string) $access->valor;
+                $vars['ansible_become_password'] = (string) $access->valor;
                 $this->mask[] = (string) $access->valor;
             }
         } elseif ($keyFile = SecretRefs::keyFile($access, $this->files)) {
