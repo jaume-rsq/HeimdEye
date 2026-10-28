@@ -27,7 +27,7 @@ class InventoryGrid
     public function build(Module $module, ?Collection $students = null): array
     {
         $types = $module->visibleHostTypes();
-        $students ??= $module->students()->where('es_actiu', true)->with('user')->orderBy('num_taula')->get();
+        $students ??= $module->students()->where('es_actiu', true)->with(['user', 'ownVariables'])->orderBy('num_taula')->get();
 
         $globals = $this->resolver->common($module);
         $globalHosts = $types->filter->isUnique()->map(fn (HostType $t) => ['tipus' => $t, ...$this->host($t, $globals)])->values()->all();

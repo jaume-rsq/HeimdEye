@@ -170,13 +170,18 @@ se'n genera: `php artisan heimdeye:tutorial` (amb el tutorial a la BBDD).
 ## Variables
 
 Totes les variables són a la taula `variables`, amb un nivell (`nivell`): `global`, `curs`
-(`curs_id`) o `modul` (`modul_id`). El valor pot ser una plantilla que en fa servir d'altres:
+(`curs_id`), `modul` (`modul_id`), `alumne` (`alumne_id`, les variables pròpies d'un alumne) o
+`equip` (`tipus_equip_id`, les variables Ansible d'un tipus d'equip, com un `group_vars`). El valor pot ser una plantilla que en fa servir d'altres:
 `{{x}}`, `{{ xarxa_aula | host(3) }}` (tercera adreça útil), `{{ xarxa_aula | host(-1) }}`
 (darrera), `{{ ip_pve | octet(4) }}`.
 
 Prioritat, de menys a més: global, curs, mòdul, camps de l'alumne (`usuari`, `nom_complet`,
-`num_taula`, `x`, `email`) i variables pròpies de l'alumne (`alumnes.variables`). Una variable
+`num_taula`, `x`, `email`) i variables pròpies de l'alumne (nivell `alumne`). Una variable
 pròpia amb el mateix nom que una de mòdul és la manera de fer una excepció per a un alumne.
+
+Les variables d'un tipus d'equip (`ansible_connection`, `ansible_port`...) no entren en aquesta
+cadena: van a l'inventari Ansible de cada equip d'aquell tipus. Es desen com a text i, en generar
+l'inventari, `true` i `false` passen a booleans i els enters (sense zeros al davant) a números.
 
 Els noms segueixen un prefix segons el tipus:
 
@@ -276,7 +281,7 @@ out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
 | Executor | On s'executa | Equips | Accés |
 | --- | --- | --- | --- |
 | `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | El del mòdul. Una clau SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); un usuari i contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). Un altre secret, esmentant-lo (`$HE_SECRET_<NOM>_USER`...). |
-| `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els únics, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | El de `# credencial:`, o el del tipus d'equip, o el del mòdul. Port i usuari de `variables_connexio` (`ansible_port`, `ansible_user`) si n'hi ha. |
+| `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els únics, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | El del tipus d'equip, o el del mòdul. Port i usuari de les variables de l'equip (`ansible_port`, `ansible_user`) si n'hi ha. |
 | `ansible` | `ansible-playbook` al servidor, un per alumne, amb l'inventari generat a partir dels tipus d'equip. | Els dels grups del `hosts:` dels plays: l'inventari només porta aquests. | El de cada tipus d'equip (o el del mòdul). |
 
 Amb `ssh` i diversos equips, el resultat és `pass` només si passa a tots; si no, és el del

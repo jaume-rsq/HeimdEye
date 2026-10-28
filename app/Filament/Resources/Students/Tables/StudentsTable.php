@@ -28,9 +28,9 @@ class StudentsTable
                 TextColumn::make('alies')->label('Àlies')->placeholder('—'),
                 TextColumn::make('x')->label('X')->sortable(),
                 TextColumn::make('modules.codi')->label('Mòduls')->badge(),
-                TextColumn::make('variables')
+                TextColumn::make('own_variables_count')
                     ->label('Variables pròpies')
-                    ->state(fn (Student $record) => count($record->variables ?? []))
+                    ->counts('ownVariables')
                     ->formatStateUsing(fn (int $state) => $state ?: '—'),
                 IconColumn::make('es_actiu')->label('Actiu')->boolean(),
             ])

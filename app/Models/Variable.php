@@ -8,7 +8,8 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 /**
- * Variable d'inventari: global, d'un curs o d'un mòdul. El valor pot ser una plantilla ({{x}}).
+ * Variable d'inventari: global, d'un curs, d'un mòdul, d'un alumne (excepció) o d'un tipus
+ * d'equip (variables Ansible de l'equip). El valor pot ser una plantilla ({{x}}).
  * Nomenclatura per prefix: xarxa_ (CIDR), ip_ (adreces), nom_ (noms), num_ (números).
  */
 class Variable extends Model
@@ -18,7 +19,7 @@ class Variable extends Model
 
     protected $table = 'variables';
 
-    protected $fillable = ['nivell', 'curs_id', 'modul_id', 'clau', 'valor', 'descripcio'];
+    protected $fillable = ['nivell', 'curs_id', 'modul_id', 'alumne_id', 'tipus_equip_id', 'clau', 'valor', 'descripcio'];
 
     protected function casts(): array
     {
