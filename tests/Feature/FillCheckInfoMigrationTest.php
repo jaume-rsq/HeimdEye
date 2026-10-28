@@ -25,7 +25,8 @@ class FillCheckInfoMigrationTest extends TestCase
         (require database_path('migrations/2026_10_27_000002_fill_check_info.php'))->up();
 
         $info = require database_path('seeders/data/check_info.php');
-        $this->assertSame(count($info[5]) + count($info[6]), Check::whereNotNull('info')->count());
+        // El seed base també carrega el bloc 2, i la migració n'omple l'info.
+        $this->assertSame(count($info[2]) + count($info[5]) + count($info[6]), Check::whereNotNull('info')->count());
         $this->assertSame('Text del professor', $edited->fresh()->info);
         $this->assertSame($info[5]['RouterOS actualitzat'], Check::where('nom', 'RouterOS actualitzat')->sole()->info);
     }

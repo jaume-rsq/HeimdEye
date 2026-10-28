@@ -31,7 +31,7 @@ class DomainModelTest extends TestCase
         $this->assertSame('SX+SI+AW', $module->nom);
         $this->assertSame(10, $module->students()->count());
         $this->assertSame(2, $module->blocks()->sole()->numero);
-        $this->assertSame(3, Check::count());
+        $this->assertSame(11, Check::count());
         $this->assertTrue(Check::all()->every(fn (Check $c) => $c->currentVersion?->versio === 1));
     }
 
