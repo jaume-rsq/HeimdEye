@@ -91,6 +91,7 @@ class LeaderboardTest extends TestCase
 
         $this->get('/leaderboard')
             ->assertOk()
+            ->assertSee('href="/favicon-32x32.png?v=', false)
             ->assertSee('Fènix')
             ->assertSee('Taula 02')
             ->assertDontSee($student->nom_complet)
@@ -103,5 +104,6 @@ class LeaderboardTest extends TestCase
         $student = $this->module->students()->orderBy('num_taula')->firstOrFail();
 
         Livewire::test(LeaderboardPage::class)->assertSee($student->nom_complet)->assertSee('Versió pública');
+        $this->get(LeaderboardPage::getUrl())->assertOk()->assertSee('href="/favicon.ico?v=', false);
     }
 }
