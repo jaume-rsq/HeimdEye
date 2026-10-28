@@ -137,4 +137,82 @@ return [
             'amb un tallafocs pla, qualsevol servei nou de la DMZ queda exposat. Afegir el DNS a un tallafocs amb DROP per defecte obliga a decidir quins fluxos calen, que és com es treballa en una xarxa real.',
         ),
     ],
+    8 => [
+        'VLANs i gateways al router' => $info(
+            'comprovar que el router té les cinc VLAN de l\'empresa i que a cada una hi ha el gateway (.1/24).',
+            'les VLAN separen servidors, usuaris, convidats i proves sobre la mateixa infraestructura, i el router és qui les uneix i les filtra. Sense una interfície amb adreça a cada VLAN, els equips no tenen sortida ni hi pot arribar cap relay DHCP.',
+        ),
+        'ns1 a la VLAN 200 arriba al gateway' => $info(
+            'validar que ns1 té la seva adreça fixa /24 a la VLAN 200 i que arriba al seu gateway.',
+            'els servidors tenen IP fixa perquè els altres equips els han de trobar sempre al mateix lloc, i ara ns1 també és el servidor DHCP: si no té xarxa, cap client de cap VLAN rep adreça.',
+        ),
+        'ns2 a la VLAN 100 arriba al gateway' => $info(
+            'validar que ns2 té la seva adreça fixa /24 a la VLAN 100 i que arriba al seu gateway.',
+            'en canviar de VLAN, un servidor amb la màscara o el gateway antics deixa de respondre fora de la seva xarxa. Comprovar el gateway és el primer pas de qualsevol diagnosi de xarxa.',
+        ),
+        'Etiquetes VLAN de les VM a Proxmox' => $info(
+            'comprovar que les targetes de les VM de Proxmox porten l\'etiqueta (tag) de la seva VLAN.',
+            'l\'etiqueta és el que posa cada màquina a la seva VLAN, com configurar el port d\'un commutador gestionable. Una VM sense etiqueta, o amb la que no toca, demana adreça a una xarxa equivocada.',
+        ),
+        'Servidors DHCP del MikroTik: rang i durada' => $info(
+            'comprovar que el MikroTik té un servidor DHCP a cada VLAN de clients amb el rang .100-.200 i la durada de la taula.',
+            'el rang deixa les adreces baixes per als equips amb reserva, i la durada s\'adapta a cada xarxa: llarga per als usuaris fixos, curta per als convidats que van i vénen i que poden esgotar el pool.',
+        ),
+        'Opcions de l\'empresa al MikroTik' => $info(
+            'validar que el MikroTik reparteix el gateway, els DNS, el domini i el servidor NTP a cada VLAN.',
+            'una adreça sense opcions no serveix: sense gateway no hi ha sortida, sense DNS no es resolen noms i sense NTP els rellotges es desajusten (i els certificats i els registres deixen de quadrar). Són els símptomes més habituals d\'un DHCP mal configurat.',
+        ),
+        'Leases estàtics al MikroTik' => $info(
+            'comprovar que el MikroTik té els leases estàtics de la taula de reserves, validada abans d\'aplicar-la.',
+            'impressores, servidors i PC d\'ús fix han de tenir sempre la mateixa adreça. Una reserva dins del rang dinàmic o amb una MAC repetida genera conflictes difícils de diagnosticar, i per això la taula es valida abans d\'aplicar-la.',
+        ),
+        'Cap servidor DHCP a la xarxa de l\'aula' => $info(
+            'comprovar que cap servidor DHCP del MikroTik no reparteix adreces a la xarxa de l\'aula.',
+            'un servidor DHCP en una xarxa que no és seva és un servidor no autoritzat: dona adreces i gateways falsos als equips dels altres i talla la xarxa de tot l\'institut. És un dels errors més greus que es poden fer amb DHCP.',
+        ),
+        'Kea en marxa amb la configuració validada' => $info(
+            'validar que el servei Kea és en marxa i que la configuració no té errors.',
+            'Kea no arrenca si el JSON té un error. Validar la sintaxi abans de reiniciar el servei evita deixar tota la xarxa sense DHCP per una coma.',
+        ),
+        'Subxarxes de Kea: rang i durada' => $info(
+            'comprovar que Kea té les tres subxarxes amb el rang .100-.200 i la durada de la taula.',
+            'Kea tria la subxarxa per l\'adreça del relay (giaddr): sense la subxarxa d\'una VLAN, els clients d\'aquella VLAN no reben res. El rang i la durada han de ser els mateixos que al MikroTik perquè el canvi de servidor sigui transparent.',
+        ),
+        'Opcions de l\'empresa a Kea' => $info(
+            'validar que Kea reparteix el gateway, els DNS, el domini i el servidor NTP a cada subxarxa.',
+            'a Kea, les opcions es poden posar a nivell global o a cada subxarxa, i saber-les combinar evita repetir configuració. El gateway sempre és propi de cada subxarxa.',
+        ),
+        'Reserves a Kea' => $info(
+            'comprovar que Kea té les reserves de la taula, fora del pool i amb MACs úniques.',
+            'les mateixes reserves als tres servidors fan que un canvi de servidor no canviï l\'adreça de cap equip. Kea permet reserves dins del pool, però llavors el mateix servidor pot haver donat aquella adreça a un altre client.',
+        ),
+        'Relays del MikroTik cap a Kea' => $info(
+            'comprovar que el MikroTik reenvia les peticions DHCP de cada VLAN cap a Kea.',
+            'el Discover és un broadcast i no surt de la seva VLAN. El relay el converteix en un missatge unicast cap al servidor i hi afegeix l\'adreça de la VLAN (giaddr). Així un sol servidor dona servei a totes les xarxes.',
+        ),
+        'El MikroTik ja no reparteix adreces' => $info(
+            'validar que, amb Kea en marxa, el MikroTik ja no té cap servidor DHCP actiu a les VLAN de clients.',
+            'dos servidors a la mateixa VLAN donen ofertes diferents i el client es queda la primera que arriba. El resultat són adreces, gateways o durades incoherents segons l\'equip, una situació molt difícil de diagnosticar.',
+        ),
+        'Kea dona adreces a les VLAN 101, 102 i 201' => $info(
+            'comprovar que clients de les tres VLAN han rebut adreça de Kea a través del relay.',
+            'és la prova funcional del bloc: la configuració pot ser correcta i el tallafocs, el relay o les subxarxes poden impedir que arribi cap adreça. Els leases de Kea demostren que tot el camí funciona.',
+        ),
+        'Un PC rep de Kea la seva IP reservada' => $info(
+            'validar que un PC amb reserva ha rebut de Kea l\'adreça reservada, amb la MAC de la reserva.',
+            'una reserva només s\'aplica quan el client renova, i una MAC mal escrita fa que el client rebi una adreça qualsevol del pool. Veure el lease és l\'única manera de saber que la reserva funciona.',
+        ),
+        'Àmbits a Windows Server: rang i durada' => $info(
+            'comprovar que ns2 té els tres àmbits amb el rang efectiu .100-.200 i la durada de la taula.',
+            'Windows Server organitza el mateix en àmbits, rangs i exclusions. Arribar al mateix rang efectiu amb un rang ajustat o amb un rang ampli i exclusions és un dels conceptes clau del bloc, i també el que cal saber explicar per comparar solucions.',
+        ),
+        'Opcions de l\'empresa a Windows Server' => $info(
+            'validar que ns2 reparteix les opcions 3, 6, 15 i 42 a cada àmbit.',
+            'a Windows, les opcions es poden definir al servidor o a l\'àmbit, i les de l\'àmbit manen. Conèixer els codis de les opcions permet configurar qualsevol servidor DHCP, no només una eina concreta.',
+        ),
+        'Reserves a Windows Server' => $info(
+            'comprovar que ns2 té les reserves de la taula, a .10-.99 i amb MACs úniques.',
+            'aplicar les mateixes reserves a les tres solucions permet comparar-les de manera justa i fer que el servidor es pugui canviar sense que cap equip fix canviï d\'adreça.',
+        ),
+    ],
 ];

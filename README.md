@@ -40,6 +40,7 @@ tornar a executar sense duplicar res (no canvia el codi dels checks que ja tenen
 ```bash
 php artisan db:seed --class=Block05FirewallSeeder   # Bloc 5: tallafocs Linux o MikroTik
 php artisan db:seed --class=Block06DnsSeeder        # Bloc 6: DNS (i l'acció d'accés a ns1)
+php artisan db:seed --class=Block08DhcpSeeder       # Bloc 8 (blocs 7 i 8): DHCP amb MikroTik, Kea i Windows Server
 ```
 
 ### Autenticació
