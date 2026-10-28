@@ -15,7 +15,8 @@ use InvalidArgumentException;
 
 /**
  * Prova si els equips responen, amb el mateix inventari que fan servir accions i checks:
- * ping (Linux, ssh), win_ping (Windows, WinRM) i, per a les API (httpapi), que el port estigui obert.
+ * entrar per SSH (Linux i MikroTik), win_ping (Windows, WinRM) i, per a les API (httpapi), que el
+ * port estigui obert.
  * No desa res. El resultat és per equip, amb la clau "alumne|tipus" ("g|tipus" per als globals).
  */
 class ConnectionTester
@@ -31,9 +32,13 @@ class ConnectionTester
      * perquè un mòdul d'una col·lecció que no hi és (ansible.windows) fa fallar tot el playbook.
      */
     private const TASKS = [
+        // Amb raw, sense Python ni directori temporal a l'equip: així també es poden provar els
+        // MikroTik. Només compta entrar: l'ordre (":put ok" a RouterOS) a un Linux no existeix.
         'ssh' => <<<'YAML'
-                - name: ping
-                  ansible.builtin.ping:
+                - name: ssh
+                  ansible.builtin.raw: ":put ok"
+                  changed_when: false
+                  failed_when: false
             YAML,
         'winrm' => <<<'YAML'
                 - name: win_ping
@@ -165,7 +170,7 @@ class ConnectionTester
             $stats === null => ['estat' => 'error', 'missatge' => $run->error ?? (strtok(trim($run->rawOutput), "\n") ?: 'Ansible no ha provat aquest equip')],
             ($stats['unreachable'] ?? 0) > 0 => ['estat' => 'no_respon', 'missatge' => mb_substr($message ?: 'No respon', 0, 500)],
             ($stats['failures'] ?? 0) > 0 => ['estat' => 'falla', 'missatge' => mb_substr($message ?: 'Ha fallat', 0, 500)],
-            default => ['estat' => 'ok', 'missatge' => ($event['task'] ?? '') === 'port de l\'API' ? 'El port de l\'API és obert (no comprova l\'usuari)' : 'Respon ('.($event['task'] ?? 'ping').')'],
+            default => ['estat' => 'ok', 'missatge' => ($event['task'] ?? '') === 'port de l\'API' ? 'El port de l\'API és obert (no comprova l\'usuari)' : 'Respon ('.($event['task'] ?? 'ssh').')'],
         };
     }
 }

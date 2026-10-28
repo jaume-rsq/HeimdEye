@@ -13,7 +13,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-/** Prova de connexió: ping amb Ansible als equips de l'inventari, sense desar res. */
+/** Prova de connexió: entrar amb Ansible als equips de l'inventari, sense desar res. */
 class ConnectionTestTest extends TestCase
 {
     use RefreshDatabase;
@@ -74,7 +74,7 @@ class ConnectionTestTest extends TestCase
             ->call('testConnection', $student->id)
             ->assertSet('provesPendents', [])
             ->assertSet('connexio.'.ConnectionTester::key($student->id, $this->local->id).'.estat', 'ok')
-            ->assertSee('Respon: Respon (ping)')
+            ->assertSee('Respon: Respon (ssh)')
             ->assertNotified('Prova acabada: tots els equips responen');
     }
 

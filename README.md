@@ -425,7 +425,7 @@ també poden ser playbooks (`executor = ansible`).
   - **Alumnes**: alumnes × equips o alumnes × variables, amb l'origen de cada valor i les plantilles
     que no es poden calcular en vermell. El botó ▶ prova la connexió d'un equip, d'una columna (un
     tipus d'equip per a tots els alumnes), d'un alumne (tots els seus equips) o d'un equip únic, amb
-    el mateix inventari que les accions: `ping` als Linux, `win_ping` als Windows (cal la col·lecció
+    el mateix inventari que les accions: entrar per SSH amb `raw` als Linux i MikroTik (sense Python), `win_ping` als Windows (cal la col·lecció
     `ansible.windows`) i, a les API (`httpapi`), només que el port sigui obert. Va per la cua i no desa res.
     Un clic a un alumne obre el seu **panell lateral**: què rep i d'on surt. Cada variable amb el valor
     global, del curs, del mòdul i de l'alumne (el que mana en negreta), els equips amb l'accés que fan
