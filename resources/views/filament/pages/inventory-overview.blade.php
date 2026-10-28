@@ -24,6 +24,7 @@
             </select>
             <div class="he-inv-tabs">
                 <button type="button" wire:click="$set('pestanya', 'alumnes')" @class(['on' => $pestanya === 'alumnes'])>Alumnes</button>
+                <button type="button" wire:click="$set('pestanya', 'equips')" @class(['on' => $pestanya === 'equips'])>Equips</button>
                 <button type="button" wire:click="$set('pestanya', 'variables')" @class(['on' => $pestanya === 'variables'])>Variables</button>
                 @if ($this->canSeeSecrets())
                     <button type="button" wire:click="$set('pestanya', 'secrets')" @class(['on' => $pestanya === 'secrets'])>Secrets</button>
@@ -44,6 +45,11 @@
                     @php $total = collect($grid['rows'])->sum('problemes'); @endphp
                     <span @class(['chip', 'bad' => $total > 0])>{{ $total }} {{ $total === 1 ? 'problema' : 'problemes' }}</span>
                 @endif
+            @elseif ($pestanya === 'equips')
+                {{ $this->moduleAccessAction }}
+                @if ($this->canEditHostTypes())
+                    {{ $this->createHostTypeAction }}
+                @endif
             @elseif ($pestanya === 'variables' && $this->canEditVariables())
                 {{ $this->createVariableAction }}
             @elseif ($pestanya === 'secrets' && $this->canEditSecrets())
@@ -51,7 +57,9 @@
             @endif
         </div>
 
-        @if ($pestanya === 'variables')
+        @if ($pestanya === 'equips')
+            @include('filament.partials.inventory-host-types')
+        @elseif ($pestanya === 'variables')
             @include('filament.partials.inventory-variables')
         @elseif ($pestanya === 'secrets' && $this->canSeeSecrets())
             @include('filament.partials.inventory-secrets')

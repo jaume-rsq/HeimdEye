@@ -4,9 +4,9 @@ namespace App\Filament\Resources\Secrets\Schemas;
 
 use App\Enums\Level;
 use App\Enums\SecretType;
-use App\Filament\Resources\Modules\Schemas\ModuleInventoryForm;
 use App\Models\Module;
 use App\Models\Secret;
+use App\Models\Variable;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -28,7 +28,7 @@ class SecretFields
             TextInput::make('clau')
                 ->label('Nom')
                 ->required()
-                ->regex(ModuleInventoryForm::KEY_RULE)
+                ->regex(Variable::KEY_RULE)
                 ->helperText('Minúscules: jaume, ssh_jaume, api_zabbix. Si el reanomenes, el codi que l\'esmenta deixarà de trobar-lo.'),
             Select::make('tipus')
                 ->options(collect(SecretType::cases())->mapWithKeys(fn (SecretType $t) => [$t->value => $t->label()]))

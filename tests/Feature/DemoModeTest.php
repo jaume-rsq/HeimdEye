@@ -8,7 +8,6 @@ use App\Filament\Auth\DemoLogin;
 use App\Filament\Pages\InventoryOverview;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Checks\CheckResource;
-use App\Filament\Resources\Modules\ModuleResource;
 use App\Filament\Resources\Students\StudentResource;
 use App\Models\Check;
 use App\Models\Module;
@@ -81,12 +80,12 @@ class DemoModeTest extends TestCase
         $visitor = Demo::createVisitor();
         $this->module->secrets()->create(['clau' => 'clau_demo', 'valor' => 'no-es-veu']);
 
-        $this->actingAs($visitor)->get(ModuleResource::getUrl('index'))
-            ->assertRedirect(ModuleResource::getUrl('view', ['record' => $this->module]));
-        $this->actingAs($visitor)->get(ModuleResource::getUrl('edit', ['record' => $this->module]))->assertForbidden();
-        $this->actingAs($visitor)->get(ModuleResource::getUrl('view', ['record' => $this->module]))
+        Livewire::actingAs($visitor)->test(InventoryOverview::class, ['modul' => $this->module->id, 'pestanya' => 'equips'])
             ->assertOk()
-            ->assertDontSee('no-es-veu');
+            ->assertSee('vm_router')
+            ->assertDontSee('no-es-veu')
+            ->assertActionHidden('createHostType')
+            ->assertActionHidden('moduleAccess');
         Livewire::actingAs($visitor)->test(InventoryOverview::class, ['modul' => $this->module->id, 'pestanya' => 'variables'])
             ->assertOk()
             ->assertSee('xarxa_lan')

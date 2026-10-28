@@ -3,7 +3,6 @@
 namespace App\Filament\Pages\Concerns;
 
 use App\Enums\Level;
-use App\Filament\Resources\Modules\Schemas\ModuleInventoryForm;
 use App\Models\Student;
 use App\Models\Variable;
 use App\Support\InventoryGrid;
@@ -110,7 +109,7 @@ trait ManagesVariables
                 TextInput::make('clau')
                     ->label('Variable')
                     ->required()
-                    ->regex(ModuleInventoryForm::KEY_RULE)
+                    ->regex(Variable::KEY_RULE)
                     ->helperText('Prefixos: xarxa_, ip_, nom_, num_.')
                     ->rules([fn (Get $get) => $this->uniqueAtLevel(Variable::class, $get('nivell'))]),
                 TextInput::make('valor')->label('Valor o plantilla')->required()->extraInputAttributes(['style' => 'font-family: ui-monospace, monospace']),
@@ -126,11 +125,11 @@ trait ManagesVariables
     }
 
     /** Un nom només pot sortir una vegada a cada nivell. */
-    protected function uniqueAtLevel(string $model, ?string $level): Closure
+    protected function uniqueAtLevel(string $model, ?string $level, string $column = 'clau'): Closure
     {
-        return function (string $attribute, mixed $value, Closure $fail) use ($model, $level) {
+        return function (string $attribute, mixed $value, Closure $fail) use ($model, $level, $column) {
             $level = Level::tryFrom((string) $level);
-            if ($level && $this->atLevels($model::query())->where('nivell', $level)->where('clau', $value)->exists()) {
+            if ($level && $this->atLevels($model::query())->where('nivell', $level)->where($column, $value)->exists()) {
                 $fail('Ja n\'hi ha un amb aquest nom en aquest nivell: edita\'l des de la seva casella.');
             }
         };

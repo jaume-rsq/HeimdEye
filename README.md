@@ -422,21 +422,21 @@ també poden ser playbooks (`executor = ansible`).
     tipus d'equip per a tots els alumnes), d'un alumne (tots els seus equips) o d'un equip únic, amb
     el mateix inventari que les accions: `ping` als Linux, `win_ping` als Windows (cal la col·lecció
     `ansible.windows`) i, a les API (`httpapi`), només que el port sigui obert. Va per la cua i no desa res.
+  - **Equips**: una fila per tipus d'equip (pve, router, zbx...) amb el que en defineix cada nivell:
+    grup Ansible, nom de host → adreça (plantilles), si és únic i l'accés. Un del mòdul amb el mateix
+    nom tapa el del curs o el global. Un clic a una casella l'edita o el crea en aquell nivell (partint
+    del que mana ara), amb el nom i l'adreça calculats per a un alumne abans de desar. El botó
+    **Accés per defecte** tria el secret que fan servir els equips sense accés propi i els scripts locals.
   - **Variables**: una fila per variable amb el valor global, el del curs i el del mòdul; en negreta
     el que mana. Un clic a una casella l'edita (o la crea) en aquell nivell, amb una previsualització
     per a un alumne; en desar, avisa si alguna plantilla deixa de calcular-se. Un nom només pot sortir
     una vegada a cada nivell.
   - **Secrets**: igual, però el valor no es torna a mostrar (un camp buit vol dir que no canvia) i
     es diu on fa d'accés cada secret (mòduls i tipus d'equip). Els visitants de la demo no la veuen.
-  Les antigues `/admin/variables` i `/admin/secrets` porten a aquestes pestanyes.
+  Les antigues `/admin/variables`, `/admin/secrets`, `/admin/equips` i `/admin/moduls` porten a aquestes pestanyes.
 - **Alumnes** (`/admin/alumnes`): dades, variables pròpies i l'inventari calculat de cada alumne
   (variables, equips, inventari Ansible amb les contrasenyes emmascarades i activitat).
   **Importar llista** (`/admin/alumnes/importar`) carrega la llista de l'aula a un mòdul.
-- **Equips del mòdul** (`/admin/moduls`): tipus d'equip i accés per defecte de cada mòdul. La
-  previsualització calcula, per a l'alumne triat, el que hi ha al formulari sense desar-ho.
-- **Equips comuns** (`/admin/equips`): els tipus d'equip globals i de cada curs. Un nom només pot
-  sortir una vegada a cada nivell; l'accés es tria entre els secrets globals i els del curs.
-
 ### Al panell (menú Administració)
 
 - **Usuaris i rols** (`/admin/usuaris`, només administradors): administrador (tot, inclosos els

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\ManagesHostTypes;
 use App\Filament\Pages\Concerns\ManagesLevels;
 use App\Filament\Pages\Concerns\ManagesSecrets;
 use App\Filament\Pages\Concerns\ManagesVariables;
@@ -29,11 +30,12 @@ use UnitEnum;
  * Inventari d'un mòdul en una sola pantalla, amb pestanyes:
  * - Alumnes: alumnes × equips (nom i adreça calculats) o alumnes × variables (amb l'origen de
  *   cada valor), amb els problemes marcats i la prova de connexió;
- * - Variables i Secrets: tot el que veu el mòdul (global, del curs i del mòdul), editable al seu nivell.
+ * - Equips, Variables i Secrets: tot el que veu el mòdul (global, del curs i del mòdul), editable al seu nivell.
  * Sense mòdul triat (modul = 0) només hi ha els comuns: globals i del curs actual.
  */
 class InventoryOverview extends Page
 {
+    use ManagesHostTypes;
     use ManagesLevels;
     use ManagesSecrets;
     use ManagesVariables;
@@ -55,7 +57,7 @@ class InventoryOverview extends Page
     #[Url]
     public ?int $modul = null;
 
-    /** alumnes, variables o secrets */
+    /** alumnes, equips, variables o secrets */
     #[Url]
     public string $pestanya = 'alumnes';
 
@@ -83,7 +85,7 @@ class InventoryOverview extends Page
     {
         $this->connexio = [];
         $this->provesPendents = [];
-        unset($this->module, $this->course);
+        unset($this->module, $this->course, $this->grid);
     }
 
     /** Mòduls del curs actual (o de tots, si no n'hi ha cap marcat com a actual). */

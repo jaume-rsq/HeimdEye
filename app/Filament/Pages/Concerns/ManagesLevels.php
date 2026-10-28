@@ -74,14 +74,16 @@ trait ManagesLevels
         });
     }
 
-    /** Registres per nom i nivell: [nom => [nivell => registre]], per ordre de nom. */
-    protected function byLevel(Collection $records): array
+    /** Registres per nom i nivell: [nom => [nivell => registre]], per ordre de nom (o com venen). */
+    protected function byLevel(Collection $records, string $name = 'clau', bool $sort = true): array
     {
         $rows = [];
         foreach ($records as $record) {
-            $rows[$record->clau][$record->nivell->value] = $record;
+            $rows[$record->{$name}][$record->nivell->value] = $record;
         }
-        ksort($rows);
+        if ($sort) {
+            ksort($rows);
+        }
 
         return $rows;
     }

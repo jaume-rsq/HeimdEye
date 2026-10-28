@@ -5,7 +5,6 @@ namespace Tests\Feature;
 use App\Enums\Level;
 use App\Enums\Role;
 use App\Filament\Pages\InventoryOverview;
-use App\Filament\Resources\Modules\ModuleResource;
 use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
@@ -127,13 +126,6 @@ class InventoryPanelTest extends TestCase
         Livewire::test(ListStudents::class)
             ->filterTable('modul', $module->id)
             ->assertCanSeeTableRecords([$this->student]);
-    }
-
-    public function test_the_menu_opens_the_only_module_of_the_current_year(): void
-    {
-        $module = Module::where('codi', '9991')->sole();
-
-        $this->get(ModuleResource::getUrl())->assertRedirect(ModuleResource::getUrl('edit', ['record' => $module]));
     }
 
     public function test_a_new_student_sheet_can_be_linked_to_a_user_so_it_can_enter_its_panel(): void

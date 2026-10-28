@@ -13,6 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class Variable extends Model
 {
+    /** Nom de variable (i de secret o grup Ansible): minúscules, números i _ (xarxa_lan, ip_pve...). */
+    public const KEY_RULE = '/^[a-z][a-z0-9_]*$/';
+
     protected $table = 'variables';
 
     protected $fillable = ['nivell', 'curs_id', 'modul_id', 'clau', 'valor', 'descripcio'];
