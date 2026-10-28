@@ -8,7 +8,6 @@ use App\Models\AcademicYear;
 use App\Models\Check;
 use App\Models\CheckStudent;
 use App\Models\Module;
-use App\Models\Secret;
 use App\Models\Student;
 use App\Models\Variable;
 use App\Runner\Ansible\InventoryBuilder;
@@ -166,15 +165,14 @@ class DomainModelTest extends TestCase
         $this->assertSame('Taula 11', $student->publicName());
     }
 
-    public function test_inventory_keeps_the_public_key_file_of_the_module_access(): void
+    public function test_inventory_has_the_hosts_of_each_student(): void
     {
-        Secret::where('clau', 'ssh_jaume')->sole()->update(['clau_publica' => 'ssh-ed25519 AAAA heimdeye']);
         $module = Module::where('codi', '9991')->firstOrFail();
         $builder = new InventoryBuilder(app(VariableResolver::class), $files = new TempFiles);
 
         $inventory = $builder->build($module, [Student::where('usuari', 'alumne01')->firstOrFail()], $module->hostTypes);
 
-        $this->assertSame("ssh-ed25519 AAAA heimdeye\n", file_get_contents($inventory['all']['vars']['heimdeye_ssh_pubkey_file']));
+        $this->assertArrayNotHasKey('heimdeye_ssh_pubkey_file', (array) $inventory['all']['vars']);
         $files->cleanup();
         $this->assertSame('198.51.100.18', $inventory['all']['children']['estacio_windows']['hosts']['estacio01']['ansible_host']);
     }

@@ -180,20 +180,40 @@ class RunnerTest extends TestCase
         $this->assertStringContainsString('winrm', $winrm->message);
     }
 
-    public function test_credential_header_replaces_the_module_credential(): void
+    public function test_the_old_credential_header_is_refused_and_the_secret_is_used_directly(): void
     {
         Secret::where('clau', 'api_zabbix')->sole()->update(['valor' => 'zbx-secret-1']);
         Secret::create(['nivell' => Level::Global, 'clau' => 'ssh_altre', 'tipus' => SecretType::SshKey, 'nom_usuari' => 'altre']);
 
-        // Pel nom antic de la credencial ("SSH altre" és ssh_altre) o per la clau del secret.
-        $ssh = $this->execute($this->check("# credencial: SSH altre\necho \"user=\$HE_SSH_USER\""));
+        $old = $this->execute($this->check("# credencial: ssh_altre\necho \"user=\$HE_SSH_USER\""));
+        $this->assertSame(CheckStatus::Error, $old->status);
+        $this->assertStringContainsString('# credencial:', $old->message);
+
+        $ssh = $this->execute($this->check('echo "user=$HE_SECRET_SSH_ALTRE_USER"'));
         $this->assertSame('user=altre', $ssh->message);
 
-        $password = $this->execute($this->check("# credencial: api_zabbix\necho \"\$HE_CRED_USER \$HE_CRED_PASSWORD\""));
+        $password = $this->execute($this->check('echo "$HE_SECRET_API_ZABBIX_USER $HE_SECRET_API_ZABBIX_PASSWORD"'));
         $this->assertSame('ansible ********', $password->message);
+    }
 
-        $unknown = $this->execute($this->check("# credencial: No hi és\ntrue"));
-        $this->assertSame(CheckStatus::Error, $unknown->status);
+    public function test_the_migration_rewrites_the_old_references_in_the_saved_code(): void
+    {
+        Secret::create(['nivell' => Level::Global, 'clau' => 'ssh_altre', 'tipus' => SecretType::SshKey, 'nom_usuari' => 'altre']);
+        $local = $this->check("#!/bin/bash\n# credencial: SSH altre\nssh -i \"\$HE_SSH_KEY\" \$HE_SSH_OPTS \$HE_SSH_USER@host true");
+        $login = $this->check("# credencial: api_zabbix\ncurl -u \"\$HE_CRED_USER:\$HE_CRED_PASSWORD\" x");
+        $ssh = $this->check("# hosts: pve\n# credencial: ssh_jaume\ntrue", Executor::Ssh);
+        $other = $this->check("# hosts: pve\n# credencial: ssh_altre\ntrue", Executor::Ssh);
+        $ansible = $this->check("- hosts: pve\n  tasks:\n    - authorized_key: { user: jaume, key: \"{{ lookup('file', heimdeye_ssh_pubkey_file) }}\" }\n", Executor::Ansible);
+
+        (require database_path('migrations/2026_10_28_000003_rewrite_legacy_code_references.php'))->up();
+
+        $code = fn (Check $check) => $check->versions()->sole()->fresh()->codi;
+        $this->assertSame("#!/bin/bash\nssh -i \"\$HE_SECRET_SSH_ALTRE_KEY_FILE\" \$HE_SSH_OPTS \$HE_SECRET_SSH_ALTRE_USER@host true", $code($local));
+        $this->assertSame('curl -u "$HE_SECRET_API_ZABBIX_USER:$HE_SECRET_API_ZABBIX_PASSWORD" x', $code($login));
+        $this->assertSame("# hosts: pve\ntrue", $code($ssh));
+        // Amb ssh, un accés que no és el del mòdul no es pot reescriure: es queda i dona error.
+        $this->assertStringContainsString('# credencial: ssh_altre', $code($other));
+        $this->assertStringContainsString('key: "{{ ssh_jaume.pubkey }}"', $code($ansible));
     }
 
     public function test_check_parameters_use_their_defaults(): void
@@ -210,7 +230,7 @@ class RunnerTest extends TestCase
         $headers = CodeHeaders::parse("#!/bin/bash\n# Comprova les VM\n#hosts: pve, vm_router\n# Credencial: SSH jaume\n\necho hola\n# hosts: dns\n");
 
         $this->assertSame(['pve', 'vm_router'], $headers->hosts);
-        $this->assertSame('SSH jaume', $headers->credential);
+        $this->assertSame('SSH jaume', $headers->legacyCredential);
         $this->assertSame([], CodeHeaders::parse("echo hola\n# hosts: pve")->hosts);
     }
 

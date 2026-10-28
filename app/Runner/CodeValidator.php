@@ -24,6 +24,7 @@ class CodeValidator
     /** @throws InvalidArgumentException amb el primer problema trobat */
     public function validate(Module $module, Executor $executor, string $code): void
     {
+        $this->assertNoLegacyHeaders($code);
         $this->hostTypes($module, $executor, $code);
         $this->assertNoLeakedSecrets($module, $executor, $code);
     }
@@ -60,6 +61,17 @@ class CodeValidator
         return $visible
             ->filter(fn (HostType $type) => collect($groups)->contains(fn ($group) => $matches($type, $group)))
             ->values();
+    }
+
+    /** @throws InvalidArgumentException si el codi fa servir formes que ja no existeixen */
+    public function assertNoLegacyHeaders(string $code): void
+    {
+        if (CodeHeaders::parse($code)->legacyCredential !== null) {
+            throw new InvalidArgumentException('La capçalera "# credencial:" ja no existeix. En local, fes servir el secret directament ($HE_SECRET_<NOM>_USER, _PASSWORD, _KEY_FILE); amb ssh, l\'accés és el del tipus d\'equip o el del mòdul.');
+        }
+        if (Playbook::mentions($code, 'heimdeye_ssh_pubkey_file')) {
+            throw new InvalidArgumentException('heimdeye_ssh_pubkey_file ja no existeix: fes servir la clau pública del secret, {{ <secret>.pubkey }} (per exemple {{ ssh_jaume.pubkey }}).');
+        }
     }
 
     /** @throws InvalidArgumentException */

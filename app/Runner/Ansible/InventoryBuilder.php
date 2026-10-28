@@ -65,13 +65,7 @@ class InventoryBuilder
 
         $children['alumnes'] = ['children' => $studentGroups ?: (object) []];
 
-        $vars = $globals;
-        // Compatibilitat amb el codi d'abans dels secrets: la clau pública de l'accés del mòdul.
-        if ($module->access?->tipus === SecretType::SshKey && ($pubkey = SecretRefs::pubkeyFile($module->access, $this->files))) {
-            $vars['heimdeye_ssh_pubkey_file'] = $pubkey;
-        }
-
-        return ['all' => ['vars' => $vars ?: (object) [], 'children' => $children]];
+        return ['all' => ['vars' => $globals ?: (object) [], 'children' => $children]];
     }
 
     /** @return array<string, ?int> */

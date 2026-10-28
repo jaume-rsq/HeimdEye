@@ -252,13 +252,12 @@ sempre se sap quin codi exacte va córrer.
 
 ### Capçaleres
 
-Les primeres línies de comentari del codi poden declarar on i amb quin accés s'executa,
+Les primeres línies de comentari del codi poden declarar on s'executa,
 amb el format `# clau: valor`. Són comentaris normals, així que l'script es pot provar a mà tal
 com està. Es llegeixen fins a la primera línia de codi; els altres comentaris s'ignoren.
 
 ```bash
 # hosts: pve
-# credencial: ssh_jaume
 out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
 ```
 
@@ -267,16 +266,16 @@ out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
   Si falta, o un grup no existeix, el codi no es pot desar i l'execució dona `error`. A Ansible
   fa aquesta feina el `hosts:` de cada play, amb les mateixes regles. `all`, comodins i
   variables no hi són permesos: cal dir els grups concrets.
-- `# credencial: <nom>`: secret d'usuari i contrasenya o de clau SSH a fer servir d'accés en
-  lloc del per defecte. Accepta també el nom de les antigues credencials (`SSH jaume` és
-  `ssh_jaume`). Si no existeix, `error`. Queda per compatibilitat i desapareixerà: per a
-  l'executor `local`, n'hi ha prou d'esmentar el secret (`$HE_SECRET_API_ZABBIX_PASSWORD`).
+- L'antiga `# credencial: <nom>` ja no existeix i dona `error`. Amb `ssh`, l'accés és el del
+  tipus d'equip o el del mòdul; en `local`, n'hi ha prou d'esmentar el secret
+  (`$HE_SECRET_API_ZABBIX_PASSWORD`, `$HE_SECRET_SSH_ALTRE_KEY_FILE`). La migració del
+  28/10/2026 va reescriure el codi desat que es podia passar sol a aquesta forma.
 
 ### Executors
 
 | Executor | On s'executa | Equips | Accés |
 | --- | --- | --- | --- |
-| `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | El de `# credencial:` o el del mòdul. Una clau SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); un usuari i contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). |
+| `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | El del mòdul. Una clau SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); un usuari i contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). Un altre secret, esmentant-lo (`$HE_SECRET_<NOM>_USER`...). |
 | `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els únics, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | El de `# credencial:`, o el del tipus d'equip, o el del mòdul. Port i usuari de `variables_connexio` (`ansible_port`, `ansible_user`) si n'hi ha. |
 | `ansible` | `ansible-playbook` al servidor, un per alumne, amb l'inventari generat a partir dels tipus d'equip. | Els dels grups del `hosts:` dels plays: l'inventari només porta aquests. | El de cada tipus d'equip (o el del mòdul). |
 
@@ -337,8 +336,8 @@ La nocturna la llança el scheduler (`HEIMDEYE_NIGHTLY_AT`, per defecte 02:00); 
   la cua propi (`RunCheck`), amb la versió vigent quan es posa a la cua: és la que s'executa i
   la que queda registrada. Si el treball falla abans de tenir resultat, queda una execució en
   estat `error` amb el motiu. Executat a mà (sense `--queue`) no hi ha reintents.
-- Clau SSH: la del secret d'accés (vegeu la taula d'executors). Si el secret no en té, `ssh` i
-  `# credencial:` donen `error`; un script `local` no rep `HE_SSH_KEY`.
+- Clau SSH: la del secret d'accés (vegeu la taula d'executors). Si el secret no en té, `ssh` dona
+  `error`; un script `local` no rep `HE_SSH_KEY`.
 - Aïllament: `HEIMDEYE_RUNNER_WRAPPER` embolcalla cada execució, per exemple
   `systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%`.
   Amb `systemd-run` s'hi afegeixen `RuntimeMaxSec` i les variables (`--setenv`). L'usuari del
@@ -408,9 +407,8 @@ La clau privada d'un secret de clau SSH pot ser la clau mateixa o la ruta absolu
 del servidor (`/var/lib/heimdeye/.ssh/id_ed25519`), que ha de poder llegir l'usuari del worker.
 `php artisan heimdeye:import-key ssh_jaume /var/lib/heimdeye/.ssh/id_ed25519` en carrega una (amb
 `--ruta`, només la ruta) i la clau pública del `.pub` o amb `ssh-keygen -y`. El `.env` ja no té
-claus: la migració del 28/10/2026 va passar `HEIMDEYE_SSH_KEY_PATH` (i la seva `.pub`) als
-secrets de clau SSH buits. El codi antic que fa servir `heimdeye_ssh_pubkey_file` rep un fitxer
-amb la clau pública de l'accés del mòdul; el nou fa servir `{{ ssh_jaume.pubkey }}`.
+claus. La clau pública d'un secret és `{{ ssh_jaume.pubkey }}` (l'antic
+`heimdeye_ssh_pubkey_file` ja no existeix).
 
 Els checks `ssh` fan servir aquests mateixos grups amb la capçalera `# hosts:`, i els checks
 també poden ser playbooks (`executor = ansible`).
@@ -433,7 +431,7 @@ també poden ser playbooks (`executor = ansible`).
 - **Variables comunes** (`/admin/variables`): les globals i les de cada curs, agrupades per prefix.
   Un nom només pot sortir una vegada a cada nivell.
 - **Secrets comuns** (`/admin/secrets`): els globals i els de cada curs (claus SSH, usuaris i
-  contrasenyes, valors), amb on fan d'accés (mòduls, tipus d'equip i capçaleres `# credencial:`).
+  contrasenyes, valors), amb on fan d'accés (mòduls i tipus d'equip).
   El valor no es torna a mostrar. Els del mòdul són a la pestanya Secrets d'«Equips i variables».
 - **Equips comuns** (`/admin/equips`): els tipus d'equip globals i de cada curs. Un nom només pot
   sortir una vegada a cada nivell; l'accés es tria entre els secrets globals i els del curs.

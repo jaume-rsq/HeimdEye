@@ -9,16 +9,14 @@ use App\Models\Module;
 use App\Models\Secret;
 use App\Models\Student;
 use App\Runner\Ansible\InventoryBuilder;
-use App\Runner\Ansible\Playbook;
 use App\Support\VariableResolver;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use InvalidArgumentException;
 
 /**
  * Prepara el context d'execució d'un script (check o acció) per a un alumne: variables,
  * paràmetres calculats per a l'alumne, secrets que esmenta, accés i equips de destinació
- * (capçaleres "# credencial:" i "# hosts:", o el "hosts:" dels plays) i, per a Ansible,
+ * (capçalera "# hosts:", o el "hosts:" dels plays) i, per a Ansible,
  * l'inventari amb només aquests equips. Abans comprova el codi amb CodeValidator.
  * Els fitxers temporals que crea s'esborren amb cleanup().
  */
@@ -52,6 +50,7 @@ class ContextBuilder
     ): ExecutionContext {
         $this->mask = [];
         $validator = new CodeValidator;
+        $validator->assertNoLegacyHeaders($code);
         $validator->assertNoLeakedSecrets($module, $executor, $code);
         $types = $validator->hostTypes($module, $executor, $code);
         if ($types !== null && $onlyTypes !== null) {
@@ -61,8 +60,6 @@ class ContextBuilder
             }
         }
 
-        $headers = CodeHeaders::parse($code);
-        $override = $headers->credential === null ? null : $this->accessNamed($module, $headers->credential);
         $vars = $this->resolver->resolve($student, $module);
         $this->assertNoUnresolvedVariables($vars, $code);
         $params = $this->renderParams($params, $vars);
@@ -83,9 +80,9 @@ class ContextBuilder
             $this->mask[] = $secret->tipus === SecretType::SshKey ? '' : (string) $secret->valor;
         }
 
-        // Executor local: l'accés de la capçalera o el del mòdul. Només en local, perquè
-        // l'executor ssh exporta l'entorn a l'equip de l'alumne.
-        $access = $executor === Executor::Local ? ($override ?? $module->access) : null;
+        // Executor local: l'accés del mòdul. Només en local, perquè l'executor ssh exporta
+        // l'entorn a l'equip de l'alumne.
+        $access = $executor === Executor::Local ? $module->access : null;
         $sshUser = $sshKey = null;
         if ($access?->tipus === SecretType::Login) {
             $env['HE_CRED_USER'] = (string) $access->nom_usuari;
@@ -102,15 +99,12 @@ class ContextBuilder
         }
 
         $targets = $executor === Executor::Ssh
-            ? $this->targets($module, $vars, $types, $override)
+            ? $this->targets($module, $vars, $types)
             : [];
 
         $inventory = null;
         $hosts = [];
         if ($executor === Executor::Ansible) {
-            if (Playbook::mentions($code, 'heimdeye_ssh_pubkey_file') && blank($module->access?->clau_publica)) {
-                throw new InvalidArgumentException("El codi fa servir heimdeye_ssh_pubkey_file, però l'accés del mòdul no té clau pública: posa-la al secret, o fes servir {{ <secret>.pubkey }}");
-            }
             foreach ($types ?? [] as $type) {
                 if (! $type->isUnique()) {
                     $this->assertHostResolved($type, $vars);
@@ -226,14 +220,14 @@ class ContextBuilder
      * @param  Collection<int, HostType>  $types
      * @return list<SshTarget>
      */
-    private function targets(Module $module, array $vars, Collection $types, ?Secret $override): array
+    private function targets(Module $module, array $vars, Collection $types): array
     {
-        return $types->map(function (HostType $type) use ($module, $vars, $override) {
+        return $types->map(function (HostType $type) use ($module, $vars) {
             $connection = $type->variables_connexio ?? [];
             if (($connection['ansible_connection'] ?? 'ssh') !== 'ssh') {
                 throw new InvalidArgumentException("L'equip {$type->nom} es connecta per {$connection['ansible_connection']}, no per SSH");
             }
-            $access = $override ?? $type->access ?? $module->access;
+            $access = $type->access ?? $module->access;
             if ($access?->tipus === SecretType::Login) {
                 throw new InvalidArgumentException("L'accés {$access->clau} és d'usuari i contrasenya, no una clau SSH");
             }
@@ -251,22 +245,6 @@ class ContextBuilder
                 port: isset($connection['ansible_port']) ? (int) $connection['ansible_port'] : null,
             );
         })->values()->all();
-    }
-
-    /**
-     * El secret de la capçalera "# credencial:", per la clau o pel nom de l'antiga credencial
-     * ("SSH jaume" és ssh_jaume).
-     */
-    private function accessNamed(Module $module, string $name): Secret
-    {
-        $secrets = $module->visibleSecrets();
-        $secret = $secrets->get($name) ?? $secrets->get(Str::slug($name, '_'))
-            ?? throw new InvalidArgumentException("No existeix el secret {$name} de la capçalera \"# credencial:\"");
-        if (! $secret->tipus->isAccess()) {
-            throw new InvalidArgumentException("El secret {$secret->clau} de la capçalera \"# credencial:\" no és d'usuari i contrasenya ni una clau SSH");
-        }
-
-        return $secret;
     }
 
     /** Fitxer amb la clau privada del secret d'accés. */

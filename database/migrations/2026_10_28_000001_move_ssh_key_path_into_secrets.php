@@ -13,11 +13,12 @@ return new class extends Migration
 {
     public function up(): void
     {
-        $path = config('heimdeye.runner.ssh_key_path');
+        // Ja no és a config/heimdeye.php: es llegeix del .env (els tests la posen a la configuració).
+        $path = config('heimdeye.runner.ssh_key_path') ?? env('HEIMDEYE_SSH_KEY_PATH');
         if (blank($path)) {
             return;
         }
-        $pubkeyPath = config('heimdeye.runner.ssh_pubkey_path');
+        $pubkeyPath = config('heimdeye.runner.ssh_pubkey_path') ?? env('HEIMDEYE_SSH_PUBKEY_PATH', "{$path}.pub");
         $pubkey = $pubkeyPath && is_readable($pubkeyPath) ? trim((string) file_get_contents($pubkeyPath)) : null;
 
         foreach (DB::table('secrets')->where('tipus', 'clau_ssh')->get() as $secret) {
