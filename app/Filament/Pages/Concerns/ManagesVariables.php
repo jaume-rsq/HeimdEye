@@ -162,15 +162,16 @@ trait ManagesVariables
         ];
     }
 
-    /** El valor que rebria l'alumne si la variable tingués aquest valor en aquest nivell. */
-    public function previewValue(string $key, Level $level, mixed $studentId, string $value): string
+    /** El valor que rebria l'alumne si la variable tingués aquest valor en aquest nivell (o com a pròpia: 'propia'). */
+    public function previewValue(string $key, Level|string $level, mixed $studentId, string $value): string
     {
+        $level = $level instanceof Level ? $level->value : $level;
         $student = $this->module ? Student::with('user')->find($studentId) : null;
         if ($student === null) {
             return '—';
         }
         try {
-            $var = app(VariableResolver::class)->detailed($student, $this->module, [$level->value => [$key => $value]])[$key] ?? null;
+            $var = app(VariableResolver::class)->detailed($student, $this->module, [$level => [$key => $value]])[$key] ?? null;
         } catch (Throwable $e) {
             return 'No s\'ha pogut calcular: '.$e->getMessage();
         }
@@ -182,6 +183,6 @@ trait ManagesVariables
         }
         $origins = ['global' => 'global', 'curs' => 'del curs', 'modul' => 'del mòdul', 'alumne' => 'camp de l\'alumne', 'propia' => 'propi de l\'alumne'];
 
-        return $var['valor'].($var['origen'] !== $level->value ? " (mana el valor {$origins[$var['origen']]}, no aquest)" : '');
+        return $var['valor'].($var['origen'] !== $level ? " (mana el valor {$origins[$var['origen']]}, no aquest)" : '');
     }
 }

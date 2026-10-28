@@ -9,7 +9,6 @@ use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
 use App\Models\Module;
-use App\Models\Secret;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\Variable;
@@ -86,23 +85,6 @@ class InventoryPanelTest extends TestCase
             ['Alumne' => ['usuari', 'x'], 'Xarxes' => ['xarxa_aula', 'xarxa_lan'], 'Adreces' => ['ip_pve'], 'Altres' => ['zona']],
             InventoryGrid::groups(['zona', 'xarxa_lan', 'ip_pve', 'x', 'xarxa_aula', 'usuari']),
         );
-    }
-
-    public function test_the_student_sheet_shows_the_ansible_inventory_with_passwords_masked(): void
-    {
-        Secret::where('clau', 'winrm_windows')->sole()->update(['valor' => 'SuperSecret123']);
-
-        Livewire::test(EditStudent::class, ['record' => $this->student->id])
-            ->assertOk()
-            ->assertSee('Variables pròpies')
-            ->assertSee('172.21.0.0/22')
-            ->set('pestanya', 'equips')
-            ->assertSee('ssh_jaume (del mòdul)')
-            ->set('pestanya', 'ansible')
-            ->assertSee('ansible_password')
-            ->assertDontSee('SuperSecret123')
-            ->set('pestanya', 'activitat')
-            ->assertSee('Darreres accions');
     }
 
     public function test_students_can_be_edited_from_the_list(): void

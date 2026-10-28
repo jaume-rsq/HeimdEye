@@ -422,6 +422,10 @@ també poden ser playbooks (`executor = ansible`).
     tipus d'equip per a tots els alumnes), d'un alumne (tots els seus equips) o d'un equip únic, amb
     el mateix inventari que les accions: `ping` als Linux, `win_ping` als Windows (cal la col·lecció
     `ansible.windows`) i, a les API (`httpapi`), només que el port sigui obert. Va per la cua i no desa res.
+    Un clic a un alumne obre el seu **panell lateral**: què rep i d'on surt. Cada variable amb el valor
+    global, del curs, del mòdul i de l'alumne (el que mana en negreta), els equips amb l'accés que fan
+    servir, l'inventari Ansible (contrasenyes emmascarades) i l'activitat. Un clic a la columna Alumne
+    hi afegeix o canvia una excepció (variable pròpia) només per a aquell alumne.
   - **Equips**: una fila per tipus d'equip (pve, router, zbx...) amb el que en defineix cada nivell:
     grup Ansible, nom de host → adreça (plantilles), si és únic i l'accés. Un del mòdul amb el mateix
     nom tapa el del curs o el global. Un clic a una casella l'edita o el crea en aquell nivell (partint
@@ -434,8 +438,8 @@ també poden ser playbooks (`executor = ansible`).
   - **Secrets**: igual, però el valor no es torna a mostrar (un camp buit vol dir que no canvia) i
     es diu on fa d'accés cada secret (mòduls i tipus d'equip). Els visitants de la demo no la veuen.
   Les antigues `/admin/variables`, `/admin/secrets`, `/admin/equips` i `/admin/moduls` porten a aquestes pestanyes.
-- **Alumnes** (`/admin/alumnes`): dades, variables pròpies i l'inventari calculat de cada alumne
-  (variables, equips, inventari Ansible amb les contrasenyes emmascarades i activitat).
+- **Alumnes** (`/admin/alumnes`): dades i variables pròpies de cada alumne; el botó **Inventari**
+  de la fitxa obre el seu panell lateral.
   **Importar llista** (`/admin/alumnes/importar`) carrega la llista de l'aula a un mòdul.
 ### Al panell (menú Administració)
 

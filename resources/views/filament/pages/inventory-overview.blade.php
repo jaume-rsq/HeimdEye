@@ -113,7 +113,7 @@
                             <tr
                                 wire:key="inv-{{ $student->id }}"
                                 x-show="@js($haystack).includes(search.trim().toLowerCase())"
-                                x-on:click="window.location = @js($this->studentUrl($student->id))"
+                                wire:click="mountAction('student', { alumne: {{ $student->id }} })"
                             >
                                 <td class="fix">
                                     <strong>{{ sprintf('%02d', $student->num_taula) }}</strong> · {{ $student->usuari }}

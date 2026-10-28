@@ -54,22 +54,15 @@ class VariableResolver
      * alumne o propia), si amaga el d'una capa inferior i l'error, si n'hi ha.
      *
      * $draft canvia valors desats sense desar-los, per previsualitzar un esborrany:
-     * [nivell => [variable => valor]], on un valor null treu la variable d'aquell nivell.
+     * [nivell => [variable => valor]] (nivell global, curs, modul o propia), on un valor null treu
+     * la variable d'aquell nivell.
      *
      * @param  array<string, array<string, ?string>>  $draft
      * @return array<string, array{valor: string, origen: string, tapa: bool, error: ?string}>
      */
     public function detailed(Student $student, Module $module, array $draft = []): array
     {
-        $fields = array_filter([
-            'usuari' => $student->usuari,
-            'nom_complet' => $student->nom_complet,
-            'num_taula' => $student->num_taula === null ? null : sprintf('%02d', $student->num_taula),
-            'x' => $student->x,
-            'email' => $student->user?->email,
-        ], fn ($value) => $value !== null);
-
-        $layers = $this->layers($module);
+        $layers = $this->studentLayers($student, $module);
         foreach ($draft as $level => $vars) {
             foreach ($vars as $key => $value) {
                 if ($value === null) {
@@ -80,11 +73,43 @@ class VariableResolver
             }
         }
 
-        return $this->compute([
-            ...$layers,
+        return $this->compute($layers);
+    }
+
+    /**
+     * El valor sense calcular que dona cada capa a cada variable, per ensenyar la cadena de nivells:
+     * [variable => [global|curs|modul|alumne|propia => valor]].
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function chain(Student $student, Module $module): array
+    {
+        $chain = [];
+        foreach ($this->studentLayers($student, $module) as $origin => $vars) {
+            foreach ($vars as $key => $value) {
+                $chain[$key][$origin] = (string) $value;
+            }
+        }
+
+        return $chain;
+    }
+
+    /** Les capes d'un alumne, de la més general a la més concreta. */
+    private function studentLayers(Student $student, Module $module): array
+    {
+        $fields = array_filter([
+            'usuari' => $student->usuari,
+            'nom_complet' => $student->nom_complet,
+            'num_taula' => $student->num_taula === null ? null : sprintf('%02d', $student->num_taula),
+            'x' => $student->x,
+            'email' => $student->user?->email,
+        ], fn ($value) => $value !== null);
+
+        return [
+            ...$this->layers($module),
             'alumne' => $fields,
             'propia' => $student->variables ?? [],
-        ]);
+        ];
     }
 
     /** @return array{global: array<string, string>, curs: array<string, string>, modul: array<string, string>} */

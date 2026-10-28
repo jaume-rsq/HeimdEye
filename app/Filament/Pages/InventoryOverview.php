@@ -5,8 +5,8 @@ namespace App\Filament\Pages;
 use App\Filament\Pages\Concerns\ManagesHostTypes;
 use App\Filament\Pages\Concerns\ManagesLevels;
 use App\Filament\Pages\Concerns\ManagesSecrets;
+use App\Filament\Pages\Concerns\ManagesStudentPanel;
 use App\Filament\Pages\Concerns\ManagesVariables;
-use App\Filament\Resources\Students\StudentResource;
 use App\Jobs\TestConnection;
 use App\Models\AcademicYear;
 use App\Models\HostType;
@@ -29,7 +29,8 @@ use UnitEnum;
 /**
  * Inventari d'un mòdul en una sola pantalla, amb pestanyes:
  * - Alumnes: alumnes × equips (nom i adreça calculats) o alumnes × variables (amb l'origen de
- *   cada valor), amb els problemes marcats i la prova de connexió;
+ *   cada valor), amb els problemes marcats i la prova de connexió; un clic a un alumne obre el
+ *   seu panell lateral (què rep i d'on surt);
  * - Equips, Variables i Secrets: tot el que veu el mòdul (global, del curs i del mòdul), editable al seu nivell.
  * Sense mòdul triat (modul = 0) només hi ha els comuns: globals i del curs actual.
  */
@@ -38,6 +39,7 @@ class InventoryOverview extends Page
     use ManagesHostTypes;
     use ManagesLevels;
     use ManagesSecrets;
+    use ManagesStudentPanel;
     use ManagesVariables;
 
     protected static ?string $slug = 'inventari';
@@ -67,6 +69,10 @@ class InventoryOverview extends Page
     #[Url]
     public bool $problemes = false;
 
+    /** Alumne amb el panell lateral obert en entrar (enllaç des de la fitxa). */
+    #[Url]
+    public ?int $alumne = null;
+
     /** @var array<string, array{estat: string, missatge: string}> resultat de les proves de connexió, per equip */
     public array $connexio = [];
 
@@ -79,6 +85,11 @@ class InventoryOverview extends Page
         if ($this->pestanya === 'secrets' && ! $this->canSeeSecrets()) {
             $this->pestanya = 'variables';
         }
+        if ($this->alumne && $this->module?->students()->whereKey($this->alumne)->exists()) {
+            $this->defaultAction = 'student';
+            $this->defaultActionArguments = ['alumne' => $this->alumne];
+        }
+        $this->alumne = null;
     }
 
     public function updatedModul(): void
@@ -193,10 +204,5 @@ class InventoryOverview extends Page
                 default => 'No s\'ha pogut provar',
             },
         ];
-    }
-
-    public function studentUrl(int $id): string
-    {
-        return StudentResource::getUrl('edit', ['record' => $id, 'modul' => $this->modul]);
     }
 }
