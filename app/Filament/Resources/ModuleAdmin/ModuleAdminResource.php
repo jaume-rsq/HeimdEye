@@ -4,10 +4,10 @@ namespace App\Filament\Resources\ModuleAdmin;
 
 use App\Enums\ModuleKind;
 use App\Enums\Role;
+use App\Filament\Pages\InventoryOverview;
 use App\Filament\Resources\ModuleAdmin\Pages\CreateModule;
 use App\Filament\Resources\ModuleAdmin\Pages\EditModule;
 use App\Filament\Resources\ModuleAdmin\Pages\ListModuleAdmin;
-use App\Filament\Resources\Modules\ModuleResource;
 use App\Models\Block;
 use App\Models\Check;
 use App\Models\Module;
@@ -36,7 +36,7 @@ use UnitEnum;
 
 /**
  * Mòduls amb els seus blocs i tasques. Els equips i les variables del mòdul es configuren a
- * Inventari → Equips i variables. No es pot esborrar res que tingui checks a dins (s'endurien
+ * Inventari → Equips. No es pot esborrar res que tingui checks a dins (s'endurien
  * els resultats dels alumnes), ni un mòdul amb alumnes o accions.
  */
 class ModuleAdminResource extends Resource
@@ -164,9 +164,9 @@ class ModuleAdminResource extends Resource
             ->recordActions([
                 EditAction::make(),
                 Action::make('inventari')
-                    ->label('Equips i variables')
+                    ->label('Inventari')
                     ->icon(Heroicon::OutlinedServerStack)
-                    ->url(fn (Module $record) => ModuleResource::getUrl('edit', ['record' => $record])),
+                    ->url(fn (Module $record) => InventoryOverview::getUrl(['modul' => $record->id, 'pestanya' => 'equips'])),
                 self::deleteAction(),
             ]);
     }

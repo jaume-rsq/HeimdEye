@@ -2,18 +2,22 @@
 
 namespace Tests\Feature;
 
+use App\Enums\Level;
 use App\Enums\Role;
-use App\Filament\Student\Pages\MyProgress;
-use App\Models\Check;
+use App\Filament\Pages\InventoryOverview;
+use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Models\Module;
+use App\Models\Secret;
 use App\Models\Student;
 use App\Models\User;
-use Filament\Facades\Filament;
+use App\Models\Variable;
+use App\Support\Demo;
+use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-/** Panell dels alumnes: cadascú veu només el seu seguiment i no pot canviar res. */
+/** Panell lateral d'un alumne a l'Inventari: què rep, d'on surt i les seves excepcions. */
 class StudentPanelTest extends TestCase
 {
     use RefreshDatabase;
@@ -24,65 +28,109 @@ class StudentPanelTest extends TestCase
 
     private Student $student;
 
-    private Student $other;
-
-    private User $user;
-
     protected function setUp(): void
     {
         parent::setUp();
 
         $this->module = Module::where('codi', '9991')->firstOrFail();
-        [$this->student, $this->other] = $this->module->students()->orderBy('num_taula')->take(2)->get()->all();
-        $this->user = User::create(['nom' => $this->student->nom_complet, 'email' => 'alumne1@example.com', 'password' => 'secret', 'rol' => Role::Student, 'es_actiu' => true]);
-        $this->student->update(['usuari_id' => $this->user->id]);
-        Filament::setCurrentPanel(Filament::getPanel('alumne'));
+        $this->student = $this->module->students()->orderBy('num_taula')->firstOrFail();
+        $this->actingAs(User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]));
     }
 
-    public function test_a_student_sees_only_their_own_progress(): void
+    private function page(array $query = [])
     {
-        $this->actingAs($this->user)->get('/alumne')->assertRedirect(MyProgress::getUrl());
-        $this->get(MyProgress::getUrl())
+        return Livewire::test(InventoryOverview::class, ['modul' => $this->module->id, ...$query]);
+    }
+
+    /** Editar una variable pròpia s'obre des del panell de l'alumne. */
+    private function editOwn(?string $key = null): array
+    {
+        return [
+            TestAction::make('student')->arguments(['alumne' => $this->student->id]),
+            TestAction::make('editStudentVariable')->arguments(array_filter(['alumne' => $this->student->id, 'clau' => $key])),
+        ];
+    }
+
+    public function test_the_panel_shows_each_value_with_its_chain_of_levels(): void
+    {
+        Variable::create(['nivell' => Level::Global, 'clau' => 'xarxa_lan', 'valor' => '10.0.0.0/8']);
+        $this->student->update(['variables' => ['ip_router' => '198.51.100.99']]);
+
+        $panel = $this->page()->mountAction('student', ['alumne' => $this->student->id])->assertActionMounted('student')
+            ->instance()->studentPanel($this->student->id);
+
+        $this->assertSame(['global' => '10.0.0.0/8', 'modul' => '172.{{x}}.0.0/22'], $panel['chain']['xarxa_lan']);
+        $this->assertSame('172.21.0.0/22', $panel['vars']['xarxa_lan']['valor']);
+        $this->assertSame('198.51.100.99', $panel['chain']['ip_router']['propia']);
+        $this->assertSame('propia', $panel['vars']['ip_router']['origen']);
+        $this->assertSame('ssh_jaume', $panel['access']->clau);
+        $this->assertContains('pve', $panel['hosts']->map(fn ($h) => $h['tipus']->nom)->all());
+    }
+
+    public function test_the_ansible_inventory_masks_passwords(): void
+    {
+        Secret::where('clau', 'winrm_windows')->sole()->update(['valor' => 'SuperSecret123']);
+
+        $ansible = $this->page()->instance()->studentPanel($this->student->id)['ansible'];
+
+        $this->assertStringContainsString('ansible_password', $ansible);
+        $this->assertStringNotContainsString('SuperSecret123', $ansible);
+    }
+
+    public function test_a_student_of_another_module_has_no_panel(): void
+    {
+        $other = Student::whereDoesntHave('modules', fn ($q) => $q->whereKey($this->module->id))->first()
+            ?? Student::create(['usuari' => 'fora', 'nom_complet' => 'Fora', 'curs_id' => $this->module->curs_id, 'cicle_id' => $this->student->cicle_id]);
+
+        $this->assertNull($this->page()->instance()->studentPanel($other->id));
+    }
+
+    public function test_an_exception_for_one_student_is_added_changed_and_removed_from_the_panel(): void
+    {
+        // El panell no té formulari: els errors es miren directament.
+        $this->page()->callAction($this->editOwn(), ['clau' => 'ip_pve', 'valor' => '{{ xarxa_aula | host(9) }}'])->assertHasNoErrors();
+        $this->assertSame('{{ xarxa_aula | host(9) }}', $this->student->fresh()->variables['ip_pve']);
+
+        $this->page()->callAction($this->editOwn(), ['clau' => 'ip_pve', 'valor' => 'x'])->assertHasErrors(['mountedActions.1.data.clau']);
+
+        $this->page()->callAction($this->editOwn('ip_pve'), ['valor' => '198.51.100.7'])->assertHasNoErrors();
+        $this->assertSame('198.51.100.7', $this->student->fresh()->variables['ip_pve']);
+
+        $this->page()->callAction([...$this->editOwn('ip_pve'), TestAction::make('deleteStudentVariable')]);
+        $this->assertArrayNotHasKey('ip_pve', $this->student->fresh()->variables ?? []);
+    }
+
+    public function test_the_edit_previews_the_value_the_student_would_get(): void
+    {
+        $page = $this->page()->instance();
+
+        $this->assertSame('198.51.100.9', $page->previewValue('ip_pve', 'propia', $this->student->id, '198.51.100.9'));
+        $this->assertSame('{{ip_pve}}', $this->module->hostTypes()->where('nom', 'pve')->value('adreca'));
+        $this->assertArrayNotHasKey('ip_pve', $this->student->fresh()->variables ?? []);
+    }
+
+    public function test_the_student_sheet_links_to_its_panel(): void
+    {
+        Livewire::test(EditStudent::class, ['record' => $this->student->id])
             ->assertOk()
-            ->assertSee('El meu seguiment')
-            ->assertSee($this->student->nom_complet)
-            ->assertDontSee($this->other->nom_complet)
-            ->assertDontSee('Verificar')
-            ->assertDontSee('Corregir');
+            ->assertSee('Variables pròpies')
+            ->assertActionHasUrl('conjunt', InventoryOverview::getUrl(['modul' => $this->module->id, 'alumne' => $this->student->id]));
+
+        $this->page(['alumne' => $this->student->id])
+            ->call('mountDefaultActions')
+            ->assertSet('mountedActions.0.name', 'student')
+            ->assertSet('mountedActions.0.arguments', ['alumne' => $this->student->id])
+            ->assertSet('alumne', null);
     }
 
-    public function test_the_url_or_the_component_cannot_switch_to_another_student(): void
+    public function test_demo_visitors_see_the_panel_but_cannot_add_exceptions(): void
     {
-        $this->actingAs($this->user);
+        config(['heimdeye.demo.enabled' => true]);
+        $visitor = Demo::createVisitor();
 
-        Livewire::withQueryParams(['alumne' => $this->other->id])
-            ->test(MyProgress::class)
-            ->assertSet('alumne', $this->student->id)
-            ->set('alumne', $this->other->id)
-            ->assertForbidden();
-    }
-
-    public function test_a_student_cannot_verify_or_correct(): void
-    {
-        $check = Check::whereIn('tasca_id', $this->module->tasks()->select('tasques.id'))->firstOrFail();
-        $this->actingAs($this->user);
-
-        Livewire::test(MyProgress::class)->call('verify', $check->id)->assertForbidden();
-        Livewire::test(MyProgress::class)->assertActionHidden('correct');
-        Livewire::test(MyProgress::class)
-            ->mountAction('info', ['check' => $check->id])
-            ->assertMountedActionModalSee('Codi del check amb les teves dades');
-    }
-
-    public function test_students_who_open_the_teachers_panel_go_to_theirs(): void
-    {
-        $this->actingAs($this->user)->get('/admin')->assertRedirect('/alumne');
-    }
-
-    public function test_teachers_cannot_enter_the_student_panel(): void
-    {
-        $teacher = User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]);
-
-        $this->actingAs($teacher)->get(MyProgress::getUrl())->assertForbidden();
+        Livewire::actingAs($visitor)->test(InventoryOverview::class, ['modul' => $this->module->id])
+            ->assertActionVisible('student', ['alumne' => $this->student->id])
+            ->assertActionHidden($this->editOwn());
+        $this->assertNotNull(Livewire::actingAs($visitor)->test(InventoryOverview::class, ['modul' => $this->module->id])->instance()->studentPanel($this->student->id));
     }
 }

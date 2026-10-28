@@ -35,6 +35,12 @@
         @keyframes he-pulse { 50% { opacity: .3; } }
         .he-inv .he-try { font-size: .6rem; line-height: 1; padding: .2rem .3rem; border-radius: .3rem; border: 1px solid rgba(128,128,128,.3); opacity: .55; cursor: pointer; }
         .he-inv .he-try:hover { opacity: 1; background: rgba(245,158,11,.18); }
+        .he-inv .he-levels tbody tr { cursor: default; }
+        .he-inv .he-levels td.he-cell { min-width: 10rem; }
+        .he-inv .he-click { cursor: pointer; }
+        .he-inv .he-click:hover { outline: 1px solid rgba(245,158,11,.6); outline-offset: -1px; }
+        .he-inv .he-win { font-weight: 700; }
+        .he-inv .he-hidden { text-decoration: line-through; opacity: .55; }
         .he-inv .he-msg { font-size: .7rem; max-width: 16rem; white-space: normal; }
     </style>
 @endonce

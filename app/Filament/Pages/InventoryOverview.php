@@ -2,7 +2,11 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Resources\Students\StudentResource;
+use App\Filament\Pages\Concerns\ManagesHostTypes;
+use App\Filament\Pages\Concerns\ManagesLevels;
+use App\Filament\Pages\Concerns\ManagesSecrets;
+use App\Filament\Pages\Concerns\ManagesStudentPanel;
+use App\Filament\Pages\Concerns\ManagesVariables;
 use App\Jobs\TestConnection;
 use App\Models\AcademicYear;
 use App\Models\HostType;
@@ -23,14 +27,24 @@ use Throwable;
 use UnitEnum;
 
 /**
- * Inventari d'un mòdul d'un cop d'ull: alumnes × equips (nom i adreça calculats)
- * o alumnes × variables (amb l'origen de cada valor), amb els problemes marcats.
+ * Inventari d'un mòdul en una sola pantalla, amb pestanyes:
+ * - Alumnes: alumnes × equips (nom i adreça calculats) o alumnes × variables (amb l'origen de
+ *   cada valor), amb els problemes marcats i la prova de connexió; un clic a un alumne obre el
+ *   seu panell lateral (què rep i d'on surt);
+ * - Equips, Variables i Secrets: tot el que veu el mòdul (global, del curs i del mòdul), editable al seu nivell.
+ * Sense mòdul triat (modul = 0) només hi ha els comuns: globals i del curs actual.
  */
 class InventoryOverview extends Page
 {
+    use ManagesHostTypes;
+    use ManagesLevels;
+    use ManagesSecrets;
+    use ManagesStudentPanel;
+    use ManagesVariables;
+
     protected static ?string $slug = 'inventari';
 
-    protected static ?string $title = 'Vista de conjunt';
+    protected static ?string $title = 'Inventari';
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedSquares2x2;
 
@@ -45,11 +59,19 @@ class InventoryOverview extends Page
     #[Url]
     public ?int $modul = null;
 
+    /** alumnes, equips, variables o secrets */
+    #[Url]
+    public string $pestanya = 'alumnes';
+
     #[Url]
     public string $vista = 'equips';
 
     #[Url]
     public bool $problemes = false;
+
+    /** Alumne amb el panell lateral obert en entrar (enllaç des de la fitxa). */
+    #[Url]
+    public ?int $alumne = null;
 
     /** @var array<string, array{estat: string, missatge: string}> resultat de les proves de connexió, per equip */
     public array $connexio = [];
@@ -60,12 +82,21 @@ class InventoryOverview extends Page
     public function mount(): void
     {
         $this->modul ??= $this->modules()->keys()->first();
+        if ($this->pestanya === 'secrets' && ! $this->canSeeSecrets()) {
+            $this->pestanya = 'variables';
+        }
+        if ($this->alumne && $this->module?->students()->whereKey($this->alumne)->exists()) {
+            $this->defaultAction = 'student';
+            $this->defaultActionArguments = ['alumne' => $this->alumne];
+        }
+        $this->alumne = null;
     }
 
     public function updatedModul(): void
     {
         $this->connexio = [];
         $this->provesPendents = [];
+        unset($this->module, $this->course, $this->grid);
     }
 
     /** Mòduls del curs actual (o de tots, si no n'hi ha cap marcat com a actual). */
@@ -84,9 +115,7 @@ class InventoryOverview extends Page
     #[Computed]
     public function grid(): ?array
     {
-        $module = $this->modul ? Module::find($this->modul) : null;
-
-        return $module ? app(InventoryGrid::class)->build($module) : null;
+        return $this->module ? app(InventoryGrid::class)->build($this->module) : null;
     }
 
     /**
@@ -175,10 +204,5 @@ class InventoryOverview extends Page
                 default => 'No s\'ha pogut provar',
             },
         ];
-    }
-
-    public function studentUrl(int $id): string
-    {
-        return StudentResource::getUrl('edit', ['record' => $id, 'modul' => $this->modul]);
     }
 }

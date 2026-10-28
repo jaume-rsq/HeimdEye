@@ -170,13 +170,18 @@ se'n genera: `php artisan heimdeye:tutorial` (amb el tutorial a la BBDD).
 ## Variables
 
 Totes les variables són a la taula `variables`, amb un nivell (`nivell`): `global`, `curs`
-(`curs_id`) o `modul` (`modul_id`). El valor pot ser una plantilla que en fa servir d'altres:
+(`curs_id`), `modul` (`modul_id`), `alumne` (`alumne_id`, les variables pròpies d'un alumne) o
+`equip` (`tipus_equip_id`, les variables Ansible d'un tipus d'equip, com un `group_vars`). El valor pot ser una plantilla que en fa servir d'altres:
 `{{x}}`, `{{ xarxa_aula | host(3) }}` (tercera adreça útil), `{{ xarxa_aula | host(-1) }}`
 (darrera), `{{ ip_pve | octet(4) }}`.
 
 Prioritat, de menys a més: global, curs, mòdul, camps de l'alumne (`usuari`, `nom_complet`,
-`num_taula`, `x`, `email`) i variables pròpies de l'alumne (`alumnes.variables`). Una variable
+`num_taula`, `x`, `email`) i variables pròpies de l'alumne (nivell `alumne`). Una variable
 pròpia amb el mateix nom que una de mòdul és la manera de fer una excepció per a un alumne.
+
+Les variables d'un tipus d'equip (`ansible_connection`, `ansible_port`...) no entren en aquesta
+cadena: van a l'inventari Ansible de cada equip d'aquell tipus. Es desen com a text i, en generar
+l'inventari, `true` i `false` passen a booleans i els enters (sense zeros al davant) a números.
 
 Els noms segueixen un prefix segons el tipus:
 
@@ -276,7 +281,7 @@ out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
 | Executor | On s'executa | Equips | Accés |
 | --- | --- | --- | --- |
 | `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | El del mòdul. Una clau SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); un usuari i contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). Un altre secret, esmentant-lo (`$HE_SECRET_<NOM>_USER`...). |
-| `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els únics, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | El de `# credencial:`, o el del tipus d'equip, o el del mòdul. Port i usuari de `variables_connexio` (`ansible_port`, `ansible_user`) si n'hi ha. |
+| `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els únics, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | El del tipus d'equip, o el del mòdul. Port i usuari de les variables de l'equip (`ansible_port`, `ansible_user`) si n'hi ha. |
 | `ansible` | `ansible-playbook` al servidor, un per alumne, amb l'inventari generat a partir dels tipus d'equip. | Els dels grups del `hosts:` dels plays: l'inventari només porta aquests. | El de cada tipus d'equip (o el del mòdul). |
 
 Amb `ssh` i diversos equips, el resultat és `pass` només si passa a tots; si no, és el del
@@ -415,27 +420,32 @@ també poden ser playbooks (`executor = ansible`).
 
 ### Al panell (menú Inventari)
 
-- **Vista de conjunt** (`/admin/inventari`): alumnes × equips o alumnes × variables d'un mòdul,
-  amb l'origen de cada valor i les plantilles que no es poden calcular en vermell.
-  El botó ▶ prova la connexió d'un equip, d'una columna (un tipus d'equip per a tots els alumnes),
-  d'un alumne (tots els seus equips) o d'un equip únic, amb el mateix inventari que les accions:
-  `ping` als Linux, `win_ping` als Windows (cal la col·lecció `ansible.windows`) i, a les API
-  (`httpapi`), només que el port sigui obert. Va per la cua i no desa res.
-- **Alumnes** (`/admin/alumnes`): dades, variables pròpies i l'inventari calculat de cada alumne
-  (variables, equips, inventari Ansible amb les contrasenyes emmascarades i activitat).
+- **Inventari** (`/admin/inventari`): una sola pantalla amb un selector de mòdul (o «Només comuns»,
+  per als globals i els del curs actual) i pestanyes:
+  - **Alumnes**: alumnes × equips o alumnes × variables, amb l'origen de cada valor i les plantilles
+    que no es poden calcular en vermell. El botó ▶ prova la connexió d'un equip, d'una columna (un
+    tipus d'equip per a tots els alumnes), d'un alumne (tots els seus equips) o d'un equip únic, amb
+    el mateix inventari que les accions: `ping` als Linux, `win_ping` als Windows (cal la col·lecció
+    `ansible.windows`) i, a les API (`httpapi`), només que el port sigui obert. Va per la cua i no desa res.
+    Un clic a un alumne obre el seu **panell lateral**: què rep i d'on surt. Cada variable amb el valor
+    global, del curs, del mòdul i de l'alumne (el que mana en negreta), els equips amb l'accés que fan
+    servir, l'inventari Ansible (contrasenyes emmascarades) i l'activitat. Un clic a la columna Alumne
+    hi afegeix o canvia una excepció (variable pròpia) només per a aquell alumne.
+  - **Equips**: una fila per tipus d'equip (pve, router, zbx...) amb el que en defineix cada nivell:
+    grup Ansible, nom de host → adreça (plantilles), si és únic i l'accés. Un del mòdul amb el mateix
+    nom tapa el del curs o el global. Un clic a una casella l'edita o el crea en aquell nivell (partint
+    del que mana ara), amb el nom i l'adreça calculats per a un alumne abans de desar. El botó
+    **Accés per defecte** tria el secret que fan servir els equips sense accés propi i els scripts locals.
+  - **Variables**: una fila per variable amb el valor global, el del curs i el del mòdul; en negreta
+    el que mana. Un clic a una casella l'edita (o la crea) en aquell nivell, amb una previsualització
+    per a un alumne; en desar, avisa si alguna plantilla deixa de calcular-se. Un nom només pot sortir
+    una vegada a cada nivell.
+  - **Secrets**: igual, però el valor no es torna a mostrar (un camp buit vol dir que no canvia) i
+    es diu on fa d'accés cada secret (mòduls i tipus d'equip). Els visitants de la demo no la veuen.
+  Les antigues `/admin/variables`, `/admin/secrets`, `/admin/equips` i `/admin/moduls` porten a aquestes pestanyes.
+- **Alumnes** (`/admin/alumnes`): dades i variables pròpies de cada alumne; el botó **Inventari**
+  de la fitxa obre el seu panell lateral.
   **Importar llista** (`/admin/alumnes/importar`) carrega la llista de l'aula a un mòdul.
-- **Equips i variables** (`/admin/moduls`): tipus d'equip, variables i secrets de cada mòdul.
-  La previsualització calcula, per a l'alumne triat, el que hi ha al formulari sense desar-ho.
-  En desar, si alguna plantilla no es pot calcular per a algun alumne, ho avisa. Els secrets
-  no es tornen a mostrar: un camp buit vol dir que no canvia.
-- **Variables comunes** (`/admin/variables`): les globals i les de cada curs, agrupades per prefix.
-  Un nom només pot sortir una vegada a cada nivell.
-- **Secrets comuns** (`/admin/secrets`): els globals i els de cada curs (claus SSH, usuaris i
-  contrasenyes, valors), amb on fan d'accés (mòduls i tipus d'equip).
-  El valor no es torna a mostrar. Els del mòdul són a la pestanya Secrets d'«Equips i variables».
-- **Equips comuns** (`/admin/equips`): els tipus d'equip globals i de cada curs. Un nom només pot
-  sortir una vegada a cada nivell; l'accés es tria entre els secrets globals i els del curs.
-
 ### Al panell (menú Administració)
 
 - **Usuaris i rols** (`/admin/usuaris`, només administradors): administrador (tot, inclosos els

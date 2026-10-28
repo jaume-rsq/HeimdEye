@@ -5,12 +5,10 @@ namespace Tests\Feature;
 use App\Enums\Level;
 use App\Enums\Role;
 use App\Filament\Pages\InventoryOverview;
-use App\Filament\Resources\Modules\ModuleResource;
 use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
 use App\Models\Module;
-use App\Models\Secret;
 use App\Models\Student;
 use App\Models\User;
 use App\Models\Variable;
@@ -89,35 +87,22 @@ class InventoryPanelTest extends TestCase
         );
     }
 
-    public function test_the_student_sheet_shows_the_ansible_inventory_with_passwords_masked(): void
-    {
-        Secret::where('clau', 'winrm_windows')->sole()->update(['valor' => 'SuperSecret123']);
-
-        Livewire::test(EditStudent::class, ['record' => $this->student->id])
-            ->assertOk()
-            ->assertSee('Variables pròpies')
-            ->assertSee('172.21.0.0/22')
-            ->set('pestanya', 'equips')
-            ->assertSee('ssh_jaume (del mòdul)')
-            ->set('pestanya', 'ansible')
-            ->assertSee('ansible_password')
-            ->assertDontSee('SuperSecret123')
-            ->set('pestanya', 'activitat')
-            ->assertSee('Darreres accions');
-    }
-
     public function test_students_can_be_edited_from_the_list(): void
     {
         $this->get('/admin/alumnes')->assertOk()->assertSee($this->student->usuari);
 
+        $own = $this->student->variables;
+        $this->assertNotEmpty($own);
         Livewire::test(EditStudent::class, ['record' => $this->student->id])
+            ->assertSchemaStateSet(['variables' => $own])
             ->fillForm(['alies' => 'Fènix', 'num_taula' => 0, 'x' => 0, 'variables' => ['ip_router' => '198.51.100.99']])
             ->call('save')
             ->assertHasNoFormErrors();
 
         $this->assertSame('Fènix', $this->student->fresh()->alies);
         $this->assertSame(0, $this->student->fresh()->num_taula, 'la taula 0 és vàlida');
-        $this->assertSame('198.51.100.99', $this->student->fresh()->variables['ip_router']);
+        $this->assertSame(['ip_router' => '198.51.100.99'], $this->student->fresh()->variables);
+        $this->assertSame(1, Variable::where('alumne_id', $this->student->id)->count());
     }
 
     public function test_students_can_be_filtered_by_module(): void
@@ -127,13 +112,6 @@ class InventoryPanelTest extends TestCase
         Livewire::test(ListStudents::class)
             ->filterTable('modul', $module->id)
             ->assertCanSeeTableRecords([$this->student]);
-    }
-
-    public function test_the_menu_opens_the_only_module_of_the_current_year(): void
-    {
-        $module = Module::where('codi', '9991')->sole();
-
-        $this->get(ModuleResource::getUrl())->assertRedirect(ModuleResource::getUrl('edit', ['record' => $module]));
     }
 
     public function test_a_new_student_sheet_can_be_linked_to_a_user_so_it_can_enter_its_panel(): void

@@ -71,7 +71,7 @@ class Module extends Model
      */
     public function visibleHostTypes(): Collection
     {
-        return HostType::query()->visibleFrom($this)->with(['access'])->get()
+        return HostType::query()->visibleFrom($this)->with(['access', 'ownVariables'])->get()
             ->sortBy(fn (HostType $type) => $type->nivell->rank())
             ->keyBy('nom')
             ->sortBy([['posicio', 'asc'], ['id', 'asc']])

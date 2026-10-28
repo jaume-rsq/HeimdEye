@@ -4,9 +4,9 @@ namespace App\Filament\Resources\Secrets\Schemas;
 
 use App\Enums\Level;
 use App\Enums\SecretType;
-use App\Filament\Resources\Modules\Schemas\ModuleInventoryForm;
 use App\Models\Module;
 use App\Models\Secret;
+use App\Models\Variable;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -16,7 +16,7 @@ use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
 
 /**
- * Camps d'un secret, comuns a Secrets comuns i a la pestanya Secrets del mòdul. El valor
+ * Camps d'un secret (Inventari → Secrets). El valor
  * (contrasenya o clau privada) es desa xifrat i no es torna a mostrar.
  */
 class SecretFields
@@ -28,7 +28,7 @@ class SecretFields
             TextInput::make('clau')
                 ->label('Nom')
                 ->required()
-                ->regex(ModuleInventoryForm::KEY_RULE)
+                ->regex(Variable::KEY_RULE)
                 ->helperText('Minúscules: jaume, ssh_jaume, api_zabbix. Si el reanomenes, el codi que l\'esmenta deixarà de trobar-lo.'),
             Select::make('tipus')
                 ->options(collect(SecretType::cases())->mapWithKeys(fn (SecretType $t) => [$t->value => $t->label()]))
@@ -62,6 +62,17 @@ class SecretFields
                 ->columnSpanFull(),
             TextInput::make('descripcio')->label('Descripció')->columnSpanFull(),
         ];
+    }
+
+    /** On fa d'accés: mòduls i tipus d'equip. */
+    public static function usage(Secret $record): ?string
+    {
+        $parts = array_filter([
+            ($n = $record->modules_count ?? $record->modules()->count()) ? ($n === 1 ? '1 mòdul' : "{$n} mòduls") : null,
+            ($n = $record->host_types_count ?? $record->hostTypes()->count()) ? "{$n} tipus d'equip" : null,
+        ]);
+
+        return $parts === [] ? null : implode(', ', $parts);
     }
 
     public static function help(): View

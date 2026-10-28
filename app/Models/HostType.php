@@ -3,7 +3,9 @@
 namespace App\Models;
 
 use App\Enums\Level;
+use App\Models\Concerns\HasOwnVariables;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -13,6 +15,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  */
 class HostType extends Model
 {
+    use HasOwnVariables;
+
     protected $table = 'tipus_equip';
 
     protected $fillable = [
@@ -30,8 +34,33 @@ class HostType extends Model
         return [
             'nivell' => Level::class,
             'es_unic' => 'boolean',
-            'variables_connexio' => 'array',
         ];
+    }
+
+    /**
+     * Variables Ansible de l'equip (ansible_connection, ansible_port...): [clau => valor].
+     * Poden ser plantilles; es desen com a text.
+     */
+    protected function variablesConnexio(): Attribute
+    {
+        return Attribute::make(
+            get: fn () => $this->ownVariableValues(),
+            set: function (?array $values) {
+                $this->setOwnVariableValues($values);
+
+                return [];
+            },
+        );
+    }
+
+    protected function ownVariablesLevel(): Level
+    {
+        return Level::HostType;
+    }
+
+    protected function ownVariablesKey(): string
+    {
+        return 'tipus_equip_id';
     }
 
     public function module(): BelongsTo

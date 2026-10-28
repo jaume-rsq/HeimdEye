@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\HostTypes\Schemas;
 
-use App\Filament\Resources\Modules\Schemas\ModuleInventoryForm;
+use App\Models\Variable;
 use Closure;
 use Filament\Forms\Components\Field;
 use Filament\Forms\Components\KeyValue;
@@ -11,7 +11,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 
 /**
- * Camps d'un tipus d'equip, comuns a Equips comuns i a la pestanya del mòdul.
+ * Camps d'un tipus d'equip, de la pestanya Equips de l'Inventari.
  */
 class HostTypeFields
 {
@@ -23,7 +23,7 @@ class HostTypeFields
     {
         return [
             TextInput::make('nom')->required()->live(onBlur: true)->helperText('pve, router, dns...'),
-            TextInput::make('grup_ansible')->label('Grup Ansible')->required()->regex(ModuleInventoryForm::KEY_RULE),
+            TextInput::make('grup_ansible')->label('Grup Ansible')->required()->regex(Variable::KEY_RULE),
             Toggle::make('es_unic')
                 ->label('Equip únic')
                 ->helperText('Un sol equip per a tothom (p. ex. el servidor Zabbix). Si no, un per alumne.')

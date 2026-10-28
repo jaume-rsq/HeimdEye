@@ -53,12 +53,49 @@ class VariableResolver
      * Les mateixes variables que resolve(), amb d'on surt cada valor (global, curs, modul,
      * alumne o propia), si amaga el d'una capa inferior i l'error, si n'hi ha.
      *
-     * $moduleVars substitueix les variables del mòdul desades (per previsualitzar un esborrany).
+     * $draft canvia valors desats sense desar-los, per previsualitzar un esborrany:
+     * [nivell => [variable => valor]] (nivell global, curs, modul o propia), on un valor null treu
+     * la variable d'aquell nivell.
      *
-     * @param  array<string, string>|null  $moduleVars
+     * @param  array<string, array<string, ?string>>  $draft
      * @return array<string, array{valor: string, origen: string, tapa: bool, error: ?string}>
      */
-    public function detailed(Student $student, Module $module, ?array $moduleVars = null): array
+    public function detailed(Student $student, Module $module, array $draft = []): array
+    {
+        $layers = $this->studentLayers($student, $module);
+        foreach ($draft as $level => $vars) {
+            foreach ($vars as $key => $value) {
+                if ($value === null) {
+                    unset($layers[$level][$key]);
+                } else {
+                    $layers[$level][$key] = $value;
+                }
+            }
+        }
+
+        return $this->compute($layers);
+    }
+
+    /**
+     * El valor sense calcular que dona cada capa a cada variable, per ensenyar la cadena de nivells:
+     * [variable => [global|curs|modul|alumne|propia => valor]].
+     *
+     * @return array<string, array<string, string>>
+     */
+    public function chain(Student $student, Module $module): array
+    {
+        $chain = [];
+        foreach ($this->studentLayers($student, $module) as $origin => $vars) {
+            foreach ($vars as $key => $value) {
+                $chain[$key][$origin] = (string) $value;
+            }
+        }
+
+        return $chain;
+    }
+
+    /** Les capes d'un alumne, de la més general a la més concreta. */
+    private function studentLayers(Student $student, Module $module): array
     {
         $fields = array_filter([
             'usuari' => $student->usuari,
@@ -68,16 +105,11 @@ class VariableResolver
             'email' => $student->user?->email,
         ], fn ($value) => $value !== null);
 
-        $layers = $this->layers($module);
-        if ($moduleVars !== null) {
-            $layers['modul'] = $moduleVars;
-        }
-
-        return $this->compute([
-            ...$layers,
+        return [
+            ...$this->layers($module),
             'alumne' => $fields,
             'propia' => $student->variables ?? [],
-        ]);
+        ];
     }
 
     /** @return array{global: array<string, string>, curs: array<string, string>, modul: array<string, string>} */

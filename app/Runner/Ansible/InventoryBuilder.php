@@ -88,10 +88,21 @@ class InventoryBuilder
     {
         $hostVars = ['ansible_host' => $this->resolver->render($type->adreca, $vars)];
         foreach ($type->variables_connexio ?? [] as $key => $value) {
-            $hostVars[$key] = is_string($value) ? $this->resolver->render($value, $vars) : $value;
+            $hostVars[$key] = self::typed($this->resolver->render((string) $value, $vars));
         }
 
         return [...$hostVars, ...$this->accessVars($type->access ?? $module->access)];
+    }
+
+    /** Com en un group_vars: true i false són booleans i els enters, números (5985, no "5985"). */
+    private static function typed(string $value): string|int|bool
+    {
+        return match (true) {
+            $value === 'true' => true,
+            $value === 'false' => false,
+            (bool) preg_match('/^(0|-?[1-9][0-9]{0,17})$/', $value) => (int) $value,
+            default => $value,
+        };
     }
 
     /** @return array<string, string> */

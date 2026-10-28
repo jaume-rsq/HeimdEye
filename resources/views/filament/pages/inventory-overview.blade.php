@@ -20,23 +20,51 @@
                 @foreach ($this->modules as $id => $name)
                     <option value="{{ $id }}">{{ $name }}</option>
                 @endforeach
+                <option value="0">Només comuns (global i curs)</option>
             </select>
             <div class="he-inv-tabs">
-                <button type="button" wire:click="$set('vista', 'equips')" @class(['on' => $vista === 'equips'])>Equips</button>
-                <button type="button" wire:click="$set('vista', 'variables')" @class(['on' => $vista === 'variables'])>Variables</button>
+                <button type="button" wire:click="$set('pestanya', 'alumnes')" @class(['on' => $pestanya === 'alumnes'])>Alumnes</button>
+                <button type="button" wire:click="$set('pestanya', 'equips')" @class(['on' => $pestanya === 'equips'])>Equips</button>
+                <button type="button" wire:click="$set('pestanya', 'variables')" @class(['on' => $pestanya === 'variables'])>Variables</button>
+                @if ($this->canSeeSecrets())
+                    <button type="button" wire:click="$set('pestanya', 'secrets')" @class(['on' => $pestanya === 'secrets'])>Secrets</button>
+                @endif
             </div>
-            <input type="search" x-model.debounce.200ms="search" placeholder="Cerca alumne o valor..." style="flex: 1 1 14rem; min-width: 0" />
-            <label style="display: flex; gap: .4rem; align-items: center">
-                <input type="checkbox" wire:model.live="problemes" /> Només amb problemes
-            </label>
-            @if ($grid)
-                @php $total = collect($grid['rows'])->sum('problemes'); @endphp
-                <span @class(['chip', 'bad' => $total > 0])>{{ $total }} {{ $total === 1 ? 'problema' : 'problemes' }}</span>
+            @if ($pestanya === 'alumnes')
+                <div class="he-inv-tabs">
+                    <button type="button" wire:click="$set('vista', 'equips')" @class(['on' => $vista === 'equips'])>Equips</button>
+                    <button type="button" wire:click="$set('vista', 'variables')" @class(['on' => $vista === 'variables'])>Variables</button>
+                </div>
+            @endif
+            <input type="search" x-model.debounce.200ms="search" placeholder="{{ $pestanya === 'alumnes' ? 'Cerca alumne o valor...' : 'Cerca nom o valor...' }}" style="flex: 1 1 14rem; min-width: 0" />
+            @if ($pestanya === 'alumnes')
+                <label style="display: flex; gap: .4rem; align-items: center">
+                    <input type="checkbox" wire:model.live="problemes" /> Només amb problemes
+                </label>
+                @if ($grid)
+                    @php $total = collect($grid['rows'])->sum('problemes'); @endphp
+                    <span @class(['chip', 'bad' => $total > 0])>{{ $total }} {{ $total === 1 ? 'problema' : 'problemes' }}</span>
+                @endif
+            @elseif ($pestanya === 'equips')
+                {{ $this->moduleAccessAction }}
+                @if ($this->canEditHostTypes())
+                    {{ $this->createHostTypeAction }}
+                @endif
+            @elseif ($pestanya === 'variables' && $this->canEditVariables())
+                {{ $this->createVariableAction }}
+            @elseif ($pestanya === 'secrets' && $this->canEditSecrets())
+                {{ $this->createSecretAction }}
             @endif
         </div>
 
-        @if (! $grid)
-            <x-filament::section>No hi ha cap mòdul.</x-filament::section>
+        @if ($pestanya === 'equips')
+            @include('filament.partials.inventory-host-types')
+        @elseif ($pestanya === 'variables')
+            @include('filament.partials.inventory-variables')
+        @elseif ($pestanya === 'secrets' && $this->canSeeSecrets())
+            @include('filament.partials.inventory-secrets')
+        @elseif (! $this->module)
+            <x-filament::section>Tria un mòdul per veure'n els alumnes.</x-filament::section>
         @elseif ($grid['rows'] === [])
             <x-filament::section>Aquest mòdul no té alumnes actius.</x-filament::section>
         @else
@@ -85,7 +113,7 @@
                             <tr
                                 wire:key="inv-{{ $student->id }}"
                                 x-show="@js($haystack).includes(search.trim().toLowerCase())"
-                                x-on:click="window.location = @js($this->studentUrl($student->id))"
+                                wire:click="mountAction('student', { alumne: {{ $student->id }} })"
                             >
                                 <td class="fix">
                                     <strong>{{ sprintf('%02d', $student->num_taula) }}</strong> · {{ $student->usuari }}
