@@ -74,6 +74,7 @@ class StudentPanelTest extends TestCase
         $ansible = $this->page()->instance()->studentPanel($this->student->id)['ansible'];
 
         $this->assertStringContainsString('ansible_password', $ansible);
+        $this->assertStringContainsString('ansible_become_password', $ansible);
         $this->assertStringNotContainsString('SuperSecret123', $ansible);
     }
 
