@@ -29,8 +29,7 @@ class SecretFields
                 ->label('Nom')
                 ->required()
                 ->regex(ModuleInventoryForm::KEY_RULE)
-                ->helperText(fn (?Secret $record) => 'Minúscules: jaume, ssh_jaume, api_zabbix.'
-                    .(($n = $record?->headerUses()) ? " L'anomenen {$n} capçaleres \"# credencial:\": si el reanomenes, deixaran de trobar-lo." : '')),
+                ->helperText('Minúscules: jaume, ssh_jaume, api_zabbix. Si el reanomenes, el codi que l\'esmenta deixarà de trobar-lo.'),
             Select::make('tipus')
                 ->options(collect(SecretType::cases())->mapWithKeys(fn (SecretType $t) => [$t->value => $t->label()]))
                 ->default(SecretType::Value->value)

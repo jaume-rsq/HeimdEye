@@ -125,13 +125,12 @@ class SecretResource extends Resource
             ]);
     }
 
-    /** On fa d'accés: mòduls, tipus d'equip i capçaleres de codi. */
+    /** On fa d'accés: mòduls i tipus d'equip. */
     public static function usage(Secret $record): ?string
     {
         $parts = array_filter([
             ($n = $record->modules_count ?? $record->modules()->count()) ? ($n === 1 ? '1 mòdul' : "{$n} mòduls") : null,
             ($n = $record->host_types_count ?? $record->hostTypes()->count()) ? "{$n} tipus d'equip" : null,
-            ($n = $record->headerUses()) ? ($n === 1 ? '1 capçalera de codi' : "{$n} capçaleres de codi") : null,
         ]);
 
         return $parts === [] ? null : implode(', ', $parts);

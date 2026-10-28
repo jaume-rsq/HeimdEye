@@ -51,14 +51,10 @@ return [
     |   "systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%"
     |   (amb systemd-run s'hi afegeixen RuntimeMaxSec i les variables amb --setenv). Buit = directe.
     |   A la demo, "heimdeye-sandbox": s'executa al contenidor de proves (docker/compose.demo.yaml).
-    | - ssh_key_path, ssh_pubkey_path: ja no es fan servir per executar. Les claus SSH són secrets
-    |   (Inventari → Secrets comuns); la migració de 2026-10-28 hi va passar aquestes rutes, i
-    |   heimdeye:import-key en carrega una de nova.
+    | Les claus SSH són secrets (Inventari → Secrets comuns): heimdeye:import-key en carrega una.
     */
     'runner' => [
         'wrapper' => env('HEIMDEYE_RUNNER_WRAPPER', ''),
-        'ssh_key_path' => env('HEIMDEYE_SSH_KEY_PATH'),
-        'ssh_pubkey_path' => env('HEIMDEYE_SSH_PUBKEY_PATH', env('HEIMDEYE_SSH_KEY_PATH') ? env('HEIMDEYE_SSH_KEY_PATH').'.pub' : null),
         'queue' => env('HEIMDEYE_QUEUE', 'checks'),
         'retry_after' => (int) env('HEIMDEYE_RETRY_AFTER', 180),
         'output_limit' => 8192,

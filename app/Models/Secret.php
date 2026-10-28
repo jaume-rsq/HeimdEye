@@ -71,12 +71,4 @@ class Secret extends Model
     {
         return filled($this->getAttributes()['valor'] ?? null);
     }
-
-    /** Versions vigents o antigues de checks i accions que l'anomenen a la capçalera "# credencial:". */
-    public function headerUses(): int
-    {
-        $pattern = '%# credencial:%'.$this->clau.'%';
-
-        return CheckVersion::where('codi', 'like', $pattern)->count() + ActionVersion::where('codi', 'like', $pattern)->count();
-    }
 }
