@@ -350,8 +350,8 @@ class RunnerTest extends TestCase
 
         $this->artisan('heimdeye:run', ['--nightly' => true])->assertSuccessful();
 
-        // Bloc 2: 3 checks actius × 10 alumnes.
-        Queue::assertPushed(RunCheck::class, 30);
+        // Bloc 2: 11 checks actius × 10 alumnes.
+        Queue::assertPushed(RunCheck::class, 110);
         $this->assertSame('nocturna', RunBatch::sole()->origen->value);
     }
 

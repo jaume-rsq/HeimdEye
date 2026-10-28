@@ -433,6 +433,8 @@ class CheckPanelTest extends TestCase
         $first = $this->check();
         $first->forceFill(['posicio' => 1, 'updated_at' => now()->subWeek()])->saveQuietly();
         $task = $first->task;
+        // Els checks que carrega el seed (bloc 2) no han d'ocupar la primera pàgina en ordenar per data.
+        Check::whereNotIn('id', [$first->id, $second->id])->toBase()->update(['updated_at' => now()->subYears(2)]);
 
         Livewire::test(ListChecks::class)
             ->assertCanSeeTableRecords([$first, $second], inOrder: true)

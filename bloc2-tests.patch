@@ -1,0 +1,55 @@
+diff --git a/tests/Feature/CheckPanelTest.php b/tests/Feature/CheckPanelTest.php
+index 5da6d59..74decde 100644
+--- a/tests/Feature/CheckPanelTest.php
++++ b/tests/Feature/CheckPanelTest.php
+@@ -433,6 +433,8 @@ class CheckPanelTest extends TestCase
+         $first = $this->check();
+         $first->forceFill(['posicio' => 1, 'updated_at' => now()->subWeek()])->saveQuietly();
+         $task = $first->task;
++        // Els checks que carrega el seed (bloc 2) no han d'ocupar la primera pàgina en ordenar per data.
++        Check::whereNotIn('id', [$first->id, $second->id])->toBase()->update(['updated_at' => now()->subYears(2)]);
+ 
+         Livewire::test(ListChecks::class)
+             ->assertCanSeeTableRecords([$first, $second], inOrder: true)
+diff --git a/tests/Feature/DomainModelTest.php b/tests/Feature/DomainModelTest.php
+index a2beedf..02f8dcf 100644
+--- a/tests/Feature/DomainModelTest.php
++++ b/tests/Feature/DomainModelTest.php
+@@ -31,7 +31,7 @@ class DomainModelTest extends TestCase
+         $this->assertSame('SX+SI+AW', $module->nom);
+         $this->assertSame(10, $module->students()->count());
+         $this->assertSame(2, $module->blocks()->sole()->numero);
+-        $this->assertSame(3, Check::count());
++        $this->assertSame(11, Check::count());
+         $this->assertTrue(Check::all()->every(fn (Check $c) => $c->currentVersion?->versio === 1));
+     }
+ 
+diff --git a/tests/Feature/FillCheckInfoMigrationTest.php b/tests/Feature/FillCheckInfoMigrationTest.php
+index 854289f..a81e174 100644
+--- a/tests/Feature/FillCheckInfoMigrationTest.php
++++ b/tests/Feature/FillCheckInfoMigrationTest.php
+@@ -25,7 +25,8 @@ class FillCheckInfoMigrationTest extends TestCase
+         (require database_path('migrations/2026_10_27_000002_fill_check_info.php'))->up();
+ 
+         $info = require database_path('seeders/data/check_info.php');
+-        $this->assertSame(count($info[5]) + count($info[6]), Check::whereNotNull('info')->count());
++        // El seed base també carrega el bloc 2, i la migració n'omple l'info.
++        $this->assertSame(count($info[2]) + count($info[5]) + count($info[6]), Check::whereNotNull('info')->count());
+         $this->assertSame('Text del professor', $edited->fresh()->info);
+         $this->assertSame($info[5]['RouterOS actualitzat'], Check::where('nom', 'RouterOS actualitzat')->sole()->info);
+     }
+diff --git a/tests/Feature/RunnerTest.php b/tests/Feature/RunnerTest.php
+index 2ccc70b..86ba212 100644
+--- a/tests/Feature/RunnerTest.php
++++ b/tests/Feature/RunnerTest.php
+@@ -350,8 +350,8 @@ class RunnerTest extends TestCase
+ 
+         $this->artisan('heimdeye:run', ['--nightly' => true])->assertSuccessful();
+ 
+-        // Bloc 2: 3 checks actius × 10 alumnes.
+-        Queue::assertPushed(RunCheck::class, 30);
++        // Bloc 2: 11 checks actius × 10 alumnes.
++        Queue::assertPushed(RunCheck::class, 110);
+         $this->assertSame('nocturna', RunBatch::sole()->origen->value);
+     }
+
