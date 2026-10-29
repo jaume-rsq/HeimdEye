@@ -69,6 +69,7 @@ return [
     |   visitant i els checks i les accions que ha creat.
     | - student_key: ruta de la clau dels alumnes ficticis, que només existeix al contenidor de
     |   proves. TutorialSeeder la desa al secret ssh_demo.
+    | - url: la demo pública, enllaçada al menú Ajuda de les altres instàncies (buit: no s'enllaça).
     */
     'demo' => [
         'enabled' => (bool) env('HEIMDEYE_DEMO', false),
@@ -76,6 +77,7 @@ return [
         'runs_per_hour' => (int) env('HEIMDEYE_DEMO_RUNS_PER_HOUR', 60),
         'visitor_hours' => (int) env('HEIMDEYE_DEMO_VISITOR_HOURS', 2),
         'student_key' => env('HEIMDEYE_DEMO_STUDENT_KEY'),
+        'url' => env('HEIMDEYE_DEMO_URL', 'https://heimdeye-demo.julioantonio.cat/'),
     ],
 
     /*
