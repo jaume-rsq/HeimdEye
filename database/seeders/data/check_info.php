@@ -148,6 +148,30 @@ return [
         'Bridge VLAN-aware a Proxmox amb dues VLANs' => $info(
             'validar que el Proxmox té un bridge amb VLAN i que les màquines fan servir almenys dues VLAN diferents.',
             'perquè les VLAN del router serveixin, el commutador virtual del Proxmox ha de transportar les etiquetes i posar cada màquina a la seva VLAN. És el mateix que configurar els ports d\'un commutador gestionable en una xarxa física.',
+	),
+        'Regles de la LAN cap a la WAN i la DMZ' => $info(
+            'comprovar que, al FORWARD, hi ha regles explícites que deixen sortir la LAN cap a la xarxa de l\'aula i cap a la DMZ, a més de la regla de les respostes.',
+            'amb la política per defecte a DROP, cada flux permès és una decisió escrita. Si la LAN no té regla de sortida, no podria arribar ni a Internet ni als servidors de la DMZ. Mirar la regla, i no només provar que un equip surt, permet verificar-ho sense dependre de tenir més màquines engegades.',
+        ),
+        'La DMZ no té regles obertes cap a la LAN' => $info(
+            'validar que cap regla del FORWARD deixa iniciar connexions des de la DMZ cap a la LAN, i que el que no està permès es descarta.',
+            'la DMZ allotja els serveis exposats a l\'exterior, que són els que més fàcilment es poden comprometre. Si un atacant guanya un servidor de la DMZ i aquesta pot iniciar connexions cap a la LAN, la segmentació no serveix de res. És la raó de ser d\'una DMZ: contenir el dany.',
+        ),
+        'La DMZ no arriba a la LAN (prova des de ns1)' => $info(
+            'comprovar, amb una connexió real des de ns1 (a la DMZ), que els ports d\'administració de ns2 (a la LAN) no responen.',
+            'llegir regles pot enganyar (una regla que ve abans, una excepció oblidada). La prova real és la que faria un atacant dins de la DMZ: provar d\'arribar a la LAN. Si la política és correcta, la connexió no ha d\'establir-se.',
+        ),
+        'Les regles del forward han tractat trànsit' => $info(
+            'validar que alguna regla del FORWARD ja ha vist paquets, i mostrar quants n\'ha acceptat i quants n\'ha descartat.',
+            'una regla escrita no demostra que s\'apliqui. Els comptadors són l\'evidència que el trànsit passa pel tallafocs i que la política es compleix en els dos sentits. És el que s\'ensenya en una auditoria i el que s\'utilitza per saber si una regla es pot esborrar.',
+        ),
+        'El seguiment de connexions (conntrack) és actiu' => $info(
+            'comprovar que el kernel fa seguiment de connexions i en té alguna de registrada.',
+            'el filtratge amb estat (ESTABLISHED,RELATED) i el NAT depenen de conntrack: és la taula on el kernel recorda quines connexions s\'han permès, perquè la resposta torni sense obrir el camí invers. Sense seguiment, caldria una regla per a cada sentit de cada servei.',
+        ),
+        'Les regles desades coincideixen amb les actives' => $info(
+            'validar que el fitxer de regles desades té les mateixes regles que les que estan actives ara.',
+            'les regles d\'iptables viuen a la memòria. Si el fitxer desat és d\'abans dels últims canvis, en reiniciar el router es perd part de la política, i es pot quedar sense DNAT o amb una DMZ oberta sense que ningú se n\'adoni. Desar després de cada canvi és part de fer-lo.',
         ),
     ],
 

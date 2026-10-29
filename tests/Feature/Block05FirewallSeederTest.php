@@ -36,11 +36,11 @@ class Block05FirewallSeederTest extends TestCase
         $this->seed(Block05FirewallSeeder::class);
         $block = Block::where('numero', 5)->sole();
 
-        $this->assertSame(4, $block->tasks()->count());
+        $this->assertSame(5, $block->tasks()->count());
         $checks = $this->checks();
-        $this->assertCount(12, $checks);
-        $this->assertSame(8, $checks->where('tipus', CheckKind::Required)->sum('punts'));
-        $this->assertSame(11, $checks->where('tipus', CheckKind::Optional)->sum('punts'));
+        $this->assertCount(18, $checks);
+        $this->assertSame(10, $checks->where('tipus', CheckKind::Required)->sum('punts'));
+        $this->assertSame(18, $checks->where('tipus', CheckKind::Optional)->sum('punts'));
         $this->assertTrue($checks->every(fn (Check $c) => filled($c->descripcio) && filled($c->info) && $c->versions()->count() === 1));
     }
 
@@ -71,6 +71,47 @@ class Block05FirewallSeederTest extends TestCase
 
         $this->assertSame(CheckStatus::Skipped, $result->status);
         $this->assertSame('ara no respon el router Linux', $result->message);
+    }
+
+    public function test_iptables_checks_are_active_from_october_5_without_moving_the_others(): void
+    {
+        $nous = ['Regles de la LAN cap a la WAN i la DMZ', 'La DMZ no té regles obertes cap a la LAN', 'La DMZ no arriba a la LAN (prova des de ns1)',
+            'Les regles del forward han tractat trànsit', 'El seguiment de connexions (conntrack) és actiu', 'Les regles desades coincideixen amb les actives'];
+
+        foreach ($this->checks() as $check) {
+            $expected = in_array($check->nom, $nous, true) ? '2026-10-05' : '2026-10-26';
+            $this->assertSame($expected, substr((string) $check->actiu_des, 0, 10), $check->nom);
+            $this->assertSame('2026-11-06', substr((string) $check->data_limit, 0, 10), $check->nom);
+        }
+    }
+
+    public function test_forward_analysis_finds_the_flows_that_the_rules_open(): void
+    {
+        $ifaces = (new \ReflectionClassConstant(Block05FirewallSeeder::class, 'INTERFICIES'))->getValue();
+        $analisi = (new \ReflectionClassConstant(Block05FirewallSeeder::class, 'ANALISI_FORWARD'))->getValue();
+        $addr = "2: eth0    inet 192.168.20.14/28 brd 192.168.20.15 scope global eth0\\       valid_lft forever\n"
+            ."3: eth1    inet 172.21.0.1/22 brd 172.21.3.255 scope global eth1\\       valid_lft forever\n"
+            ."4: eth2    inet 10.21.0.1/22 brd 10.21.3.255 scope global eth2\\       valid_lft forever";
+        $resposta = '-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT';
+
+        // lw = LAN -> WAN, ld = LAN -> DMZ, dl = DMZ -> LAN.
+        $cases = [
+            'correcte' => ["-P FORWARD DROP\n{$resposta}\n-A FORWARD -i eth1 -o eth0 -j ACCEPT\n-A FORWARD -i eth1 -o eth2 -j ACCEPT\n-A FORWARD -i eth2 -o eth1 -j DROP", '1 1 0'],
+            'DMZ oberta' => ["-P FORWARD DROP\n{$resposta}\n-A FORWARD -i eth1 -j ACCEPT\n-A FORWARD -i eth2 -j ACCEPT", '1 1 1'],
+            'sense LAN a DMZ' => ["-P FORWARD DROP\n{$resposta}\n-A FORWARD -i eth1 -o eth0 -j ACCEPT", '1 0 0'],
+            'per adreces' => ["-P FORWARD DROP\n{$resposta}\n-A FORWARD -s 172.21.0.0/22 -d 10.21.0.0/22 -j ACCEPT\n-A FORWARD -s 172.21.0.0/22 -d 192.168.20.0/24 -j ACCEPT\n-A FORWARD -s 10.21.0.0/22 -d 172.21.0.0/22 -m conntrack --ctstate ESTABLISHED -j ACCEPT", '1 1 0'],
+            'sense condicions' => ["-P FORWARD DROP\n-A FORWARD -j ACCEPT", '1 1 1'],
+            'cadena pròpia' => ["-P FORWARD DROP\n-N LAN\n-A FORWARD -j LAN\n-A LAN -i eth1 -j ACCEPT", 'HEIMDEYE_OMES'],
+        ];
+
+        foreach ($cases as $name => [$fw, $expected]) {
+            $script = "r() { case \"\$*\" in 'ip -4 -o addr show') printf '%s\\n' \"\$ADDR\" ;; 'sudo -n iptables -S FORWARD') printf '%s\\n' \"\$FW\" ;; esac; }\n"
+                ."{$ifaces}\n{$analisi}\necho \"\$lw \$ld \$dl\"";
+            $process = new Process(['bash', '-c', $script]);
+            $process->setEnv(['HE_X' => '21', 'HE_IP_ROUTER' => '192.168.20.14', 'ADDR' => $addr, 'FW' => $fw])->run();
+
+            $this->assertStringContainsString($expected, trim($process->getOutput()), $name);
+        }
     }
 
     public function test_router_detection_tells_linux_from_no_connection(): void
