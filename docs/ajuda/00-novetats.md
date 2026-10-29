@@ -12,6 +12,10 @@ canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esq
 
 ## 29/10/2026
 
+- **Ajuda nova** sobre el funcionament: [Com funciona](?doc=com-funciona),
+  [Executors i exemples](?doc=executors), [Accés i secrets](?doc=acces-i-secrets),
+  [Preparar els equips](?doc=preparar-equips) (usuari `heimdeye` i la seva clau) i
+  [Desplegament](?doc=desplegament).
 - **Ajuda**: aquesta secció, amb un enllaç a la demo pública.
 - **Menú** més compacte i sense l'escriptori: en entrar es va directament al leaderboard.
 - **Prorrogar** (professors): dates noves d'«actiu fins a» i de data límit per a tots els checks
