@@ -73,7 +73,7 @@ class MyProgress extends StudentTracking
         return false;
     }
 
-    public function verify(?int $checkId = null, ?int $taskId = null): void
+    public function verify(?int $checkId = null, ?int $taskId = null, ?int $blockId = null): void
     {
         abort(403);
     }

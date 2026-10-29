@@ -1,7 +1,7 @@
 {{--
     Estat per alumne d'una acció o d'un check: la darrera execució real de cada alumne actiu.
     Verd: bé amb la versió vigent. Verd clar amb el número de versió: bé amb una d'anterior.
-    Taronja o vermell: ha fallat (amb la versió, si no és la vigent). Gris: mai executat.
+    Taronja o vermell: ha fallat (amb la versió, si no és la vigent). Gris: mai executat (amb «omès»: només n'hi ha d'omeses).
     Amb ✎: corregit pel professor (verd assolit, vermell no assolit), sigui quina sigui l'execució.
     $legend: text de sota la graella.
 --}}
@@ -13,6 +13,9 @@
         }
         if ($s['estat'] === null) {
             return ['#e5e7eb', '#374151'];
+        }
+        if ($s['estat'] === \App\Enums\CheckStatus::Skipped) {
+            return ['#e5e7eb', '#6b7280'];
         }
         if (! $s['estat']->isFailure()) {
             return $s['vigent'] ? ['#16a34a', '#fff'] : ['#bbf7d0', '#14532d'];
@@ -33,6 +36,8 @@
                 <span style="font-weight: 600;">{{ $s['taula'] }}</span>
                 @if ($corrected)
                     <span style="font-size: .7rem;">✎</span>
+                @elseif ($s['estat'] === \App\Enums\CheckStatus::Skipped)
+                    <span style="font-size: .7rem;">omès</span>
                 @elseif ($s['estat'] !== null && ! $s['vigent'])
                     <span style="font-size: .7rem;">v{{ $s['versio'] ?? '?' }}</span>
                 @endif

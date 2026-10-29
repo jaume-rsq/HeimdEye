@@ -129,6 +129,11 @@ final class CheckSummary
             ->selectRaw('max(id)');
         $runs = $check->runs()->whereIn('id', $latest)->with('checkVersion')->get()->keyBy('alumne_id');
         $corrections = $check->states()->whereNotNull('estat_professor')->pluck('estat_professor', 'alumne_id');
+        // Qui només té execucions omeses (p. ex. ara respon l'altre router): es veu que s'ha provat.
+        $skipped = $check->runs()->where('estat', CheckStatus::Skipped->value)->whereNotIn('alumne_id', $runs->keys())
+            ->whereIn('id', DB::table('execucions_check')->where('check_id', $check->id)->groupBy('alumne_id')->selectRaw('max(id)'))
+            ->with('checkVersion')->get()->keyBy('alumne_id');
+        $runs = $runs->union($skipped);
 
         return $check->module->students()->where('es_actiu', true)->orderBy('num_taula')->get()
             ->map(function ($student) use ($runs, $current, $check, $corrections) {
