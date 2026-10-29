@@ -479,7 +479,8 @@ Markdown de `docs/ajuda`, llegits a cada petició (`App\Support\HelpDocs`). Per 
 ajuda només cal editar-los. Cada fitxer porta una capçalera YAML amb `titol`, `ordre`, `per`
 (`professors`, `alumnes` o `tots`) i `actualitzat`. Les pàgines actualitzades els darrers 14 dies
 surten marcades amb «nou», i el menú en mostra el nombre. Els canvis per als usuaris s'apunten a
-`docs/ajuda/00-novetats.md`. Vegeu la pàgina «Com s'escriu l'ajuda».
+`docs/ajuda/00-novetats.md`. Vegeu la pàgina «Com s'escriu l'ajuda». El mateix grup del menú
+enllaça la demo pública (`HEIMDEYE_DEMO_URL`; buit, no surt; a la mateixa demo tampoc).
 
 ## Leaderboard
 

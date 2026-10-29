@@ -21,7 +21,7 @@ check passa per primer cop, l'alumne l'ha **assolit** i en guanya els punts.
 | **Accions** | Scripts que llances tu per canviar els equips dels alumnes (no puntuen). |
 | **Inventari** | Equips, variables, secrets i alumnes de cada mòdul. |
 | **Administració** | Usuaris i rols, cursos, cicles, mòduls i blocs. |
-| **Ajuda** | Aquestes pàgines. |
+| **Ajuda** | Aquestes pàgines i un enllaç a la **demo** pública, on pots provar-ho tot sense tocar res de veritat. |
 
 ## Què veu cada rol
 

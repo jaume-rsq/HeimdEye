@@ -8,4 +8,7 @@ use App\Filament\Pages\Help;
 class StudentHelp extends Help
 {
     protected static string $audience = 'alumnes';
+
+    /** El panell dels alumnes té el menú a dalt, sense grups. */
+    protected static string|\UnitEnum|null $navigationGroup = null;
 }

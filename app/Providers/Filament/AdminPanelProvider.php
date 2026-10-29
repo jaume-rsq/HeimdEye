@@ -43,6 +43,7 @@ class AdminPanelProvider extends PanelProvider
                 NavigationGroup::make('Accions'),
                 NavigationGroup::make('Inventari'),
                 NavigationGroup::make('Administració'),
+                NavigationGroup::make('Ajuda'),
             ])
             ->navigationItems([
                 NavigationItem::make('Nou check')
@@ -50,6 +51,13 @@ class AdminPanelProvider extends PanelProvider
                     ->icon(Heroicon::OutlinedPlusCircle)
                     ->url(fn () => CheckResource::getUrl('create'))
                     ->isActiveWhen(fn () => request()->routeIs(CheckResource::getRouteBaseName().'.create'))
+                    ->sort(2),
+                // La demo pública, en una pestanya nova (no a la mateixa demo).
+                NavigationItem::make('Demo')
+                    ->group('Ajuda')
+                    ->icon(Heroicon::OutlinedPlayCircle)
+                    ->url(fn () => config('heimdeye.demo.url'), shouldOpenInNewTab: true)
+                    ->visible(fn () => filled(config('heimdeye.demo.url')) && ! Demo::enabled())
                     ->sort(2),
                 NavigationItem::make('Nova acció')
                     ->group('Accions')

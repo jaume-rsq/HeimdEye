@@ -10,6 +10,7 @@ use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Support\Collection;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Url;
+use UnitEnum;
 
 /**
  * Ajuda: les pàgines Markdown de docs/ajuda per al públic d'aquest panell (HelpDocs). Les que
@@ -23,7 +24,9 @@ class Help extends Page
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedQuestionMarkCircle;
 
-    protected static ?int $navigationSort = 100;
+    protected static string|UnitEnum|null $navigationGroup = 'Ajuda';
+
+    protected static ?int $navigationSort = 1;
 
     protected string $view = 'filament.pages.help';
 

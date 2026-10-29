@@ -12,7 +12,7 @@ canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esq
 
 ## 29/10/2026
 
-- **Ajuda**: aquesta secció.
+- **Ajuda**: aquesta secció, amb un enllaç a la demo pública.
 - **Menú** més compacte i sense l'escriptori: en entrar es va directament al leaderboard.
 - **Prorrogar** (professors): dates noves d'«actiu fins a» i de data límit per a tots els checks
   d'un bloc (des del seguiment) o per als checks marcats (des de la llista de checks).

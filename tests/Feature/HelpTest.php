@@ -90,6 +90,16 @@ class HelpTest extends TestCase
         $this->get('/admin')->assertRedirect('/admin/leaderboard');
     }
 
+    public function test_the_menu_links_the_public_demo(): void
+    {
+        $this->actingAs($this->teacher());
+        config(['heimdeye.demo.url' => 'https://demo.example.test/']);
+
+        $this->get('/admin/ajuda')->assertSee('https://demo.example.test/');
+        config(['heimdeye.demo.url' => null]);
+        $this->get('/admin/ajuda')->assertDontSee('https://demo.example.test/');
+    }
+
     public function test_the_real_help_pages_parse(): void
     {
         $docs = (new HelpDocs)->for('professors');
