@@ -17,6 +17,11 @@ use Illuminate\Database\Seeder;
  * (HEIMDEYE_OMES:): no canvien l'estat de l'alumne ni li fan perdre punts. Cada check porta a
  * `descripcio` el text per a l'alumne: què es comprova i com ho pot verificar ell mateix.
  * L'`info` (objectiu i justificació) és a `data/check_info.php`.
+ *
+ * Aquest seeder també fa de bloc 4 del PDF (tallafocs amb iptables): la tasca 5 en recull els
+ * apartats que els checks anteriors no cobrien (regles explícites de la LAN, DMZ → LAN, evidències,
+ * desat de regles). Són només per al router Linux: amb un MikroTik donen `omes`. Els checks nous
+ * són actius des del 2026-10-05; els anteriors, des del 2026-10-26 (veg. `actiu_des` a `task()`).
  */
 class Block05FirewallSeeder extends Seeder
 {
@@ -47,6 +52,57 @@ class Block05FirewallSeeder extends Seeder
 
     private const ONLY_MIKROTIK = <<<'SH'
         [ $sistema = mikrotik ] || { echo "HEIMDEYE_OMES: ara no respon el MikroTik"; exit 0; }
+        SH;
+
+    /** Interfícies del router Linux a cada xarxa: aula (ip_router), LAN 172.X.0.0/22 i DMZ 10.X.0.0/22. */
+    private const INTERFICIES = <<<'SH'
+        addr=$(r ip -4 -o addr show) || { echo "No es poden llegir les adreces del router"; exit 1; }
+        ifof() { echo "$addr" | awk -v re="$1" '{ split($4, a, "/"); if (a[1] ~ re) print $2 }' | sort -u | head -1; }
+        aula_if=$(ifof "^${HE_IP_ROUTER//./[.]}\$")
+        lan_if=$(ifof "^172[.]$HE_X[.][0-3][.]")
+        dmz_if=$(ifof "^10[.]$HE_X[.][0-3][.]")
+        SH;
+
+    /**
+     * Anàlisi estàtica de `iptables -S FORWARD`: quines regles ACCEPT (que no siguin només de
+     * resposta, ESTABLISHED/RELATED) deixen passar LAN → WAN (lw), LAN → DMZ (ld) i DMZ → LAN (dl).
+     * Una regla sense origen o sense destí compta per a tots. No avalua l'ordre de les regles, i si
+     * el FORWARD salta a cadenes pròpies surt `omes`: no les segueix.
+     */
+    private const ANALISI_FORWARD = <<<'SH'
+        fw=$(r sudo -n iptables -S FORWARD 2>/dev/null) || { echo "No es pot llegir iptables (sudo -n iptables -S FORWARD)"; exit 1; }
+        cad=$(echo "$fw" | awk '$1 == "-A" { for (k = 2; k < NF; k++) if ($k == "-j" && $(k+1) !~ /^(ACCEPT|DROP|REJECT|LOG|RETURN|NFLOG|MARK|TRACE|CT|TCPMSS)$/) print $(k+1) }' | sort -u | paste -sd, -)
+        [ -z "$cad" ] || { echo "HEIMDEYE_OMES: el FORWARD salta a cadenes pròpies ($cad) i el check no les segueix"; exit 0; }
+        an=$(echo "$fw" | awk -v lan="$lan_if" -v dmz="$dmz_if" -v wan="$aula_if" -v x="$HE_X" '
+          BEGIN { re_lan = "^172\\." x "\\."; re_dmz = "^10\\." x "\\." }
+          $1 != "-A" { next }
+          {
+            i_ = o_ = s_ = d_ = st = ""; acc = 0; neg = 0
+            for (k = 3; k <= NF; k++) {
+              if ($k == "!") { neg = 1; continue }
+              if ($k == "-i") i_ = $(k+1)
+              else if ($k == "-o") o_ = $(k+1)
+              else if ($k == "-s") s_ = $(k+1)
+              else if ($k == "-d") d_ = $(k+1)
+              else if ($k == "--state" || $k == "--ctstate") st = $(k+1)
+              else if ($k == "-j" && $(k+1) == "ACCEPT") acc = 1
+            }
+            if (!acc || neg) next
+            if (st != "" && st !~ /NEW/) next
+            lan_o = (lan != "" && i_ == lan) || s_ ~ re_lan
+            dmz_o = (dmz != "" && i_ == dmz) || s_ ~ re_dmz
+            any_o = (i_ == "" && s_ == "")
+            lan_d = (lan != "" && o_ == lan) || d_ ~ re_lan
+            dmz_d = (dmz != "" && o_ == dmz) || d_ ~ re_dmz
+            wan_d = (wan != "" && o_ == wan) || (o_ == "" && d_ != "" && d_ !~ re_lan && d_ !~ re_dmz)
+            any_d = (o_ == "" && d_ == "")
+            if (!lw && (lan_o || any_o) && (wan_d || any_d)) { lw = 1; rlw = $0 }
+            if (!ld && (lan_o || any_o) && (dmz_d || any_d)) { ld = 1; rld = $0 }
+            if (!dl && (dmz_o || any_o) && (lan_d || any_d)) { dl = 1; rdl = $0 }
+          }
+          END { print "lw|" lw + 0 "|" rlw; print "ld|" ld + 0 "|" rld; print "dl|" dl + 0 "|" rdl }')
+        lw=$(echo "$an" | sed -n 's/^lw|\([01]\)|.*/\1/p'); ld=$(echo "$an" | sed -n 's/^ld|\([01]\)|.*/\1/p')
+        dl=$(echo "$an" | sed -n 's/^dl|\([01]\)|.*/\1/p'); rdl=$(echo "$an" | sed -n 's/^dl|1|//p')
         SH;
 
     private const PORT = ['name' => 'PORT', 'label' => 'Port del servei publicat a la DMZ', 'default' => 80];
@@ -292,6 +348,105 @@ class Block05FirewallSeeder extends Seeder
             ],
         ]);
 
+        $this->task($block, 5, 'Tallafocs amb iptables (router Linux)', <<<'MD'
+            Només per al router Linux (iptables): si ara feu servir el MikroTik, aquests checks surten com
+            a omesos. La política de segmentació de la LAN, la DMZ i la WAN s'ha d'haver escrit a les
+            regles del FORWARD, i s'ha de poder demostrar que funciona (comptadors i seguiment de
+            connexions) i que les regles es desen i es recuperen.
+            MD, [
+            [
+                'nom' => 'Regles de la LAN cap a la WAN i la DMZ',
+                'actiu_des' => '2026-10-05',
+                'punts' => 2,
+                'temps_max_seg' => 30,
+                'descripcio' => 'Al FORWARD hi ha regles ACCEPT que deixen sortir la LAN (172.X.0.0/22) cap a la xarxa de l\'aula i cap a la DMZ (10.X.0.0/22), a més de la regla de les respostes. Comprova-ho: `sudo iptables -S FORWARD`. No segueix cadenes pròpies (si en fas servir, surt com a omès).',
+                'codi' => self::ROUTER."\n".self::REQUIRED."\n".self::ONLY_LINUX."\n".self::INTERFICIES."\n".self::ANALISI_FORWARD."\n".<<<'SH'
+                    [ "$lw" = 1 ] || { echo "HEIMDEYE_MSG: cap regla ACCEPT del FORWARD deixa sortir la LAN (172.$HE_X.0.0/22) cap a la WAN (interfície ${aula_if:-?})"; exit 1; }
+                    [ "$ld" = 1 ] || { echo "HEIMDEYE_MSG: cap regla ACCEPT del FORWARD deixa anar la LAN (172.$HE_X.0.0/22) cap a la DMZ (10.$HE_X.0.0/22)"; exit 1; }
+                    echo "HEIMDEYE_MSG: hi ha regles de la LAN cap a la WAN i cap a la DMZ"
+                    SH,
+            ],
+            [
+                'nom' => 'La DMZ no té regles obertes cap a la LAN',
+                'actiu_des' => '2026-10-05',
+                'tipus' => CheckKind::Optional,
+                'punts' => 2,
+                'temps_max_seg' => 30,
+                'descripcio' => 'Cap regla ACCEPT del FORWARD (que no sigui de resposta) deixa iniciar connexions de la DMZ cap a la LAN, i el FORWARD descarta la resta (DROP). Comprova-ho: `sudo iptables -S FORWARD` i, des d\'una VM de la DMZ, un `ping` o `ssh` cap a la LAN ha de fallar. És una anàlisi de les regles: no avalua l\'ordre, i una excepció voluntària (p. ex. la DMZ cap a una base de dades de la LAN) també la marca.',
+                'codi' => self::ROUTER."\n".self::ONLY_LINUX."\n".self::INTERFICIES."\n".self::ANALISI_FORWARD."\n".<<<'SH'
+                    echo "$fw" | grep -qx -- '-P FORWARD DROP' || echo "$fw" | tail -1 | grep -qx -- '-A FORWARD -j DROP' \
+                      || { echo "HEIMDEYE_MSG: el FORWARD no descarta per defecte (política ACCEPT): la DMZ arriba a la LAN"; exit 1; }
+                    [ "$dl" = 0 ] || { echo "HEIMDEYE_MSG: regla que obre la DMZ cap a la LAN: $rdl"; exit 1; }
+                    echo "HEIMDEYE_MSG: cap regla obre la DMZ cap a la LAN i el FORWARD descarta la resta"
+                    SH,
+            ],
+            [
+                'nom' => 'La DMZ no arriba a la LAN (prova des de ns1)',
+                'actiu_des' => '2026-10-05',
+                'tipus' => CheckKind::Optional,
+                'executor' => Executor::Ssh,
+                'punts' => 2,
+                'temps_max_seg' => 30,
+                'parametres' => [['name' => 'PORTS', 'label' => 'Ports de ns2 (LAN) que no han de respondre des de la DMZ', 'default' => '5985 3389 445']],
+                'descripcio' => 'Des de ns1 (a la DMZ) no es pot connectar a ns2 (a la LAN, 172.X.0.11) pels ports 5985 (WinRM), 3389 (RDP) ni 445 (SMB). Cal tenir ns1 i ns2 del Bloc 6 engegats: si ns2 està apagat, el check passa igualment. Comprova-ho des de ns1: `nc -zv -w3 172.X.0.11 5985` ha de fallar.',
+                'codi' => <<<'SH'
+                    # hosts: vm_dns_bind
+                    obert=""
+                    for p in $HE_PARAM_PORTS; do
+                      timeout 4 bash -c "</dev/tcp/$HE_IP_DNSWIN/$p" 2>/dev/null && obert="$obert $p"
+                    done
+                    [ -z "$obert" ] || { echo "HEIMDEYE_MSG: des de la DMZ (ns1) s'arriba a ns2 ($HE_IP_DNSWIN) pels ports:$obert"; exit 1; }
+                    echo "HEIMDEYE_MSG: des de la DMZ (ns1) no s'arriba a ns2 ($HE_IP_DNSWIN): $HE_PARAM_PORTS tancats"
+                    SH,
+            ],
+            [
+                'nom' => 'Les regles del forward han tractat trànsit',
+                'actiu_des' => '2026-10-05',
+                'tipus' => CheckKind::Optional,
+                'temps_max_seg' => 30,
+                'descripcio' => 'Alguna regla ACCEPT del FORWARD ja ha vist paquets (comptador major que 0): s\'ha provat que la política deixa passar el que toca. Es mostren també els paquets descartats. Comprova-ho: `sudo iptables -L FORWARD -v -n -x`. Els comptadors es posen a zero en reiniciar el router o amb `iptables -Z`.',
+                'codi' => self::ROUTER."\n".self::ONLY_LINUX."\n".<<<'SH'
+                    out=$(r sudo -n iptables -L FORWARD -n -v -x 2>/dev/null) || { echo "No es pot llegir iptables (sudo -n iptables -L FORWARD)"; exit 1; }
+                    acc=$(echo "$out" | awk 'NR > 2 && $3 == "ACCEPT" { s += $1 } END { print s + 0 }')
+                    pol=$(echo "$out" | head -1 | sed -n 's/.*policy DROP \([0-9]*\) packets.*/\1/p')
+                    reg=$(echo "$out" | awk 'NR > 2 && ($3 == "DROP" || $3 == "REJECT") { s += $1 } END { print s + 0 }')
+                    drops=$(( ${pol:-0} + reg ))
+                    [ "${acc:-0}" -gt 0 ] || { echo "HEIMDEYE_MSG: cap regla ACCEPT del FORWARD ha vist trànsit (descartats: $drops)"; exit 1; }
+                    echo "HEIMDEYE_MSG: paquets acceptats $acc, descartats $drops"
+                    SH,
+            ],
+            [
+                'nom' => 'El seguiment de connexions (conntrack) és actiu',
+                'actiu_des' => '2026-10-05',
+                'tipus' => CheckKind::Optional,
+                'descripcio' => 'El kernel fa seguiment de connexions i en té alguna de registrada (és el que fa funcionar ESTABLISHED,RELATED i el NAT). Comprova-ho: `sudo conntrack -L` o `cat /proc/sys/net/netfilter/nf_conntrack_count`.',
+                'codi' => self::ROUTER."\n".self::ONLY_LINUX."\n".<<<'SH'
+                    n=$(r cat /proc/sys/net/netfilter/nf_conntrack_count 2>/dev/null) \
+                      || { echo "HEIMDEYE_MSG: nf_conntrack no està carregat (cap regla amb estat ni NAT?)"; exit 1; }
+                    [ "${n:-0}" -gt 0 ] || { echo "HEIMDEYE_MSG: conntrack actiu, però sense connexions registrades"; exit 1; }
+                    echo "HEIMDEYE_MSG: $n connexions registrades"
+                    SH,
+            ],
+            [
+                'nom' => 'Les regles desades coincideixen amb les actives',
+                'actiu_des' => '2026-10-05',
+                'tipus' => CheckKind::Optional,
+                'temps_max_seg' => 30,
+                'descripcio' => 'El fitxer de regles desades (`/etc/iptables/rules.v4`, el que fa servir netfilter-persistent) té les mateixes regles que les actives. Comprova-ho: `sudo iptables-save > /etc/iptables/rules.v4` i compara amb `sudo iptables-save`. Complementa «Les regles es recuperen en arrencar».',
+                'codi' => self::ROUTER."\n".self::ONLY_LINUX."\n".<<<'SH'
+                    f=/etc/iptables/rules.v4
+                    r sudo -n test -f $f || { echo "HEIMDEYE_MSG: no hi ha $f (iptables-save > $f)"; exit 1; }
+                    act=$(r sudo -n iptables-save 2>/dev/null | grep '^-A ' | sort) || { echo "No es pot executar iptables-save"; exit 1; }
+                    des=$(r sudo -n cat $f | grep '^-A ' | sort)
+                    [ "$act" = "$des" ] || {
+                      sols=$(comm -23 <(echo "$act") <(echo "$des") | wc -l); nom=$(comm -13 <(echo "$act") <(echo "$des") | wc -l)
+                      echo "HEIMDEYE_MSG: regles actives i desades difereixen ($sols només actives, $nom només desades)"; exit 1
+                    }
+                    echo "HEIMDEYE_MSG: $(echo "$act" | wc -l) regles actives iguals a les desades a $f"
+                    SH,
+            ],
+        ]);
+
         $this->actions($module, $block);
     }
 
@@ -397,7 +552,7 @@ class Block05FirewallSeeder extends Seeder
                     'executor' => $def['executor'] ?? Executor::Local,
                     'tipus' => $def['tipus'] ?? CheckKind::Required,
                     'punts' => $def['punts'] ?? 1,
-                    'actiu_des' => '2026-10-26',
+                    'actiu_des' => $def['actiu_des'] ?? '2026-10-26',
                     'data_limit' => '2026-11-06 23:59:59',
                     'posicio' => $i + 1,
                 ],
