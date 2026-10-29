@@ -192,6 +192,9 @@
                                                     @unless ($readonly)
                                                         <button type="button" class="he-btn" x-on:click.stop wire:click="verify(null, null, {{ $blockId }})">Verificar el bloc</button>
                                                     @endunless
+                                                    @if ($this->canEditModule())
+                                                        <button type="button" class="he-btn" x-on:click.stop wire:click="mountAction('extend', { block: {{ $blockId }} })" title="Dates noves per a tots els checks del bloc, per a tota la classe">Prorrogar</button>
+                                                    @endif
                                                 </div>
                                             </td>
                                         </tr>

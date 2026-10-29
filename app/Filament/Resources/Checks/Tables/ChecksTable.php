@@ -5,6 +5,7 @@ namespace App\Filament\Resources\Checks\Tables;
 use App\Enums\CheckOverview;
 use App\Enums\CheckStatus;
 use App\Enums\Executor;
+use App\Filament\Actions\ExtendChecks;
 use App\Filament\Actions\LaunchCheck;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Models\AcademicYear;
@@ -14,6 +15,7 @@ use App\Models\Module;
 use App\Support\CheckSummary;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
+use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Support\Enums\Width;
@@ -25,8 +27,10 @@ use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use WeakMap;
 
 class ChecksTable
@@ -39,6 +43,29 @@ class ChecksTable
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->with(['task.block.module', 'currentVersion']))
             ->defaultSort('posicio')
+            // Un grup per bloc, plegable, com al seguiment; la casella del grup marca tots els seus checks.
+            ->groups([
+                Group::make('task.bloc_id')
+                    ->label('Bloc')
+                    ->titlePrefixedWithLabel(false)
+                    ->getTitleFromRecordUsing(fn (Check $record) => "{$record->task->block->module->nom} · Bloc {$record->task->block->numero}: {$record->task->block->titol}")
+                    ->orderQueryUsing(fn (Builder $query, string $direction) => $query->orderByBlock($direction))
+                    ->collapsible(),
+            ])
+            ->defaultGroup('task.bloc_id')
+            ->toolbarActions([
+                LaunchCheck::bulk(),
+                BulkAction::make('prorrogar')
+                    ->label('Prorrogar')
+                    ->icon(Heroicon::OutlinedCalendarDays)
+                    ->color('gray')
+                    ->modalHeading('Prorrogar els checks marcats')
+                    ->modalDescription('Dates noves per a tots els alumnes. Un camp buit no es canvia.')
+                    ->modalSubmitActionLabel('Prorrogar')
+                    ->schema(ExtendChecks::schema())
+                    ->action(fn (Collection $records, array $data) => ExtendChecks::apply($records->load('task.block'), $data, auth()->user()))
+                    ->deselectRecordsAfterCompletion(),
+            ])
             ->columns([
                 TextColumn::make('posicio')
                     ->label('Posició')
