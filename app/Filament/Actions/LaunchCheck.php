@@ -10,9 +10,11 @@ use App\Models\Student;
 use App\Runner\CheckRunner;
 use App\Support\CheckSummary;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Utilities\Set;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Support\Collection;
 use InvalidArgumentException;
 
@@ -70,6 +72,57 @@ class LaunchCheck
 
                 $action->redirect(CheckResource::getUrl('runs', ['record' => $record]));
             });
+    }
+
+    /**
+     * «Verificar» sobre els checks marcats a la llista (p. ex. tots els d'un bloc): els mateixos
+     * alumnes per a tots, un lot per check. Tots han de ser del mateix mòdul.
+     */
+    public static function bulk(): BulkAction
+    {
+        return BulkAction::make('verificarMarcats')
+            ->label('Verificar')
+            ->icon(Heroicon::OutlinedPlay)
+            ->color('warning')
+            ->modalHeading(fn (EloquentCollection $records) => 'Verificar '.$records->count().' checks')
+            ->modalDescription('S\'executa la versió vigent de cada check per als alumnes triats. El resultat compta per als alumnes, com el de la nit.')
+            ->modalSubmitActionLabel('Verificar')
+            ->modalWidth('4xl')
+            ->schema(fn (EloquentCollection $records) => self::sameModule($records)
+                ? [self::studentPicker(self::students($records->first()))->required()]
+                : [])
+            ->fillForm(fn (EloquentCollection $records) => self::sameModule($records)
+                ? ['alumnes' => array_map('strval', self::students($records->first())->modelKeys())]
+                : [])
+            ->action(function (EloquentCollection $records, array $data, BulkAction $action) {
+                if (! self::sameModule($records)) {
+                    Notification::make()->danger()->title('Marca checks d\'un sol mòdul')->send();
+                    $action->halt();
+                }
+                $students = Student::whereKey(array_map('intval', $data['alumnes']))->orderBy('num_taula')->get();
+                $queued = 0;
+                $errors = [];
+                foreach ($records->load(['currentVersion', 'task.block.module']) as $check) {
+                    try {
+                        app(CheckRunner::class)->launch($check, $students, auth()->user());
+                        $queued++;
+                    } catch (InvalidArgumentException $e) {
+                        $errors[] = "{$check->nom}: {$e->getMessage()}";
+                    }
+                }
+
+                Notification::make()
+                    ->{$errors ? 'warning' : 'success'}()
+                    ->title("{$queued} checks a la cua per a {$students->count()} alumnes")
+                    ->body($errors ? implode("\n", $errors) : 'Els resultats surten a l\'historial de cada check quan acaben.')
+                    ->send();
+            })
+            ->deselectRecordsAfterCompletion();
+    }
+
+    private static function sameModule(EloquentCollection $records): bool
+    {
+        return $records->load('task.block')->map(fn (Check $c) => $c->task?->block?->modul_id)->unique()->count() === 1;
     }
 
     /** @return Collection<int, Student> alumnes actius del mòdul del check */

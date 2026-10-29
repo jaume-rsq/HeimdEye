@@ -363,6 +363,15 @@ les accions (vegeu [Accions](#accions)), amb aquestes diferències:
   comprovat amb una versió anterior, vermell = cap alumne l'ha assolit, taronja = algun
   `error`, `unavailable` o `timeout` (no s'ha pogut comprovar), gris = mai executat. Filtres per
   curs, mòdul, bloc, executor, actiu avui i estat de la darrera execució per a tots o algun alumne.
+- La llista s'agrupa per bloc, amb capçaleres plegables («Agrupar per» la treu). La casella de
+  la capçalera marca tots els checks del bloc. Amb checks marcats:
+  - **Verificar**: tots els checks marcats (d'un sol mòdul) per als alumnes triats (per defecte
+    tots), un lot per check, com Verificar ara.
+  - **Prorrogar**: una data nova d'actiu fins a i/o de data límit per als checks marcats, per a
+    tots els alumnes. Un camp buit no es canvia. Allargar la data límit dona el bonus de
+    puntualitat als que l'assoleixin (o l'hagin assolit) abans de la data nova. Els checks amb
+    «Actiu» forçat a Sí o No no fan servir l'actiu fins a. Només es canvien els checks que
+    l'usuari pot editar (administrador o professor del mòdul).
 - **Verificar ara** posa el check a la cua per als alumnes triats (per defecte tots), un treball
   per alumne amb la versió vigent. El resultat compta igual que el de la nit. No hi ha simulació
   (un check només llegeix) ni paràmetres per execució: sempre els valors per defecte, calculats
@@ -495,7 +504,10 @@ d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
   assoliment, els punts obtinguts i els botons (Info, Verificar, Corregir i ✎ editar, aquest
   només per a administradors i professors del mòdul); a sota la darrera execució (resultat, data,
   versió, durada i missatge). El comentari del professor, si n'hi ha, va en una tercera línia.
-- Botons per verificar ara un check, una tasca o tot el mòdul (per a aquest alumne) i per corregir:
+- **Prorrogar** (a la línia del bloc, només per a administradors i professors del mòdul): dates
+  noves per a tots els checks del bloc i per a tota la classe, com Prorrogar de la llista de
+  checks. Si tots els checks del bloc tenen la mateixa data, el formulari la proposa.
+- Botons per verificar ara un check, una tasca, un bloc o tot el mòdul (només per a aquest alumne) i per corregir:
   forçar assolit / no assolit o tornar a automàtic, i deixar un comentari que veurà l'alumne.
 
 ### Vista de l'alumne

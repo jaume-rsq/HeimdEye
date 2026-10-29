@@ -7,6 +7,7 @@ use App\Enums\CheckStatus;
 use App\Enums\Executor;
 use App\Enums\Role;
 use App\Enums\RunOrigin;
+use App\Filament\Actions\ExtendChecks;
 use App\Filament\Resources\CheckRuns\Pages\ListCheckRuns;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Filament\Resources\Checks\Pages\CreateCheck;
@@ -29,6 +30,7 @@ use App\Support\CheckSummary;
 use App\Support\DeletionImpact;
 use Filament\Actions\Testing\TestAction;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Queue;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -454,5 +456,60 @@ class CheckPanelTest extends TestCase
         $this->assertFalse($other->canEditCheck($check));
 
         $this->actingAs($other)->get(CheckResource::getUrl('edit', ['record' => $check]))->assertForbidden();
+    }
+
+    public function test_list_is_grouped_by_block_and_extends_the_marked_checks(): void
+    {
+        $this->actingAs($this->teacher);
+        [$a, $b, $c] = [$this->check(), $this->check(), $this->check()];
+
+        Livewire::test(ListChecks::class)
+            ->assertSee("Bloc {$a->task->block->numero}: {$a->task->block->titol}")
+            ->callTableBulkAction('prorrogar', [$a, $b], ['actiu_fins' => '2026-12-01', 'data_limit' => '2026-11-30 20:00'])
+            ->assertNotified("S'han prorrogat 2 checks");
+
+        $this->assertSame('2026-12-01', $a->fresh()->actiu_fins->toDateString());
+        $this->assertSame('2026-11-30 20:00', $b->fresh()->data_limit->format('Y-m-d H:i'));
+        $this->assertNull($c->fresh()->data_limit);
+    }
+
+    public function test_extend_skips_checks_the_user_cannot_edit(): void
+    {
+        $check = $this->check();
+        $outsider = User::create(['nom' => 'Altre', 'email' => 'altre@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]);
+        $this->actingAs($outsider);
+
+        $this->assertSame(0, ExtendChecks::apply(collect([$check]), ['data_limit' => '2026-12-01 10:00'], $outsider));
+        $this->assertNull($check->fresh()->data_limit);
+    }
+
+    public function test_extending_the_deadline_gives_the_punctuality_bonus(): void
+    {
+        $check = $this->check();
+        $check->update(['punts' => 10, 'bonus_puntualitat_pct' => 20, 'data_limit' => '2026-11-01 00:00']);
+        $passedAt = Carbon::parse('2026-11-03 10:00');
+        $this->assertEquals(10, $check->fresh()->pointsFor($passedAt));
+
+        ExtendChecks::apply(collect([$check->load('task.block')]), ['data_limit' => '2026-11-05 23:59'], $this->teacher);
+
+        $this->assertEquals(12, $check->fresh()->pointsFor($passedAt));
+    }
+
+    public function test_verify_the_marked_checks_queues_each_one_for_the_chosen_students(): void
+    {
+        Queue::fake();
+        $this->actingAs($this->teacher);
+        [$a, $b] = [$this->check(), $this->check()];
+        $students = $this->students();
+
+        Livewire::test(ListChecks::class)
+            ->mountTableBulkAction('verificarMarcats', [$a, $b])
+            ->assertTableBulkActionDataSet(['alumnes' => array_map('strval', $students->modelKeys())])
+            ->setTableBulkActionData(['alumnes' => [(string) $students[0]->id]])
+            ->callMountedTableBulkAction()
+            ->assertNotified('2 checks a la cua per a 1 alumnes');
+
+        Queue::assertPushed(RunCheck::class, 2);
+        $this->assertSame(2, RunBatch::count());
     }
 }

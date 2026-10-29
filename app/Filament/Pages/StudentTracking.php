@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Actions\ExtendChecks;
 use App\Models\AcademicYear;
 use App\Models\Block;
 use App\Models\Check;
@@ -233,6 +234,16 @@ class StudentTracking extends Page
         return $user->isAdmin() || $this->editableModules()->contains($check->task?->block?->modul_id);
     }
 
+    /** Si l'usuari pot canviar els checks d'aquest mòdul (prorrogar-ne un bloc). */
+    public function canEditModule(): bool
+    {
+        /** @var User $user */
+        $user = Auth::user();
+        $module = $this->module();
+
+        return $module !== null && ! $this->readonly() && ($user->isAdmin() || $this->editableModules()->contains($module->id));
+    }
+
     /** @return Collection<int, int> mòduls que imparteix l'usuari */
     #[Computed]
     public function editableModules(): Collection
@@ -365,5 +376,43 @@ class StudentTracking extends Page
                 Notification::make()->success()->title('Correcció desada')->send();
                 unset($this->progress, $this->cards);
             });
+    }
+
+    /** Prorrogar un bloc: dates noves per a tots els seus checks, per a tota la classe (ExtendChecks). */
+    public function extendAction(): Action
+    {
+        return Action::make('extend')
+            ->label('Prorrogar')
+            ->modalHeading(fn (array $arguments) => 'Prorrogar el bloc '.$this->visibleBlock($arguments)?->numero)
+            ->modalDescription('Canvia les dates de tots els checks del bloc per a tota la classe, no només per a aquest alumne.')
+            ->modalSubmitActionLabel('Prorrogar')
+            ->schema(ExtendChecks::schema())
+            ->fillForm(function (array $arguments) {
+                // Si tots els checks del bloc tenen la mateixa data, es proposa aquesta.
+                $checks = $this->blockChecks($this->visibleBlock($arguments));
+                $common = fn (string $field) => $checks->map(fn (Check $c) => $c->{$field}?->toDateTimeString())->unique()->count() === 1
+                    ? $checks->first()?->{$field}
+                    : null;
+
+                return ['actiu_fins' => $common('actiu_fins'), 'data_limit' => $common('data_limit')];
+            })
+            ->action(function (array $data, array $arguments) {
+                /** @var User $user */
+                $user = Auth::user();
+                ExtendChecks::apply($this->blockChecks($this->visibleBlock($arguments)), $data, $user);
+                unset($this->progress, $this->cards, $this->blocks);
+            });
+    }
+
+    /** Un bloc del mòdul triat (els arguments venen del navegador). */
+    private function visibleBlock(array $arguments): ?Block
+    {
+        return $this->module()?->blocks()->find($arguments['block'] ?? 0);
+    }
+
+    /** @return Collection<int, Check> */
+    private function blockChecks(?Block $block): Collection
+    {
+        return $block ? Check::whereIn('tasca_id', $block->tasks()->reorder()->select('id'))->with('task.block')->get() : collect();
     }
 }

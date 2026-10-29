@@ -236,4 +236,35 @@ class StudentTrackingTest extends TestCase
         $this->assertTrue($component->instance()->canEdit($this->check));
         $this->assertFalse($this->teacher->canEditCheck($this->check));
     }
+
+    public function test_extend_sets_the_new_dates_on_every_check_of_the_block_for_everyone(): void
+    {
+        $block = $this->check->task->block;
+        $checks = Check::whereIn('tasca_id', $block->tasks()->reorder()->select('id'))->get();
+        $other = Check::whereIn('tasca_id', $this->module->tasks()->select('tasques.id'))->whereNotIn('id', $checks->modelKeys())->first();
+        $before = $other?->data_limit;
+
+        Livewire::test(StudentTracking::class, ['alumne' => $this->student->id])
+            ->assertSee('Prorrogar')
+            ->callAction('extend', ['actiu_fins' => '2026-11-20', 'data_limit' => '2026-11-15 23:59'], ['block' => $block->id])
+            ->assertNotified("S'han prorrogat {$checks->count()} checks");
+
+        foreach ($checks->fresh() as $check) {
+            $this->assertSame('2026-11-20', $check->actiu_fins->toDateString());
+            $this->assertSame('2026-11-15 23:59', $check->data_limit->format('Y-m-d H:i'));
+        }
+        $this->assertEquals($before, $other?->fresh()->data_limit, 'els altres blocs no es toquen');
+    }
+
+    public function test_extend_leaves_blank_dates_alone(): void
+    {
+        $this->check->update(['actiu_fins' => '2026-11-01', 'data_limit' => '2026-11-01 12:00']);
+
+        Livewire::test(StudentTracking::class, ['alumne' => $this->student->id])
+            ->callAction('extend', ['actiu_fins' => null, 'data_limit' => '2026-11-08 12:00'], ['block' => $this->check->task->bloc_id]);
+
+        $this->check->refresh();
+        $this->assertSame('2026-11-01', $this->check->actiu_fins->toDateString());
+        $this->assertSame('2026-11-08 12:00', $this->check->data_limit->format('Y-m-d H:i'));
+    }
 }

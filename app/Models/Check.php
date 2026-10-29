@@ -110,20 +110,32 @@ class Check extends Model
     /** Ordena com positionLabel(): mòdul, bloc, tasca i check. */
     public function scopeOrderByPosition(Builder $query, string $direction = 'asc'): Builder
     {
-        $task = fn (string $column) => Task::query()
+        return $query
+            ->orderByBlock($direction)
+            ->orderBy(self::taskColumn('tasques.posicio'), $direction)
+            ->orderBy('checks.tasca_id', $direction)
+            ->orderBy('checks.posicio', $direction)
+            ->orderBy('checks.id', $direction);
+    }
+
+    /** Només per bloc (mòdul i bloc): l'ordre dels grups de la llista de checks. */
+    public function scopeOrderByBlock(Builder $query, string $direction = 'asc'): Builder
+    {
+        return $query
+            ->orderBy(self::taskColumn('blocs.modul_id'), $direction)
+            ->orderBy(self::taskColumn('blocs.posicio'), $direction)
+            ->orderBy(self::taskColumn('blocs.numero'), $direction)
+            ->orderBy(self::taskColumn('blocs.id'), $direction);
+    }
+
+    /** Subconsulta amb una columna de la tasca (o del seu bloc) del check. */
+    private static function taskColumn(string $column): Builder
+    {
+        return Task::query()
             ->join('blocs', 'blocs.id', '=', 'tasques.bloc_id')
             ->whereColumn('tasques.id', 'checks.tasca_id')
             ->select($column)
             ->limit(1);
-
-        return $query
-            ->orderBy($task('blocs.modul_id'), $direction)
-            ->orderBy($task('blocs.posicio'), $direction)
-            ->orderBy($task('blocs.numero'), $direction)
-            ->orderBy($task('tasques.posicio'), $direction)
-            ->orderBy('checks.tasca_id', $direction)
-            ->orderBy('checks.posicio', $direction)
-            ->orderBy('checks.id', $direction);
     }
 
     /** Punts que dona el check si es va assolir per primer cop en aquesta data. */
