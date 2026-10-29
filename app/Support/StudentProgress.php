@@ -56,6 +56,8 @@ class StudentProgress
                 'punts_maxims' => Leaderboard::maxPoints($check),
                 'a_temps' => $state?->data_primer_assoliment && $check->data_limit ? $state->data_primer_assoliment->lessThanOrEqualTo($check->data_limit) : null,
                 'darrera' => $history->last(),
+                // Una execució omesa posterior a la darrera: es mostra, però no canvia res.
+                'omesa' => self::laterSkipped($runs->get($check->id, collect()), $history->last()),
                 'execucions' => $history->count(),
                 'canvis' => self::withCorrection(self::changes($history), $state),
             ];
@@ -121,6 +123,14 @@ class StudentProgress
             'errors' => $counted->filter(fn (array $r) => $r['darrera'] !== null && ! in_array($r['darrera']->estat, [CheckStatus::Pass, CheckStatus::Fail], true))->count(),
             'darrer_assoliment' => $counted->where('assolit', true)->map(fn (array $r) => $r['state']?->data_primer_assoliment)->filter()->max(),
         ];
+    }
+
+    /** @param  Collection<int, CheckRun>  $all  ordenat de la més antiga a la més recent */
+    private static function laterSkipped(Collection $all, ?CheckRun $last): ?CheckRun
+    {
+        $skipped = $all->last();
+
+        return $skipped?->estat === CheckStatus::Skipped && $skipped->isNot($last) ? $skipped : null;
     }
 
     /**

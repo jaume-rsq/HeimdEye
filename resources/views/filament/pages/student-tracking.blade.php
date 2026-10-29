@@ -135,7 +135,10 @@
                     </select>
                     <label style="display: flex; gap: .35rem; align-items: center"><input type="checkbox" wire:model.live="obligatoris" /> Només obligatoris</label>
                     @unless ($readonly)
-                    <button type="button" class="he-btn" style="margin-left: auto" wire:click="verify" wire:confirm="Verificar ara tots els checks del mòdul per a aquest alumne?">Verificar tot el mòdul</button>
+                    @if ($pending)
+                        <span class="sub" style="margin-left: auto" wire:poll.5s="refreshPending">⏳ Verificant… la pàgina es posa al dia sola</span>
+                    @endif
+                    <button type="button" class="he-btn" @style(['margin-left: auto' => ! $pending]) wire:click="verify" wire:confirm="Verificar ara tots els checks del mòdul per a aquest alumne?">Verificar tot el mòdul</button>
                     @endunless
                 </div>
 
@@ -186,6 +189,9 @@
                                                     @if ($group['block']->data_inici || $group['block']->data_fi)
                                                         <span class="sub">{{ $group['block']->data_inici?->format('d/m') ?? '…' }} – {{ $group['block']->data_fi?->format('d/m/Y') ?? '…' }}</span>
                                                     @endif
+                                                    @unless ($readonly)
+                                                        <button type="button" class="he-btn" x-on:click.stop wire:click="verify(null, null, {{ $blockId }})">Verificar el bloc</button>
+                                                    @endunless
                                                 </div>
                                             </td>
                                         </tr>
@@ -254,8 +260,15 @@
                                                                     <span class="msg" style="color: {{ $last->estat === \App\Enums\CheckStatus::Pass ? 'inherit' : $statusColor($last->estat) }}">{{ \Illuminate\Support\Str::limit($last->missatge, 200) }}</span>
                                                                 @endif
                                                             </span>
-                                                        @else
+                                                        @elseif (! $r['omesa'])
                                                             <span class="sub">Mai executat</span>
+                                                        @endif
+                                                        @if ($r['omesa'])
+                                                            <span class="run" style="opacity: .75">
+                                                                <span><span class="dot" style="background: {{ $statusColor($r['omesa']->estat) }}"></span><strong>omès</strong></span>
+                                                                <span>{{ $r['omesa']->data_execucio?->format('d/m/Y H:i') }}</span>
+                                                                @if (filled($r['omesa']->missatge))<span class="msg">{{ \Illuminate\Support\Str::limit($r['omesa']->missatge, 200) }}</span>@endif
+                                                            </span>
                                                         @endif
                                                     </td>
                                                 </tr>

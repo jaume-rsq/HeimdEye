@@ -7,6 +7,7 @@ use App\Models\Block;
 use App\Models\Check;
 use App\Models\CheckStudent;
 use App\Models\Module;
+use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\Task;
 use App\Models\User;
@@ -64,6 +65,9 @@ class StudentTracking extends Page
 
     #[Url]
     public bool $obligatoris = false;
+
+    /** Lots llançats amb Verificar que encara no han acabat: mentre n'hi ha, la pàgina es posa al dia sola. */
+    public array $pending = [];
 
     public function mount(): void
     {
@@ -240,7 +244,7 @@ class StudentTracking extends Page
     }
 
     /** Verifica ara un check, els d'una tasca o els de tot el mòdul, per a aquest alumne. */
-    public function verify(?int $checkId = null, ?int $taskId = null): void
+    public function verify(?int $checkId = null, ?int $taskId = null, ?int $blockId = null): void
     {
         $module = $this->module();
         $student = $this->student();
@@ -251,6 +255,7 @@ class StudentTracking extends Page
             ->whereIn('tasca_id', $module->tasks()->select('tasques.id'))
             ->when($checkId, fn ($q) => $q->whereKey($checkId))
             ->when($taskId, fn ($q) => $q->where('tasca_id', $taskId))
+            ->when($blockId, fn ($q) => $q->whereIn('tasca_id', Task::where('bloc_id', $blockId)->select('id')))
             ->with('currentVersion')
             ->get();
 
@@ -258,7 +263,7 @@ class StudentTracking extends Page
         $errors = [];
         foreach ($checks as $check) {
             try {
-                app(CheckRunner::class)->launch($check, collect([$student]), Auth::user());
+                $this->pending[] = app(CheckRunner::class)->launch($check, collect([$student]), Auth::user())->id;
                 $queued++;
             } catch (InvalidArgumentException $e) {
                 $errors[] = "{$check->nom}: {$e->getMessage()}";
@@ -268,8 +273,19 @@ class StudentTracking extends Page
         Notification::make()
             ->{$errors ? 'warning' : 'success'}()
             ->title($queued === 1 ? 'Check a la cua' : "{$queued} checks a la cua")
-            ->body($errors ? implode("\n", $errors) : 'El resultat surt aquí quan acaba (recarrega la pàgina).')
+            ->body($errors ? implode("\n", $errors) : 'La pàgina es posa al dia sola a mesura que acaben.')
             ->send();
+        unset($this->progress, $this->cards);
+    }
+
+    /** Cada pocs segons mentre hi ha verificacions en marxa: torna a llegir els resultats. */
+    public function refreshPending(): void
+    {
+        // Un lot que fa més d'una hora que corre ja no s'espera (worker aturat, per exemple).
+        $this->pending = RunBatch::whereKey($this->pending)
+            ->whereNull('data_fi')
+            ->where('data_inici', '>', now()->subHour())
+            ->pluck('id')->all();
         unset($this->progress, $this->cards);
     }
 

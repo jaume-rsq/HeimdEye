@@ -134,6 +134,24 @@ class StudentTrackingTest extends TestCase
             ->assertSee('Revisat a classe');
     }
 
+    public function test_skipped_runs_are_shown_and_verify_refreshes_by_itself(): void
+    {
+        $this->addRun(CheckStatus::Skipped, '2026-10-20 03:00');
+
+        Livewire::test(StudentTracking::class, ['alumne' => $this->student->id, 'tasca' => $this->check->tasca_id])
+            ->assertSee('estat omes');
+        $this->assertSame(CheckStatus::Skipped, collect(CheckSummary::students($this->check))->firstWhere('id', $this->student->id)['estat']);
+
+        Queue::fake();
+        $component = Livewire::test(StudentTracking::class, ['alumne' => $this->student->id])
+            ->call('verify', null, null, $this->check->task->bloc_id)
+            ->assertSee('es posa al dia sola');
+        Queue::assertPushed(RunCheck::class, Check::whereIn('tasca_id', $this->check->task->block->tasks()->select('id'))->count());
+
+        RunBatch::query()->update(['data_fi' => now()]);
+        $component->call('refreshPending')->assertSet('pending', []);
+    }
+
     public function test_verify_queues_the_checks_of_a_task(): void
     {
         Queue::fake();
