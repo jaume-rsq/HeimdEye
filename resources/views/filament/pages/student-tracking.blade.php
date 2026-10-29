@@ -134,10 +134,10 @@
                         <option value="error">Amb error a la darrera execució</option>
                     </select>
                     <label style="display: flex; gap: .35rem; align-items: center"><input type="checkbox" wire:model.live="obligatoris" /> Només obligatoris</label>
-                    @unless ($readonly)
                     @if ($pending)
                         <span class="sub" style="margin-left: auto" wire:poll.5s="refreshPending">⏳ Verificant… la pàgina es posa al dia sola</span>
                     @endif
+                    @unless ($readonly)
                     <button type="button" class="he-btn" @style(['margin-left: auto' => ! $pending]) wire:click="verify" wire:confirm="Verificar ara tots els checks del mòdul per a aquest alumne?">Verificar tot el mòdul</button>
                     @endunless
                 </div>
@@ -239,9 +239,20 @@
                                                     </td>
                                                     <td style="text-align: right"><strong>{{ $fmt($r['punts']) }}</strong></td>
                                                     <td style="text-align: right; white-space: nowrap" x-on:click.stop>
-                                                        <button type="button" class="he-btn" wire:click="mountAction('info', { check: {{ $check->id }} })" title="Objectiu, justificació i codi amb les dades de l'alumne">Info</button>
+                                                        <span style="display: inline-flex; gap: .15rem; align-items: center; vertical-align: middle">
+                                                            <x-filament::icon-button icon="heroicon-o-information-circle" color="gray" size="sm" label="Info" tooltip="Info: objectiu, justificació i codi amb les dades de l'alumne" wire:click="mountAction('info', { check: {{ $check->id }} })" />
+                                                            @if ($this->canVerify($check))
+                                                                @php($wait = $this->verifyWaitMinutes($check))
+                                                                @if ($wait)
+                                                                    <x-filament::icon-button icon="heroicon-o-play" color="gray" size="sm" label="Verificar" :tooltip="'Podràs tornar a verificar-lo d\'aquí a '.$wait.' min'" disabled />
+                                                                @elseif ($readonly)
+                                                                    <x-filament::icon-button icon="heroicon-o-play" color="primary" size="sm" label="Verificar" tooltip="Verificar ara (un cop cada 10 minuts)" wire:click="verify({{ $check->id }})" wire:confirm="Abans de verificar, comprova tu mateix que funciona: només ho podràs tornar a provar d'aquí a 10 minuts. Verificar ara?" />
+                                                                @else
+                                                                    <x-filament::icon-button icon="heroicon-o-play" color="primary" size="sm" label="Verificar" tooltip="Verificar ara per a aquest alumne" wire:click="verify({{ $check->id }})" />
+                                                                @endif
+                                                            @endif
+                                                        </span>
                                                         @unless ($readonly)
-                                                            <button type="button" class="he-btn" wire:click="verify({{ $check->id }})">Verificar</button>
                                                             <button type="button" class="he-btn" wire:click="mountAction('correct', { check: {{ $check->id }} })">Corregir</button>
                                                         @endunless
                                                         @if ($this->canEdit($check))

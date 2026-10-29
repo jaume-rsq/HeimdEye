@@ -28,5 +28,15 @@ HeimdEye comprova les teves màquines i actualitza aquesta pàgina.
 
 ## Info
 
-El botó **Info** d'un check explica què es comprova i per què, i mostra el codi que s'executa
+La icona **ⓘ** (Info) d'un check explica què es comprova i per què, i mostra el codi que s'executa
 amb les teves dades.
+
+## Verificar ara
+
+No cal esperar a la nit: la icona **▶** (Verificar) comprova ara aquest check a les teves
+màquines. El resultat compta igual que el de la nit, i la pàgina es posa al dia sola quan acaba.
+
+- **Comprova primer tu mateix que funciona.** Cada check només es pot verificar **un cop cada
+  10 minuts**. Mentre esperes, la icona surt grisa i, si hi passes el ratolí, diu quant falta.
+- Només surt als checks actius, i verifica un check cada vegada.
+- Llegeix el missatge de la darrera execució: diu què ha fallat.
