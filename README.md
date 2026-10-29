@@ -513,7 +513,7 @@ d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
   obligatoris, punts, checks amb error, darrer assoliment i dates del bloc. La columna Pos. dona
   l'ordre dels checks.
 - Cada check ocupa dues línies: a dalt el nom, si és obligatori i els punts, l'estat, el primer
-  assoliment, els punts obtinguts i els botons (Info, Verificar, Corregir i ✎ editar, aquest
+  assoliment, els punts obtinguts i els botons (ⓘ Info, ▶ Verificar, Corregir i ✎ editar, aquest
   només per a administradors i professors del mòdul); a sota la darrera execució (resultat, data,
   versió, durada i missatge). El comentari del professor, si n'hi ha, va en una tercera línia.
 - **Prorrogar** (a la línia del bloc, només per a administradors i professors del mòdul): dates
@@ -529,9 +529,17 @@ amb fitxa d'alumne (l'importador ja els crea amb l'email de la llista). Amb Clou
 amb el seu compte de Google; en local, pel formulari de `/alumne/login`. Un alumne que obre `/admin`
 (o `/`) va a `/alumne`, i un professor no pot entrar a `/alumne`.
 
-És la pantalla de Seguiment de només lectura i sempre amb l'alumne connectat: els seus mòduls, els
-checks amb l'estat, la darrera execució, el comentari del professor i el botó Info. No hi ha selector
-d'alumne, Verificar, Corregir ni editar, i el servidor els rebutja encara que es cridin a mà.
+És la pantalla de Seguiment sempre amb l'alumne connectat: els seus mòduls, els checks amb l'estat,
+la darrera execució, el comentari del professor i les icones Info (ⓘ) i Verificar (▶). No hi ha
+selector d'alumne, Corregir ni editar, i el servidor els rebutja encara que es cridin a mà.
+
+L'alumne pot **verificar** un check (`MyProgress::verify`): només un check actiu cada vegada, només
+per a ell i el mateix check com a molt un cop cada 10 minuts (`MyProgress::VERIFY_EVERY`). Abans,
+el navegador li demana que comprovi primer que funciona; mentre espera, la icona surt grisa amb els
+minuts que falten. El compte és al `RateLimiter` de Laravel (memòria cau, clau per alumne i check):
+no afegeix cap taula ni camp, caduca sol i no se'l salta canviant de navegador o de sessió. El
+resultat compta com una verificació del professor (lot manual amb `llancat_per` = l'alumne). Verificar
+la tasca, el bloc o el mòdul sencer continua sent només per als professors.
 
 ## Accions
 

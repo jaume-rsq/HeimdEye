@@ -12,6 +12,8 @@ canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esq
 
 ## 29/10/2026
 
+- **Els alumnes poden verificar** un check des del seu seguiment (▶), un cop cada 10 minuts per
+  check. Info i Verificar ara són icones.
 - **Ajuda nova** sobre el funcionament: [Com funciona](?doc=com-funciona),
   [Executors i exemples](?doc=executors), [Accés i secrets](?doc=acces-i-secrets),
   [Preparar els equips](?doc=preparar-equips) (usuari `heimdeye` i la seva clau) i
