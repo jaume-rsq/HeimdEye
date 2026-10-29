@@ -148,7 +148,7 @@ return [
         'Bridge VLAN-aware a Proxmox amb dues VLANs' => $info(
             'validar que el Proxmox té un bridge amb VLAN i que les màquines fan servir almenys dues VLAN diferents.',
             'perquè les VLAN del router serveixin, el commutador virtual del Proxmox ha de transportar les etiquetes i posar cada màquina a la seva VLAN. És el mateix que configurar els ports d\'un commutador gestionable en una xarxa física.',
-	),
+        ),
         'Regles de la LAN cap a la WAN i la DMZ' => $info(
             'comprovar que, al FORWARD, hi ha regles explícites que deixen sortir la LAN cap a la xarxa de l\'aula i cap a la DMZ, a més de la regla de les respostes.',
             'amb la política per defecte a DROP, cada flux permès és una decisió escrita. Si la LAN no té regla de sortida, no podria arribar ni a Internet ni als servidors de la DMZ. Mirar la regla, i no només provar que un equip surt, permet verificar-ho sense dependre de tenir més màquines engegades.',
