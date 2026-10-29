@@ -3,6 +3,7 @@
 namespace App\Providers\Filament;
 
 use App\Filament\Student\Pages\MyProgress;
+use App\Filament\Student\Pages\StudentHelp;
 use App\Http\Middleware\AuthenticateWithCloudflareAccess;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -37,6 +38,7 @@ class StudentPanelProvider extends PanelProvider
             ->topNavigation()
             ->pages([
                 MyProgress::class,
+                StudentHelp::class,
             ])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.partials.native-controls'))
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('partials.favicons'))

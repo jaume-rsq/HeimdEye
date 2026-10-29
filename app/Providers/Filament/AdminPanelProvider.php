@@ -13,13 +13,11 @@ use Filament\Http\Middleware\DisableBladeIconComponents;
 use Filament\Http\Middleware\DispatchServingFilamentEvent;
 use Filament\Navigation\NavigationGroup;
 use Filament\Navigation\NavigationItem;
-use Filament\Pages\Dashboard;
 use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Support\Icons\Heroicon;
 use Filament\View\PanelsRenderHook;
-use Filament\Widgets\AccountWidget;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -61,16 +59,11 @@ class AdminPanelProvider extends PanelProvider
                     ->sort(2),
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
+            // Sense escriptori: /admin porta a la primera entrada del menú (el leaderboard).
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
-            ->pages([
-                Dashboard::class,
-            ])
-            ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
-            ->widgets([
-                AccountWidget::class,
-            ])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.partials.native-controls'))
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('partials.favicons'))
+            ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.partials.compact-sidebar'))
             ->renderHook(PanelsRenderHook::PAGE_START, fn () => view('filament.demo-banner'))
             ->renderHook(PanelsRenderHook::PAGE_START, fn () => view('filament.queue-warning'))
             ->renderHook(PanelsRenderHook::PAGE_END, fn () => view('filament.back-button'))

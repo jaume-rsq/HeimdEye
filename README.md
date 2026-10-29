@@ -472,6 +472,15 @@ també poden ser playbooks (`executor = ansible`).
 - **Alumnes** (Inventari): a més de la fitxa, es poden marcar actius o inactius en bloc. Esborrar un
   alumne esborra les seves execucions; si només ha deixat el curs, millor marcar-lo inactiu.
 
+## Ajuda
+
+Menú **Ajuda** (`/admin/ajuda`, i `/alumne/ajuda` per als alumnes): les pàgines són els fitxers
+Markdown de `docs/ajuda`, llegits a cada petició (`App\Support\HelpDocs`). Per afegir o canviar
+ajuda només cal editar-los. Cada fitxer porta una capçalera YAML amb `titol`, `ordre`, `per`
+(`professors`, `alumnes` o `tots`) i `actualitzat`. Les pàgines actualitzades els darrers 14 dies
+surten marcades amb «nou», i el menú en mostra el nombre. Els canvis per als usuaris s'apunten a
+`docs/ajuda/00-novetats.md`. Vegeu la pàgina «Com s'escriu l'ajuda».
+
 ## Leaderboard
 
 Classificació d'un mòdul del curs actual. Públic a `/leaderboard` (sense login: a Cloudflare Access cal
