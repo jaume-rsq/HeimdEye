@@ -91,7 +91,7 @@ class Block05FirewallSeederTest extends TestCase
         $analisi = (new \ReflectionClassConstant(Block05FirewallSeeder::class, 'ANALISI_FORWARD'))->getValue();
         $addr = "2: eth0    inet 192.168.20.14/28 brd 192.168.20.15 scope global eth0\\       valid_lft forever\n"
             ."3: eth1    inet 172.21.0.1/22 brd 172.21.3.255 scope global eth1\\       valid_lft forever\n"
-            ."4: eth2    inet 10.21.0.1/22 brd 10.21.3.255 scope global eth2\\       valid_lft forever";
+            .'4: eth2    inet 10.21.0.1/22 brd 10.21.3.255 scope global eth2\\       valid_lft forever';
         $resposta = '-A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT';
 
         // lw = LAN -> WAN, ld = LAN -> DMZ, dl = DMZ -> LAN.
