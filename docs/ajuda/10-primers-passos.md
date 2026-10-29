@@ -11,6 +11,8 @@ HeimdEye comprova cada nit, als equips dels alumnes, les tasques de cada bloc. C
 **checks**: comprovacions de sí o no (un ping, una ordre per SSH, un playbook d'Ansible). Quan un
 check passa per primer cop, l'alumne l'ha **assolit** i en guanya els punts.
 
+Per entendre com hi arriba (executors, accés, secrets), llegeix [Com funciona](?doc=com-funciona).
+
 ## El menú
 
 | Entrada | Per a què serveix |
