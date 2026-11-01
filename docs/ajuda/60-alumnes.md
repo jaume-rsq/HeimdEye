@@ -2,7 +2,7 @@
 titol: El meu seguiment
 ordre: 60
 per: [tots]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-01
 ---
 
 # El meu seguiment
@@ -14,17 +14,19 @@ HeimdEye comprova les teves màquines i actualitza aquesta pàgina.
 
 | Estat | Vol dir |
 | --- | --- |
-| Assolit (`pass`) | Ja ho tens. Els punts queden des del primer dia que passa. |
+| Assolit (`pass`) | Ja ho tens. Els punts queden des del primer dia que passa, encara que després falli. |
+| Assolit + **ara no passa** | L'havies assolit i conserves els punts, però la darrera comprovació falla. Arregla-ho: les tasques següents en poden dependre. |
 | No assolit (`fail`) | Encara no ho tens bé. Mira el missatge de la darrera execució. |
 | `error`, `unavailable`, `timeout` | No s'ha pogut comprovar (la màquina no respon, per exemple). No és culpa teva: torna-ho a mirar l'endemà. Si continua, avisa el professor. |
 | Omès | Ara aquest check no s'aplica al teu cas. |
 
 ## Punts
 
-- Cada check assolit dona els seus punts.
+- Cada check assolit dona els seus punts, i **no es perden** encara que després falli o la màquina
+  estigui apagada una nit.
 - Si l'assoleixes abans de la **data límit**, tens un **bonus** de puntualitat.
 - El professor pot corregir un check a mà. Si ho fa, la seva correcció mana i en pots veure el
-  comentari.
+  comentari. Si el marca com a no assolit, perds els punts d'aquell check.
 
 ## Info
 

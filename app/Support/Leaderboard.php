@@ -50,7 +50,7 @@ class Leaderboard
 
         $rows = $students->map(function (Student $student) use ($checks, $blocks, $required, $states) {
             /** @var Collection<int, CheckStudent> $passed */
-            $passed = ($states[$student->id] ?? collect())->filter->isPassing()->keyBy('check_id');
+            $passed = ($states[$student->id] ?? collect())->filter->isAchieved()->keyBy('check_id');
             $points = $passed->sum(fn (CheckStudent $s) => self::points($checks[$s->check_id], $s));
             $requiredDone = $required->filter(fn (Check $c) => $passed->has($c->id))->count();
 
@@ -85,7 +85,7 @@ class Leaderboard
     /** Punts que dona ara un check a un alumne. Sense data d'assoliment (l'ha marcat el professor): sense bonus. */
     public static function points(Check $check, ?CheckStudent $state): float
     {
-        if ($state === null || ! $state->isPassing()) {
+        if ($state === null || ! $state->isAchieved()) {
             return 0;
         }
 

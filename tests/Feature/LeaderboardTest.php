@@ -84,6 +84,29 @@ class LeaderboardTest extends TestCase
         $this->assertSame(20.0, $board['punts_maxims']);
     }
 
+    public function test_an_achieved_check_keeps_its_points_when_it_stops_passing(): void
+    {
+        [$s1, $s2] = $this->module->students()->orderBy('num_taula')->limit(2)->get()->all();
+        [$a] = $this->checks;
+        foreach ([[$s1, CheckStatus::Fail], [$s2, CheckStatus::Unavailable]] as [$student, $now]) {
+            CheckStudent::create(['check_id' => $a->id, 'alumne_id' => $student->id, 'estat_actual' => $now, 'data_primer_assoliment' => '2026-10-05 10:00']);
+        }
+
+        $rows = collect(app(Leaderboard::class)->build($this->module, Carbon::parse('2026-10-26'))['rows'])->keyBy(fn (array $r) => $r['student']->id);
+        $this->assertSame(15.0, $rows[$s1->id]['punts']);
+        $this->assertSame(15.0, $rows[$s2->id]['punts']);
+        $this->assertSame(1, $rows[$s1->id]['obligatoris']);
+
+        $state = CheckStudent::where('alumne_id', $s1->id)->sole();
+        $this->assertTrue($state->isAchieved());
+        $this->assertFalse($state->isPassing());
+        $this->assertTrue($state->isRegressed());
+
+        $state->update(['estat_professor' => false]);
+        $this->assertSame(0.0, collect(app(Leaderboard::class)->build($this->module, Carbon::parse('2026-10-26'))['rows'])->firstWhere('student.id', $s1->id)['punts']);
+        $this->assertFalse($state->fresh()->isRegressed());
+    }
+
     public function test_public_page_shows_aliases_but_never_names(): void
     {
         $student = $this->module->students()->orderBy('num_taula')->firstOrFail();

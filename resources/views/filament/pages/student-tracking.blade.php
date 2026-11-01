@@ -227,6 +227,9 @@
                                                     </td>
                                                     <td style="white-space: nowrap">
                                                         <span class="chip" style="background: {{ $r['assolit'] ? 'rgb(22,163,74)' : 'rgb(107,114,128)' }}">{{ $r['assolit'] ? 'Assolit' : 'No assolit' }}</span>
+                                                        @if ($r['ara_no_passa'])
+                                                            <span class="chip" style="background: rgb(234,88,12)" title="L'ha assolit i conserva els punts, però la darrera execució ({{ $state->estat_actual->value }}) no passa">ara no passa</span>
+                                                        @endif
                                                         @if ($r['corregit'])
                                                             <span class="sub" title="{{ $state->data_correccio?->format('d/m/Y H:i') }}">✎ {{ $state->teacherUpdatedBy?->nom ?: 'professor' }}</span>
                                                         @endif

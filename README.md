@@ -493,7 +493,11 @@ una regla de Bypass per a aquest camí), on només surt l'àlies de l'alumne o �
 - Compten els checks que ja han començat: no els desactivats a mà ni els que encara no han arribat a
   `actiu_des`. Els que ja han acabat continuen comptant.
 - Cada check assolit dona els seus punts, amb el bonus de puntualitat si es va assolir abans de la
-  data límit. L'estat del professor mana: assolit sense data dona els punts sense bonus; no assolit, 0.
+  data límit. **Assolit** vol dir que ha passat algun cop (`data_primer_assoliment`,
+  `CheckStudent::isAchieved()`): els punts es queden encara que després falli, doni `error` o
+  l'equip no respongui. L'estat del professor mana: assolit sense data dona els punts sense bonus;
+  no assolit, 0. Al Seguiment, un check assolit que ara no passa (`isRegressed()`) porta l'avís
+  «ara no passa».
 - Columnes: punts, % d'obligatoris assolits, progrés per bloc i data del darrer assoliment.
 - En cas d'empat, va davant qui hi va arribar abans (darrer assoliment més antic).
 

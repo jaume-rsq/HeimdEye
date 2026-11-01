@@ -2,7 +2,7 @@
 titol: Seguiment
 ordre: 30
 per: [professors]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-01
 ---
 
 # Seguiment
@@ -14,6 +14,9 @@ es pot compartir amb un altre professor.
 - A dalt, una targeta per mòdul amb els punts, la posició i el percentatge d'obligatoris.
 - La taula agrupa els checks per bloc i tasca. Clica la línia d'un bloc per plegar-lo.
 - Clica un check per veure la sortida de la darrera execució i l'historial de canvis d'estat.
+- **Els punts no es perden**: un check assolit continua assolit encara que després falli, doni
+  error o la màquina estigui apagada. Si ara no passa, surt l'avís taronja **ara no passa**. Per
+  treure'ls els punts, **Corregir** → no assolit.
 
 ## Botons
 

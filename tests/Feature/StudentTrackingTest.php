@@ -152,6 +152,21 @@ class StudentTrackingTest extends TestCase
         $component->call('refreshPending')->assertSet('pending', []);
     }
 
+    public function test_an_achieved_check_that_fails_now_keeps_its_points_and_warns(): void
+    {
+        CheckStudent::create(['check_id' => $this->check->id, 'alumne_id' => $this->student->id, 'estat_actual' => CheckStatus::Fail, 'data_primer_assoliment' => '2026-10-05 10:00']);
+
+        $row = collect(app(StudentProgress::class)->build($this->student, $this->module))
+            ->flatMap(fn (array $b) => $b['tasks'])->flatMap(fn (array $t) => $t['rows'])
+            ->first(fn (array $r) => $r['check']->is($this->check));
+        $this->assertTrue($row['assolit']);
+        $this->assertTrue($row['ara_no_passa']);
+        $this->assertGreaterThan(0, $row['punts']);
+        Livewire::test(StudentTracking::class, ['alumne' => $this->student->id, 'tasca' => $this->check->tasca_id])
+            ->assertSee('Assolit')
+            ->assertSee('ara no passa');
+    }
+
     public function test_verify_queues_the_checks_of_a_task(): void
     {
         Queue::fake();
