@@ -7,9 +7,13 @@
 #   sudo lab/lab.sh estat       # llista dels contenidors
 #   sudo lab/lab.sh actualitza  # HeimdEye amb el codi d'aquesta carpeta (cal Internet)
 #   sudo lab/lab.sh esborra     # esborra els contenidors i les xarxes (no la imatge base)
+#   sudo lab/lab.sh clon        # secrets nous i BBDD neta (ho fa sol el servei heimdeye-lab-clon)
 #
-# Alumnes: HEIMDEYE_LAB_ALUMNES (1 a 4, per defecte 2). Crear-ho tot necessita Internet (paquets,
-# imatges, Docker); en acabar, cap contenidor en té.
+# Plantilla: crea instal·la el servei heimdeye-lab-clon, que en arrencar mira si la VM és un clon
+# (identificador de maquinari diferent del de la plantilla) i, si ho és, fa "clon" sol, sense Internet.
+#
+# Alumnes: HEIMDEYE_LAB_ALUMNES (1 a 4, per defecte 2; després, els que es van crear). Crear-ho tot
+# necessita Internet (paquets, imatges, Docker); en acabar, cap contenidor en té.
 #
 # Pla d'adreces (X = 20 + número d'alumne), el mateix que database/seeders/Smix2LabSeeder.php:
 #   gestió  he-gestio 10.255.0.0/16  amfitrió .0.1, HeimdEye .0.2, router .X.1, client .X.10, DMZ .X.20
@@ -19,8 +23,8 @@
 set -euo pipefail
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
-N=${HEIMDEYE_LAB_ALUMNES:-2}
 STATE=/var/lib/heimdeye-lab
+N=${HEIMDEYE_LAB_ALUMNES:-$(cat "$STATE/alumnes" 2>/dev/null || echo 2)}
 UBUNTU=images:ubuntu/24.04
 IMAGE=heimdeye-lab-base
 HE=heimdeye
@@ -132,7 +136,7 @@ student_lab() {
         local name=$role$x host
         exists "$name" && continue
         log "Equip $name"
-        incus init "$IMAGE" "$name" -p he-lab -c limits.memory=256MiB -c limits.cpu=1
+        incus init "$IMAGE" "$name" -p he-lab -c limits.memory=256MiB -c limits.cpu=1 -c boot.autostart=true
         incus config device add "$name" eth0 nic network=he-gestio name=eth0 >/dev/null
         case $role in
             router)
@@ -161,7 +165,7 @@ student_lab() {
 heimdeye_container() {
     if ! exists "$HE"; then
         log "Contenidor de HeimdEye"
-        incus init "$UBUNTU" "$HE" -p he-lab -c security.nesting=true
+        incus init "$UBUNTU" "$HE" -p he-lab -c security.nesting=true -c boot.autostart=true
         incus config device add "$HE" gestio nic network=he-gestio name=eth1 >/dev/null
         incus config device add "$HE" wan nic network=he-wan name=eth2 >/dev/null
         incus start "$HE"
@@ -182,18 +186,8 @@ EOF
         || { apt-get update -q; DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io docker-compose-v2 curl; }'
     copy_code
 
-    # Secrets nous: APP_KEY, contrasenya de la BBDD i la clau del laboratori.
-    incus exec "$HE" --cwd "$APP/docker" --env N="$N" -- bash -euc '
-        if [ ! -s .env ]; then
-            cp env.example .env
-            sed -i -e "s|^APP_KEY=.*|APP_KEY=base64:$(openssl rand -base64 32)|" \
-                   -e "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -hex 24)|" \
-                   -e "s|^HEIMDEYE_ADMIN_NAME=.*|HEIMDEYE_ADMIN_NAME=Professor|" \
-                   -e "s|^HEIMDEYE_ADMIN_EMAIL=.*|HEIMDEYE_ADMIN_EMAIL=professor@heimdeye.test|" .env
-            echo "HEIMDEYE_LAB_ALUMNES=$N" >> .env
-        fi
-        install -d -o 1000 -g 1000 -m 700 lab-key'
-    incus file push "$STATE/id_ed25519" "$HE$APP/docker/lab-key/id_ed25519" --uid 1000 --gid 1000 --mode 0600
+    incus exec "$HE" --cwd "$APP/docker" -- test -s .env || app_secrets
+    push_lab_key
 
     log "Construint i engegant HeimdEye (uns minuts)"
     he "${COMPOSE[@]}" up -d --build
@@ -201,11 +195,58 @@ EOF
 
     incus config device show "$HE" | grep -q '^web:' \
         || incus config device add "$HE" web proxy listen=tcp:127.0.0.1:8080 connect=tcp:127.0.0.1:8080 >/dev/null
+    wait_app
+}
+
+# .env de HeimdEye amb secrets nous: APP_KEY i contrasenya de la BBDD.
+app_secrets() {
+    incus exec "$HE" --cwd "$APP/docker" --env N="$N" -- bash -euc '
+        [ -s .env ] || cp env.example .env
+        sed -i -e "s|^APP_KEY=.*|APP_KEY=base64:$(openssl rand -base64 32)|" \
+               -e "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -hex 24)|" \
+               -e "s|^HEIMDEYE_ADMIN_NAME=.*|HEIMDEYE_ADMIN_NAME=Professor|" \
+               -e "s|^HEIMDEYE_ADMIN_EMAIL=.*|HEIMDEYE_ADMIN_EMAIL=professor@heimdeye.test|" \
+               -e "/^HEIMDEYE_LAB_ALUMNES=/d" .env
+        echo "HEIMDEYE_LAB_ALUMNES=$N" >> .env'
+}
+
+# La clau privada del laboratori, al Compose de HeimdEye.
+push_lab_key() {
+    incus exec "$HE" --cwd "$APP/docker" -- install -d -o 1000 -g 1000 -m 700 lab-key
+    incus file push "$STATE/id_ed25519" "$HE$APP/docker/lab-key/id_ed25519" --uid 1000 --gid 1000 --mode 0600
+}
+
+wait_app() {
     for _ in $(seq 120); do
         he curl -sf -o /dev/null http://127.0.0.1:8080/up && return
         sleep 5
     done
     die "HeimdEye no respon: incus exec $HE --cwd $APP/docker -- ${COMPOSE[*]} logs app"
+}
+
+# Identificador de la màquina: canvia en clonar la VM (UUID del maquinari; si no n'hi ha, machine-id).
+machine_id() {
+    cat /sys/class/dmi/id/product_uuid 2>/dev/null || cat /etc/machine-id
+}
+
+# Servei que, en arrencar un clon de la plantilla, fa "lab.sh clon" sol.
+clone_service() {
+    cat > /etc/systemd/system/heimdeye-lab-clon.service <<EOF
+[Unit]
+Description=HeimdEye: secrets nous si aquesta VM és un clon de la plantilla
+After=incus.service incus-startup.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=$REPO/lab/lab.sh clon-si-cal
+TimeoutStartSec=30min
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl daemon-reload
+    systemctl enable heimdeye-lab-clon.service >/dev/null
 }
 
 # El codi d'aquesta carpeta, sense vendor ni .git (la imatge fa el composer install).
@@ -264,7 +305,43 @@ cmd_crea() {
     heimdeye_container
     initial_state
     snapshot
+    echo "$N" > "$STATE/alumnes"
+    machine_id > "$STATE/maquina"
+    clone_service
     log "Fet. HeimdEye: http://localhost:8080 (en aquesta màquina)"
+}
+
+# Un clon de la plantilla: clau del laboratori i secrets de HeimdEye nous, i BBDD neta.
+# No cal Internet: les imatges ja hi són (--no-build).
+cmd_clon() {
+    exists "$HE" || die "primer: lab.sh crea"
+    log "Clon: secrets nous"
+    for _ in $(seq 60); do he docker info >/dev/null 2>&1 && break; sleep 2; done
+    he "${COMPOSE[@]}" down -v
+    for name in $(lab_instances); do
+        incus stop --force "$name" 2>/dev/null || true
+        incus snapshot restore "$name" inicial
+        incus start "$name"
+    done
+    rm -f "$STATE/id_ed25519" "$STATE/id_ed25519.pub"
+    lab_key
+    for name in $(lab_instances); do
+        incus exec "$name" -- sh -c 'cat > /home/heimdeye/.ssh/authorized_keys' < "$STATE/id_ed25519.pub"
+    done
+    snapshot
+    app_secrets
+    push_lab_key
+    he "${COMPOSE[@]}" up -d --no-build
+    wait_app
+    artisan heimdeye:run --module=SMX2 >/dev/null || true
+    machine_id > "$STATE/maquina"
+    log "Fet. HeimdEye: http://localhost:8080"
+}
+
+cmd_clon-si-cal() {
+    [[ -s $STATE/maquina ]] || return 0
+    [[ $(machine_id) == "$(cat "$STATE/maquina")" ]] && return 0
+    cmd_clon
 }
 
 cmd_restaura() {
@@ -299,10 +376,12 @@ cmd_esborra() {
     done
     incus network delete he-wan 2>/dev/null || true
     incus network delete he-gestio 2>/dev/null || true
+    systemctl disable heimdeye-lab-clon.service 2>/dev/null || true
+    unlink /etc/systemd/system/heimdeye-lab-clon.service 2>/dev/null || true
     rm -rf "$STATE"
 }
 
 case ${1:-} in
-    crea | restaura | actualitza | estat | esborra) "cmd_$1" ;;
-    *) sed -n '2,10p' "$0"; exit 1 ;;
+    crea | restaura | actualitza | estat | esborra | clon | clon-si-cal) "cmd_$1" ;;
+    *) sed -n '2,15p' "$0"; exit 1 ;;
 esac

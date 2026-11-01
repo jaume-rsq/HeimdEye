@@ -9,7 +9,7 @@ Tot corre en **una sola VM**, en contenidors LXC (Incus): HeimdEye i, per a cada
 un client i un servidor. S'hi entra directament com a professor (mode `plantilla`), sense
 contrasenya: és una còpia per a una sola persona, pensada per clonar-la (p. ex. a IsardVDI).
 
-> **Estat: prototip.** Hi ha els blocs 1 a 3 i el mode plantilla. Falten els blocs 4 a 8, la
+> **Estat: prototip.** Hi ha els blocs 1 a 3, el mode plantilla i la posada en marxa sola dels clons. Falten els blocs 4 a 8, la
 > plantilla d'IsardVDI amb escriptori i navegador, i la versió pública amb reserves.
 > `lab/lab.sh` encara no s'ha provat de punta a punta en una VM.
 
@@ -98,6 +98,24 @@ sudo lab/lab.sh actualitza   # HeimdEye amb el codi de la carpeta (torna a obrir
 sudo lab/lab.sh esborra      # contenidors i xarxes (la imatge base es queda)
 incus exec router21 -- bash  # entrar a un equip, com faria l'alumne
 ```
+
+## Fer-ne una plantilla (IsardVDI o qualsevol hipervisor)
+
+1. A la VM de la plantilla: `sudo lab/lab.sh crea`. Tots els contenidors arrenquen sols amb la VM
+   (`boot.autostart`), i HeimdEye amb ells.
+2. Apaga la VM i converteix-la en plantilla.
+
+Cada clon s'engega sense cap intervenció. `crea` instal·la el servei `heimdeye-lab-clon`, que a
+cada arrencada compara l'UUID de la màquina (`/sys/class/dmi/id/product_uuid`, el posa
+l'hipervisor i és diferent per a cada VM) amb el de la plantilla, desat a
+`/var/lib/heimdeye-lab/maquina`. Si ha canviat, és un clon i fa `lab.sh clon`, sense Internet:
+
+- una clau nova per al laboratori, als equips (que tornen a l'estat inicial) i a HeimdEye;
+- `APP_KEY` i contrasenya de la BBDD noves, i una BBDD neta (`down -v` i `up --no-build`);
+- els checks del mòdul, per tenir el seguiment al dia.
+
+Tarda uns minuts. Després, HeimdEye és a `http://localhost:8080`. Pendent: un escriptori lleuger
+que obri el navegador a l'app en entrar.
 
 ## Mode plantilla
 
