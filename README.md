@@ -45,7 +45,7 @@ php artisan db:seed --class=Block08DhcpSeeder       # Bloc 8 (blocs 7 i 8): DHCP
 
 ### Autenticació
 
-`HEIMDEYE_AUTH` tria com s'entra al panell `/admin`. En els dos casos només hi entren els
+`HEIMDEYE_AUTH` tria com s'entra al panell `/admin`. En tots els casos només hi entren els
 administradors i professors actius de la taula `usuaris` (no hi ha autoregistre).
 
 - `local`: formulari de correu i contrasenya. Per a desenvolupament.
@@ -55,6 +55,9 @@ administradors i professors actius de la taula `usuaris` (no hi ha autoregistre)
   `equip.cloudflareaccess.com`) i l'audiència de l'aplicació (`CF_ACCESS_AUD`), i busca
   l'usuari pel correu. Convé que el tallafoc només deixi arribar al port 80 el `cloudflared`.
   Com configurar-ho a Cloudflare: [docs/cloudflare.md](docs/cloudflare.md).
+- `plantilla`: còpia per a un sol professor (la demo SMIX2, [docs/demo-smix2.md](docs/demo-smix2.md)).
+  S'entra directament com l'administrador `HEIMDEYE_ADMIN_EMAIL`, sense contrasenya
+  (`LogInTemplateAdmin`). Només quan l'app no és accessible des de fora de la màquina.
 
 ### Cua
 
@@ -167,6 +170,14 @@ verificació. És la base de dades de la demo (`DemoSeeder`).
 
 Els textos són a l'app (enunciats, descripcions, info) i [docs/demo-tutorial.md](docs/demo-tutorial.md)
 se'n genera: `php artisan heimdeye:tutorial` (amb el tutorial a la BBDD).
+
+## Demo SMIX2 (laboratori de xarxa)
+
+Una segona demo, per a professors de cicles: el mòdul *SMX2 Serveis de xarxa (laboratori)*
+(`Smix2LabSeeder`), on cada alumne fictici té la xarxa d'una petita empresa en contenidors LXC
+(router Linux amb WAN, LAN i DMZ, un client i un servidor) i la va muntant amb accions, mentre els
+checks en comproven el funcionament. `lab/lab.sh` ho munta tot en una sola VM, amb HeimdEye en mode
+`plantilla` (`docker/compose.plantilla.yaml`). Vegeu [docs/demo-smix2.md](docs/demo-smix2.md).
 
 ## Variables
 

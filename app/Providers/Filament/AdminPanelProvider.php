@@ -6,6 +6,7 @@ use App\Filament\Auth\DemoLogin;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Http\Middleware\AuthenticateWithCloudflareAccess;
+use App\Http\Middleware\LogInTemplateAdmin;
 use App\Http\Middleware\RedirectStudentsToTheirPanel;
 use App\Support\Demo;
 use Filament\Http\Middleware\AuthenticateSession;
@@ -86,16 +87,16 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
-            ->middleware([AuthenticateWithCloudflareAccess::class], isPersistent: true)
+            ->middleware([AuthenticateWithCloudflareAccess::class, LogInTemplateAdmin::class], isPersistent: true)
             ->authMiddleware([
                 RedirectStudentsToTheirPanel::class,
             ]);
 
         // A la demo s'entra amb un botó, sense contrasenya. Amb Cloudflare Access el login el fa
-        // Google Workspace: no cal formulari.
+        // Google Workspace, i en mode plantilla s'entra directament com a administrador: no cal formulari.
         if (Demo::enabled()) {
             $panel->login(DemoLogin::class);
-        } elseif (config('heimdeye.auth.mode') !== 'cloudflare') {
+        } elseif (! in_array(config('heimdeye.auth.mode'), ['cloudflare', 'plantilla'], true)) {
             $panel->login();
         }
 
