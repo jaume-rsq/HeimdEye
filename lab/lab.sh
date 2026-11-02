@@ -81,14 +81,15 @@ wait_boot() {
 he() { incus exec "$HE" --cwd / -- "$@"; }
 artisan() { incus exec "$HE" --cwd "$CURRENT" -- sudo -u heimdeye -H php artisan "$@"; }
 nic() { incus config device add "$1" "$2" nic network="$3" name="$4" "${@:5}" >/dev/null; }
-# Adreces fixes en un contenidor: fitxer de netplan i, si cal, l'aplica.
+# Adreces fixes en un contenidor: fitxer de netplan i l'aplica. No amb "netplan apply": en un
+# contenidor, udevadm hi falla. systemd-networkd torna a llegir la configuració sol.
 addresses() {
     local name=$1 file=$2
     shift 2
     {
         printf 'network:\n  version: 2\n  ethernets:\n'
         while (($#)); do printf '    %s:\n      addresses: [%s]\n' "$1" "$2"; shift 2; done
-    } | incus exec "$name" -- sh -c "cat > /etc/netplan/$file && chmod 600 /etc/netplan/$file && netplan apply"
+    } | incus exec "$name" -- sh -c "cat > /etc/netplan/$file && chmod 600 /etc/netplan/$file && netplan generate && networkctl reload"
 }
 lab_instances() {
     [[ $MODE == plantilla ]] || return 0
@@ -124,7 +125,7 @@ internet() {
     local name=$1
     if [[ $2 == on ]]; then
         incus config device show "$name" | grep -q '^inet:' || nic "$name" inet incusbr0 eth0
-        incus exec "$name" -- netplan apply >/dev/null 2>&1 || true
+        incus exec "$name" -- sh -c "netplan generate && networkctl reload" || true
         wait_internet "$name"
     else
         incus config device show "$name" | grep -q '^inet:' && incus config device remove "$name" inet >/dev/null

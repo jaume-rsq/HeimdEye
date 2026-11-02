@@ -275,7 +275,8 @@ class Smix2LabSeeder extends Seeder
                   register: netplan
 
                 - name: Aplica la xarxa
-                  ansible.builtin.command: netplan apply
+                  # En un contenidor, "netplan apply" falla (udevadm): ho aplica systemd-networkd.
+                  ansible.builtin.shell: netplan generate && networkctl reload
                   when: netplan.changed
 
                 - name: Reenviament IPv4 permanent
@@ -324,7 +325,8 @@ class Smix2LabSeeder extends Seeder
                   register: netplan
 
                 - name: Aplica la xarxa
-                  ansible.builtin.command: netplan apply
+                  # En un contenidor, "netplan apply" falla (udevadm): ho aplica systemd-networkd.
+                  ansible.builtin.shell: netplan generate && networkctl reload
                   when: netplan.changed
 
             - hosts: lab_dmz
@@ -347,7 +349,8 @@ class Smix2LabSeeder extends Seeder
                   register: netplan
 
                 - name: Aplica la xarxa
-                  ansible.builtin.command: netplan apply
+                  # En un contenidor, "netplan apply" falla (udevadm): ho aplica systemd-networkd.
+                  ansible.builtin.shell: netplan generate && networkctl reload
                   when: netplan.changed
             YAML, 'Dona adreça fixa i porta d\'enllaç al client de la LAN i al servidor de la DMZ.', $wan);
     }
@@ -648,7 +651,8 @@ class Smix2LabSeeder extends Seeder
                   register: netplan
 
                 - name: Aplica la xarxa
-                  ansible.builtin.command: netplan apply
+                  # En un contenidor, "netplan apply" falla (udevadm): ho aplica systemd-networkd.
+                  ansible.builtin.shell: netplan generate && networkctl reload
                   when: netplan.changed
             YAML, 'Canvia el client a DHCP. Amb la reserva de Kea, continua tenint la mateixa adreça.', $this->checkIds($block));
     }
