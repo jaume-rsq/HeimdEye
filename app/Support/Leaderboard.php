@@ -26,8 +26,10 @@ class Leaderboard
      *     rows: list<array{posicio: int, student: Student, nom_public: string, punts: float, obligatoris: int, obligatoris_total: int, percentatge: int, blocs: array<int, array{assolits: int, total: int, percentatge: int}>, darrer_assoliment: ?CarbonInterface}>,
      *     punts_maxims: float,
      * }
+     *
+     * Amb un grup, només hi surten els alumnes d'aquell grup-classe.
      */
-    public function build(Module $module, ?CarbonInterface $day = null): array
+    public function build(Module $module, ?CarbonInterface $day = null, ?int $groupId = null): array
     {
         $day ??= Carbon::today();
         $checks = Check::query()
@@ -42,7 +44,9 @@ class Leaderboard
             ->values();
         $required = $checks->where('tipus', CheckKind::Required);
 
-        $students = $module->students()->where('es_actiu', true)->orderBy('num_taula')->get();
+        $students = $module->students()->where('es_actiu', true)
+            ->when($groupId, fn ($q) => $q->where('grup_id', $groupId))
+            ->orderBy('num_taula')->get();
         $states = CheckStudent::whereIn('check_id', $checks->keys())
             ->whereIn('alumne_id', $students->modelKeys())
             ->get()

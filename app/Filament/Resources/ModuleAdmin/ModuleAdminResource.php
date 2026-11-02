@@ -55,7 +55,7 @@ class ModuleAdminResource extends Resource
 
     protected static ?string $navigationLabel = 'Mòduls i blocs';
 
-    protected static ?int $navigationSort = 4;
+    protected static ?int $navigationSort = 5;
 
     protected static string|BackedEnum|null $navigationIcon = Heroicon::OutlinedRectangleStack;
 

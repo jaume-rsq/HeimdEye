@@ -7,6 +7,7 @@ use App\Models\AcademicYear;
 use App\Models\Block;
 use App\Models\Check;
 use App\Models\CheckStudent;
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\RunBatch;
 use App\Models\Student;
@@ -24,6 +25,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use InvalidArgumentException;
@@ -50,6 +52,9 @@ class StudentTracking extends Page
     protected Width|string|null $maxContentWidth = Width::Full;
 
     #[Url]
+    public ?int $grup = null;
+
+    #[Url]
     public ?int $alumne = null;
 
     #[Url]
@@ -72,6 +77,14 @@ class StudentTracking extends Page
 
     public function mount(): void
     {
+        if ($this->grup !== null && ! $this->groups()->contains('id', $this->grup)) {
+            $this->grup = null;
+        }
+        // Un alumne a la URL (des del leaderboard, la fitxa...) porta el seu grup i un dels seus mòduls.
+        $linked = $this->alumne ? Student::find($this->alumne) : null;
+        if ($linked && $this->grup !== null && $linked->grup_id !== $this->grup) {
+            $this->grup = null;
+        }
         $modules = $this->modules();
         if ($this->modul !== null && ! $modules->contains('id', $this->modul)) {
             $this->modul = null;
@@ -80,10 +93,16 @@ class StudentTracking extends Page
         if ($this->tasca && ($task = Task::with('block')->find($this->tasca)) && $modules->contains('id', $task->block->modul_id)) {
             $this->modul ??= $task->block->modul_id;
         }
-        $students = $this->students();
-        if ($this->alumne === null || ! $students->contains('id', $this->alumne)) {
-            $this->alumne = $students->first()?->id;
+        if ($linked && $this->modul === null) {
+            $enrolled = $linked->modules()->pluck('moduls.id');
+            $this->modul = $modules->first(fn (Module $m) => $enrolled->contains($m->id))?->id;
         }
+        $this->ensureModule();
+    }
+
+    public function updatedGrup(): void
+    {
+        unset($this->modules);
         $this->ensureModule();
     }
 
@@ -96,6 +115,7 @@ class StudentTracking extends Page
     {
         $this->bloc = null;
         $this->tasca = null;
+        $this->ensureModule();
     }
 
     public function updatedBloc(): void
@@ -103,12 +123,21 @@ class StudentTracking extends Page
         $this->tasca = null;
     }
 
-    /** El mòdul triat ha de ser un dels de l'alumne; si no, el primer que tingui. */
+    /**
+     * El mòdul ha de ser un dels visibles (del grup triat) i l'alumne, un dels seus matriculats; si
+     * no, el primer de cada llista.
+     */
     private function ensureModule(): void
     {
-        $ids = $this->studentModules()->pluck('id');
+        $ids = $this->modules()->pluck('id');
         if ($this->modul === null || ! $ids->contains($this->modul)) {
             $this->modul = $ids->first();
+        }
+        unset($this->students, $this->student, $this->studentModules, $this->module, $this->cards, $this->progress, $this->blocks);
+        $students = $this->students();
+        if ($this->alumne === null || ! $students->contains('id', $this->alumne)) {
+            $this->alumne = $students->first()?->id;
+            unset($this->student, $this->studentModules, $this->module, $this->cards, $this->progress);
         }
         // El bloc i la tasca de la URL es mantenen si són del mòdul (en tornar enrere, la URL no
         // porta el mòdul quan és el primer i s'ha de triar de nou).
@@ -122,12 +151,21 @@ class StudentTracking extends Page
 
     /**
      * Mòduls que pot veure l'usuari: tots per a un administrador, els que imparteix per a un professor.
-     * Primer els del curs actual.
+     * Amb un grup, només els que hi tenen algun alumne matriculat. Primer els del curs actual.
      *
      * @return Collection<int, Module>
      */
     #[Computed]
     public function modules(): Collection
+    {
+        return $this->visibleModules()
+            ->when($this->grup, fn (Collection $c) => $c->whereIn('id', Module::whereKey($c->modelKeys())->withGroup($this->grup)->pluck('id')))
+            ->values();
+    }
+
+    /** @return Collection<int, Module> tots els mòduls que pot veure l'usuari, sense filtrar per grup */
+    #[Computed]
+    public function visibleModules(): Collection
     {
         /** @var User $user */
         $user = Auth::user();
@@ -139,12 +177,28 @@ class StudentTracking extends Page
             ->values();
     }
 
-    /** @return Collection<int, Student> alumnes matriculats en algun dels mòduls visibles */
+    /** @return Collection<int, Group> grups amb algun alumne en els mòduls visibles, primer els del curs actual */
+    #[Computed]
+    public function groups(): Collection
+    {
+        $current = AcademicYear::where('es_actual', true)->value('id');
+
+        return Group::withStudentsIn($this->visibleModules()->modelKeys())->get()
+            ->sortBy(fn (Group $g) => [$g->curs_id === $current ? 0 : 1, $g->codi])
+            ->values();
+    }
+
+    /** @return Collection<int, Student> alumnes matriculats al mòdul triat (i del grup, si n'hi ha) */
     #[Computed]
     public function students(): Collection
     {
+        if (! $this->modul) {
+            return collect();
+        }
+
         return Student::query()
-            ->whereHas('modules', fn ($q) => $q->whereIn('moduls.id', $this->modules()->modelKeys()))
+            ->whereHas('modules', fn ($q) => $q->whereKey($this->modul))
+            ->when($this->grup, fn ($q) => $q->where('grup_id', $this->grup))
             ->orderByDesc('es_actiu')->orderBy('num_taula')->orderBy('nom_complet')
             ->get();
     }
@@ -155,7 +209,7 @@ class StudentTracking extends Page
         return $this->alumne ? $this->students()->firstWhere('id', $this->alumne) : null;
     }
 
-    /** @return Collection<int, Module> mòduls visibles en què està matriculat l'alumne */
+    /** @return Collection<int, Module> mòduls de la llista en què està matriculat l'alumne */
     #[Computed]
     public function studentModules(): Collection
     {
@@ -168,11 +222,20 @@ class StudentTracking extends Page
         return $this->modules()->filter(fn (Module $m) => $enrolled->contains($m->id))->values();
     }
 
-    /** Resum de cada mòdul de l'alumne, tret del leaderboard (posició, punts, obligatoris, blocs). */
+    public function getHeader(): ?View
+    {
+        return view('filament.partials.group-module-header', [
+            'title' => static::$title,
+            'groups' => $this->readonly() ? collect() : $this->groups(),
+            'modules' => $this->modules(),
+        ]);
+    }
+
+    /** Resum del mòdul triat per a l'alumne, tret del leaderboard (posició, punts, obligatoris, blocs). */
     #[Computed]
     public function cards(): array
     {
-        return $this->studentModules()->map(function (Module $module) {
+        return $this->studentModules()->where('id', $this->modul)->map(function (Module $module) {
             $board = app(Leaderboard::class)->build($module);
             $row = collect($board['rows'])->firstWhere('student.id', $this->alumne);
             $last = $this->student()->runs()

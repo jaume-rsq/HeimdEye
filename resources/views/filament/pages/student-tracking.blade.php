@@ -21,7 +21,7 @@
         .he-tr .bar.done > span { background: rgb(22,163,74); }
         .he-tr .sub { font-size: .75rem; opacity: .65; }
         .he-tr .cards { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
-        .he-tr .card { border: 1px solid rgba(128,128,128,.25); border-radius: .75rem; padding: .75rem 1rem; cursor: pointer; display: grid; gap: .4rem; text-align: left; }
+        .he-tr .card { border: 1px solid rgba(128,128,128,.25); border-radius: .75rem; padding: .75rem 1rem; display: grid; gap: .4rem; text-align: left; }
         .he-tr .card.on { border-color: rgb(245,158,11); box-shadow: 0 0 0 1px rgb(245,158,11); }
         .he-tr table { width: 100%; border-collapse: collapse; }
         .he-tr th, .he-tr td { padding: .45rem .5rem; text-align: left; vertical-align: top; border-bottom: 1px solid rgba(128,128,128,.15); }
@@ -48,7 +48,7 @@
 
     <div class="he-tr">
         @if (! $student)
-            <x-filament::section>{{ $readonly ? 'El teu usuari no té fitxa d\'alumne: parla amb el professor.' : 'No hi ha cap alumne en els teus mòduls.' }}</x-filament::section>
+            <x-filament::section>{{ $readonly ? 'El teu usuari no té fitxa d\'alumne: parla amb el professor.' : ($this->modules->isEmpty() ? ($this->grup ? 'No hi ha cap mòdul amb alumnes d\'aquest grup.' : 'No hi ha cap alumne en els teus mòduls.') : ($this->grup ? 'No hi ha cap alumne d\'aquest grup en aquest mòdul.' : 'No hi ha cap alumne en aquest mòdul.')) }}</x-filament::section>
         @else
             {{-- Capçalera de l'alumne --}}
             <div style="display: flex; flex-wrap: wrap; gap: .75rem; align-items: center">
@@ -70,14 +70,15 @@
                 @endunless
             </div>
 
-            {{-- Una targeta per mòdul --}}
+            {{-- El resum del mòdul triat (a la capçalera) i, al costat, els filtres --}}
             @if ($this->cards === [])
-                <x-filament::section>{{ $readonly ? 'Encara no estàs matriculat en cap mòdul.' : 'Aquest alumne no està matriculat en cap dels teus mòduls.' }}</x-filament::section>
+                <x-filament::section>{{ $readonly ? 'Encara no estàs matriculat en cap mòdul.' : 'Aquest alumne no està matriculat en aquest mòdul.' }}</x-filament::section>
             @endif
-            <div class="cards">
+            <div style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-start">
+            <div class="cards" style="flex: 0 1 24rem; min-width: 17rem">
                 @foreach ($this->cards as $card)
                     @php $row = $card['row']; @endphp
-                    <button type="button" wire:click="$set('modul', {{ $card['module']->id }})" @class(['card', 'on' => $card['module']->id === $modul])>
+                    <div class="card on">
                         <div style="display: flex; justify-content: space-between; gap: .5rem">
                             <strong>{{ trim($card['module']->codi.' '.$card['module']->nom) }}</strong>
                             <span class="sub">{{ $card['module']->academicYear?->nom }}</span>
@@ -106,13 +107,13 @@
                         @else
                             <div class="sub">Inactiu: no surt al leaderboard.</div>
                         @endif
-                    </button>
+                    </div>
                 @endforeach
             </div>
 
             @if ($this->module)
                 {{-- Filtres --}}
-                <div style="display: flex; flex-wrap: wrap; gap: .75rem; align-items: center">
+                <div style="display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; align-content: flex-start; flex: 1 1 22rem">
                     <select wire:model.live="bloc" aria-label="Bloc">
                         <option value="">Tots els blocs</option>
                         @foreach ($this->blocks as $b)
@@ -141,6 +142,10 @@
                     <button type="button" class="he-btn" @style(['margin-left: auto' => ! $pending]) wire:click="verify" wire:confirm="Verificar ara tots els checks del mòdul per a aquest alumne?">Verificar tot el mòdul</button>
                     @endunless
                 </div>
+            @endif
+            </div>
+
+            @if ($this->module)
 
                 {{-- Taula de checks: cada bloc es plega clicant-ne la línia --}}
                 @php $blockIds = collect($this->progress)->map(fn ($g) => $g['block']->id)->values(); @endphp

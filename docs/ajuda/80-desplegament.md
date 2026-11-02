@@ -2,7 +2,7 @@
 titol: Desplegament
 ordre: 80
 per: [professors]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-02
 ---
 
 # Desplegament
@@ -55,8 +55,9 @@ contenidor LXC d'Incus, amb alumnes ficticis al costat.
 
 1. **Entrar.** L'administrador és el de `HEIMDEYE_ADMIN_EMAIL`. Amb Cloudflare, entra amb el seu
    compte de Google; crea els altres professors a **Administració → Usuaris i rols**.
-2. **Curs, cicle, mòduls i blocs** a Administració.
-3. **Alumnes**: Inventari → Alumnes → **Importar llista** (la llista de l'aula, enganxada).
+2. **Curs, cicle, grups, mòduls i blocs** a Administració.
+3. **Alumnes**: Inventari → Alumnes → **Importar llista** (la llista de l'aula, enganxada), triant el
+   mòdul i el grup.
 4. **La clau de HeimdEye**: genera-la, desa-la en un secret i fes-la l'**accés per defecte** del
    mòdul. Vegeu [Preparar els equips](?doc=preparar-equips).
 5. **Els equips dels alumnes**: cada alumne executa l'script de preparació amb la clau pública.
@@ -70,3 +71,12 @@ contenidor LXC d'Incus, amb alumnes ficticis al costat.
   Guarda'n una còpia fora del servidor.
 - Els workers corren amb un usuari sense privilegis, amb el sistema de fitxers de només lectura.
 - Fes còpia de la VM cada setmana. La base de dades ja es copia a cada desplegament.
+
+## Actualitzar amb dades a producció
+
+Cada desplegament fa una còpia de la base de dades (`pg_dump`) i després `php artisan migrate`.
+Les migracions de HeimdEye només afegeixen taules i columnes noves (o les omplen a partir de les
+que hi ha), i no esborren dades. Si un canvi demana fer alguna cosa a mà, surt a
+[Novetats](?doc=novetats). Per exemple, en arribar els grups-classe cal crear els grups i
+posar-hi els alumnes: fins llavors, el leaderboard i el seguiment es veuen amb «Tots els grups»,
+com abans.

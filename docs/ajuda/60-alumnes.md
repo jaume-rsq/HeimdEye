@@ -2,12 +2,13 @@
 titol: El meu seguiment
 ordre: 60
 per: [tots]
-actualitzat: 2026-11-01
+actualitzat: 2026-11-02
 ---
 
 # El meu seguiment
 
-Aquí veus, per a cada mòdul, els checks de cada bloc i tasca, amb l'estat i els punts. Cada nit
+Tria el mòdul a dalt a la dreta. Hi veus el resum (punts, posició i progrés) i els checks de cada
+bloc i tasca, amb l'estat i els punts. Cada nit
 HeimdEye comprova les teves màquines i actualitza aquesta pàgina.
 
 ## Què vol dir cada estat

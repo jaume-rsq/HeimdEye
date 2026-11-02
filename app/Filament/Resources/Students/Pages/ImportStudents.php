@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Students\Pages;
 
 use App\Filament\Resources\Students\StudentResource;
 use App\Models\AcademicYear;
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\Student;
 use App\Support\StudentImporter;
@@ -15,6 +16,8 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Components\Actions;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Filament\Support\Icons\Heroicon;
@@ -62,7 +65,16 @@ class ImportStudents extends Page
                                 ->mapWithKeys(fn (Module $m) => [$m->id => trim("{$m->codi} {$m->nom}").' · '.$m->academicYear?->nom]))
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn () => $this->resetPreview()),
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('grup_id', null);
+                                $this->resetPreview();
+                            }),
+                        Select::make('grup_id')
+                            ->label('Grup')
+                            ->options(fn (Get $get) => Group::where('curs_id', Module::find($get('modul_id'))?->curs_id)->orderBy('codi')->get()
+                                ->mapWithKeys(fn (Group $g) => [$g->id => $g->label()]))
+                            ->placeholder('Cap (no es canvia)')
+                            ->helperText('Tots els alumnes de la llista passen a aquest grup-classe (Administració → Grups).'),
                         View::make('filament.import-dropzone'),
                         Textarea::make('text')
                             ->label('Llista')
@@ -157,7 +169,7 @@ class ImportStudents extends Page
             return;
         }
 
-        $result = app(StudentImporter::class)->apply($module, $rows, (bool) ($this->data['desactivar'] ?? false));
+        $result = app(StudentImporter::class)->apply($module, $rows, (bool) ($this->data['desactivar'] ?? false), ($this->data['grup_id'] ?? null) ? (int) $this->data['grup_id'] : null);
         $this->resetPreview();
 
         Notification::make()

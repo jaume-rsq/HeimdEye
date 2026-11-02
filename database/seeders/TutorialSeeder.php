@@ -12,6 +12,7 @@ use App\Models\Action;
 use App\Models\Block;
 use App\Models\Check;
 use App\Models\Cycle;
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\Secret;
 use App\Models\Student;
@@ -50,6 +51,8 @@ class TutorialSeeder extends Seeder
             $access->update(['valor' => $path]);
         }
 
+        $group = Group::updateOrCreate(['curs_id' => $year->id, 'codi' => 'TUT'], ['cicle_id' => $cycle->id, 'nom' => 'Tutorial']);
+
         $students = collect([
             [1, 'ada', 'Ada Lovelace'],
             [2, 'alan', 'Alan Turing'],
@@ -57,7 +60,7 @@ class TutorialSeeder extends Seeder
             [4, 'linus', 'Linus Torvalds'],
         ])->map(fn (array $s) => Student::updateOrCreate(
             ['curs_id' => $year->id, 'usuari' => $s[1]],
-            ['cicle_id' => $cycle->id, 'nom_complet' => $s[2], 'alies' => strtok($s[2], ' '), 'num_taula' => $s[0], 'x' => $s[0], 'es_actiu' => true],
+            ['cicle_id' => $cycle->id, 'grup_id' => $group->id, 'nom_complet' => $s[2], 'alies' => strtok($s[2], ' '), 'num_taula' => $s[0], 'x' => $s[0], 'es_actiu' => true],
         ));
 
         $checks = $this->module($year, $cycle, $access, 'TUT1', 'Primers passos amb els checks', 1);

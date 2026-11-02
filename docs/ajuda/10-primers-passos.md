@@ -2,7 +2,7 @@
 titol: Primers passos
 ordre: 10
 per: [professors]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-02
 ---
 
 # Primers passos
@@ -24,12 +24,12 @@ Per entendre com funcionen les **Accions** i els **Checks**, llegeix [Com funcio
 
 | Entrada | Per a què serveix |
 | --- | --- |
-| **Leaderboard** | Classificació d'un mòdul amb els noms reals. La pública (`/leaderboard`) només mostra àlies. |
+| **Leaderboard** | Classificació d'un grup en un mòdul, amb els noms reals. La pública (`/leaderboard`) només mostra àlies. |
 | **Seguiment** | Detall d'un alumne: cada check amb l'estat, la darrera execució i els punts. Hi pots verificar, corregir i prorrogar. |
 | **Checks** | Llista, nou check i històric d'execucions. |
 | **Accions** | Scripts que llances tu per canviar els equips dels alumnes (no puntuen). |
 | **Inventari** | Equips, variables, secrets i alumnes de cada mòdul. |
-| **Administració** | Usuaris i rols, cursos, cicles, mòduls i blocs. |
+| **Administració** | Usuaris i rols, cursos, cicles, grups-classe, mòduls i blocs. |
 | **Ajuda** | Aquestes pàgines i un enllaç a la **demo** pública, on pots provar-ho tot sense tocar res de veritat. |
 
 ## Què veu cada rol
