@@ -1,14 +1,16 @@
 #!/bin/bash
-# Embolcall del runner per a la demo (HEIMDEYE_RUNNER_WRAPPER=heimdeye-sandbox): executa l'ordre
-# al contenidor de proves per SSH, en lloc de fer-ho al worker, que té el .env i la BBDD.
+# Embolcall del runner per a la demo pública (HEIMDEYE_RUNNER_WRAPPER=.../lab/heimdeye-sandbox):
+# executa l'ordre al contenidor LXC de proves (sandbox) per SSH, en lloc de fer-ho al worker, que
+# té el .env i la BBDD. lab/lab.sh crea el sandbox i la clau.
 #   heimdeye-sandbox --timeout=N [--setenv=NOM]... -- ordre arguments...
 # ProcessRunner hi afegeix el temps màxim i el nom de les variables d'entorn de l'execució.
 # Els directoris temporals de l'execució (/tmp/heimdeye-*: inventari, playbook, claus) es copien
-# al contenidor de proves abans i s'hi esborren després. stdin (el codi) passa tal qual.
+# al sandbox abans i s'hi esborren després. stdin (el codi) passa tal qual.
 set -u
 
 host=${HEIMDEYE_SANDBOX_HOST:-sandbox}
-key=${HEIMDEYE_SANDBOX_KEY:-/keys/runner/id_ed25519}
+port=${HEIMDEYE_SANDBOX_PORT:-22}
+key=${HEIMDEYE_SANDBOX_KEY:-/var/lib/heimdeye/.ssh/sandbox_ed25519}
 timeout=60
 names=()
 while [ $# -gt 0 ]; do
@@ -21,7 +23,7 @@ while [ $# -gt 0 ]; do
     shift
 done
 
-ssh_cmd=(ssh -q -i "$key" -p 2222 -o BatchMode=yes -o StrictHostKeyChecking=no
+ssh_cmd=(ssh -q -i "$key" -p "$port" -o BatchMode=yes -o StrictHostKeyChecking=no
     -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -o ConnectTimeout=5 "heimdeye@$host")
 
 # Directoris temporals que fan servir els arguments o les variables (HE_SSH_KEY...).
@@ -36,7 +38,7 @@ if [ -n "$dirs" ]; then
     tar -cf - $dirs 2>/dev/null | "${ssh_cmd[@]}" 'tar -xf - -C /' || exit 255
 fi
 
-# El temps del contenidor de proves és una mica més llarg: qui talla és el worker, que així
+# El temps del sandbox és una mica més llarg: qui talla és el worker, que així
 # ho registra com a temps esgotat.
 remote="cd /tmp && exec env"
 for name in "${names[@]}"; do

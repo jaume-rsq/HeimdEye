@@ -24,15 +24,10 @@ més delicada de l'aula.
 - **Cap port obert des de fora**: s'hi entra pel túnel de Cloudflare.
 - 2 vCPU, 4 GB de RAM i 20 GB de disc per a una o dues classes.
 
-## Dues maneres
+## Instal·lació
 
-| | Servidor (systemd) | Docker Compose |
-| --- | --- | --- |
-| Què és | Paquets d'Ubuntu (PHP, Apache, PostgreSQL) i serveis de systemd. | Una imatge amb tot (web, workers, nocturna i PostgreSQL). |
-| Actualitzacions | Soles: cada commit de `main` amb els tests en verd es desplega en 5 minuts. | `git pull` i `docker compose up -d --build`. |
-| Per a | La instància de l'institut. | Provar-lo, o una màquina on només hi ha Docker. La demo. |
-
-### Servidor
+Paquets d'Ubuntu (PHP, Apache, PostgreSQL) i serveis de systemd. Les actualitzacions són soles:
+cada commit de `main` amb els tests en verd es desplega en 5 minuts.
 
 ```bash
 git clone https://github.com/jaume-rsq/HeimdEye.git /tmp/HeimdEye
@@ -44,13 +39,8 @@ sudo systemctl enable --now heimdeye-queue@{1..4} heimdeye-schedule.timer heimde
 
 El detall (base de dades, `.env`, Apache) és a produccio.md.
 
-### Docker
-
-```bash
-cd docker
-cp env.example .env       # APP_KEY, DB_PASSWORD, HEIMDEYE_ADMIN_*
-docker compose up -d --build
-```
+Per provar-lo o ensenyar-lo, la demo (`lab/lab.sh`) fa aquesta mateixa instal·lació dins un
+contenidor LXC d'Incus, amb alumnes ficticis al costat.
 
 ## Què fa córrer HeimdEye
 

@@ -57,21 +57,13 @@ Documentació: [Create a tunnel (dashboard)](https://developers.cloudflare.com/c
    **Networks** → **Connectors**; tots dos gestionen els mateixos túnels).
 2. **Create a tunnel**, posa-li un nom (`heimdeye`) i **Create Tunnel**.
 3. Tria el sistema operatiu i executa l'ordre que surt a la màquina on correrà `cloudflared`.
-   Amb Docker, l'ordre porta el **token** del túnel:
-
-   ```bash
-   docker run -d --restart unless-stopped cloudflare/cloudflared:latest tunnel --no-autoupdate run --token <TOKEN>
-   ```
-
-   Amb el Docker Compose de HeimdEye, posa el token a `docker/.env` (`TUNNEL_TOKEN=...`) i
-   arrenca amb el perfil `tunnel`: `docker compose --profile tunnel up -d`.
-   El token és un secret: qui el tingui pot fer passar el teu nom de domini per una altra màquina.
+   L'ordre porta el **token** del túnel. El token és un secret: qui el tingui pot fer passar el teu nom de domini per una altra màquina.
 4. Quan el túnel surti com a connectat, **Continue**.
 5. A la pestanya **Routes**, **Add route** → **Published application**: subdomini, domini i
    **Service URL**, l'adreça de HeimdEye **vista des de `cloudflared`**:
    - `cloudflared` a la mateixa màquina: `http://localhost:8080`.
    - `cloudflared` en una altra màquina de la xarxa: `http://<IP del servidor>:8080`.
-   - Docker Compose amb el perfil `tunnel`: `http://app:8080`.
+   - La demo de `lab/lab.sh` (mode `publica`): `http://<IP de la VM de la demo>:8080`.
 6. Comprova que a **Networking** → **Tunnels** el túnel surt **Healthy**.
 
 Un sol túnel pot publicar diversos noms (producció i demo), però si la demo és en una altra màquina
@@ -172,7 +164,7 @@ CF_ACCESS_TEAM_DOMAIN=<team>.cloudflareaccess.com
 CF_ACCESS_AUD=<AUD tag>
 APP_URL=https://heimdeye.exemple.cat
 SESSION_SECURE_COOKIE=true
-HEIMDEYE_TRUSTED_PROXIES=<IP de cloudflared>   # 127.0.0.1 a la mateixa màquina; 172.16.0.0/12 dins Docker
+HEIMDEYE_TRUSTED_PROXIES=<IP de cloudflared>   # 127.0.0.1 a la mateixa màquina (i a la demo de lab/lab.sh)
 ```
 
 HeimdEye valida el JWT de la capçalera `Cf-Access-Jwt-Assertion` amb les claus públiques de

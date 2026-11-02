@@ -4,8 +4,8 @@ Com posar HeimdEye en marxa en un servidor propi, amb desplegament continu des d
 publicar-lo amb Cloudflare. Tot el que cal per a la màquina és a `deploy/`, sense cap secret.
 La part de Cloudflare (túnel, login amb Google) és a [cloudflare.md](cloudflare.md).
 
-Una alternativa més senzilla és el Docker Compose (`docker/`, vegeu el README), però aquesta guia
-fa servir paquets del sistema i systemd, que és com corre la instància de referència.
+Fa servir paquets del sistema i systemd, que és com corre la instància de referència. Les demos
+(`lab/lab.sh`) instal·len HeimdEye igual, dins un contenidor LXC.
 
 ## On posar-lo
 
