@@ -82,7 +82,7 @@ El mateix bash, però executat **dins de l'equip de l'alumne**, amb l'usuari de 
 capçalera `# hosts:` és obligatòria i diu a quins tipus d'equip va (separats per comes). Serveix per
 mirar l'estat de dins: un servei, un fitxer, un paquet.
 
-**Check: el pve de l'alumne respon (el ping fet des de dins).**
+**Check: el router de l'alumne respon (el ping fet des de dins el servidor Proxmox PVE).**
 
 ```bash
 # hosts: pve
@@ -99,8 +99,8 @@ n=$(sudo -n qm list | tail -n +2 | wc -l)
 echo "HEIMDEYE_MSG: $n VMs"
 ```
 
-Paràmetres: `[{"name": "MIN_VMS", "label": "Mínim de VMs", "default": 1}]`. Un check necessita el
-`default` de tots els paràmetres, perquè a la nit s'executa sol.
+Paràmetres: `[{"name": "MIN_VMS", "label": "Mínim de VMs", "default": 1}]`. Un check necessita un valor
+`default` per a tots els paràmetres per permetre les execucions desateses durant la nit.
 
 **Acció: deixar un missatge a l'alumne.**
 
@@ -111,15 +111,15 @@ echo "HEIMDEYE_MSG: motd escrit"
 ```
 
 Amb diversos equips (`# hosts: pve, router`), el codi s'executa a cada un, un rere l'altre. El
-resultat és `pass` només si passa a tots. Els equips Windows (WinRM) no serveixen per a `ssh`:
-fes servir Ansible.
+resultat és `pass` només si passa a tots. Els equips Windows (WinRM) no es poden fer servir amb Executor `ssh` ja que els scripts han de ser bash. En aquestos equips cal fer servir Ansible.
 
 ## Executor `ansible`
 
 Un playbook que HeimdEye executa al seu servidor amb un inventari fet per a aquell alumne: només
-porta els seus equips dels grups que el playbook demana. Va bé per a les accions (és idempotent i
-es pot **Simular**) i per als equips Windows. El `hosts:` de cada play és obligatori i no pot ser
-`all`.
+porta els equips dels grups que el playbook demana. Va bé per a les accions (és idempotent i
+es pot **Simular**) i es pot fer servir en equips Linux i Windows. El `hosts:` de cada play és obligatori i no pot ser `all`.
+
+Ansible i totes les seves dependències han d'estar instal·lades al servior HeimdEye.
 
 **Check: el pve respon a Ansible.**
 
@@ -131,8 +131,8 @@ es pot **Simular**) i per als equips Windows. El `hosts:` de cada play és oblig
       ansible.builtin.ping:
 ```
 
-`ansible.builtin.ping` no és un ping de xarxa: comprova que Ansible hi entra i que hi ha Python.
-Per a un equip sense Python (un MikroTik), fes servir `ansible.builtin.raw`. Per a un Windows,
+`ansible.builtin.ping` no és un ping de xarxa: comprova que Ansible hi entra i que hi ha Python (a Linux).
+Per a un equip sense Python (un MikroTik), fes servir `ansible.builtin.raw`. Per a un Windows cal fer servir
 `ansible.windows.win_ping`:
 
 ```yaml
@@ -181,10 +181,10 @@ fer servir sense problema, perquè no és secreta:
 servir `ansible.posix.authorized_key` caldria instal·lar `ansible.posix`.)
 
 Paràmetres: `[{"name": "USUARI", "label": "Usuari", "default": "{{usuari}}"}]`. Abans
-d'executar-la, **Simula-la**: diu què canviaria sense tocar res.
+d'executar-la es pot **Simular**: diu què canviaria sense tocar res.
 
 ## Quin executor triar
 
-- Es pot mirar des de fora (ping, port, DNS, web)? **`local`**.
-- Cal mirar dins d'un Linux i n'hi ha prou amb una ordre? **`ssh`**.
-- És un Windows, una acció que canvia coses o cal un mòdul d'Ansible? **`ansible`**.
+- Es pot mirar des del mateix servidor HeimdEye (ping, port, DNS, web)? **`local`**.
+- Cal mirar dins d'un **Linux** i n'hi ha prou amb bash? **`ssh`**.
+- És un Windows o una acció complexa que canvia coses? **`ansible`**.

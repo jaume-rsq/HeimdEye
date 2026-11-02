@@ -7,7 +7,7 @@ actualitzat: 2026-10-29
 
 # Novetats
 
-Els canvis de HeimdEye que et poden afectar, el més nou primer. Les pàgines d'ajuda que han
+Darrers canvis de HeimdEye, el més nou primer. Les pàgines d'ajuda que han
 canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esquerra.
 
 ## 29/10/2026

@@ -45,7 +45,7 @@ pogut comprovar; gris, no s'ha executat mai.
 ## Prorrogar
 
 Amb checks marcats, **Prorrogar** hi posa una data nova d'«actiu fins a», de data límit o de totes
-dues. Un camp buit no es canvia, i val per a tota la classe.
+dues. Un camp buit no es canvia, i val per a tots els check seleccionats.
 
 - Qui assoleixi el check abans de la data límit nova té el bonus de puntualitat, també si ja
   l'havia assolit després de l'antiga.

@@ -7,11 +7,18 @@ actualitzat: 2026-10-29
 
 # Primers passos
 
-HeimdEye comprova cada nit, als equips dels alumnes, les tasques de cada bloc. Cada tasca té
-**checks**: comprovacions de sí o no (un ping, una ordre per SSH, un playbook d'Ansible). Quan un
-check passa per primer cop, l'alumne l'ha **assolit** i en guanya els punts.
+HeimdEye te una doble funció, d'una banda intenta simplificar l'administració remota dels equips d'un aula, definint **Accions** a fer i desant l'historial amb les execucions i els resultats. D'altra banda permet monitoritzar la feina dels alumnes amb **Checks** periòdics. 
 
-Per entendre com hi arriba (executors, accés, secrets), llegeix [Com funciona](?doc=com-funciona).
+Aquesta feina s'organitza amb aquestes categories:
+  Curs Escolar -> Mòdul (matèria) -> Blocs (projectes) -> Tasques -> Checks
+
+HeimdEye comprova cada nit, als equips dels alumnes, els **Checks** de cada tasca. Un check és una verificació binaria. Quan un check passa per primer cop, l'alumne l'ha assolit i en guanya els punts.S'enregistra l'històric de comprovacions i resultats.
+
+Els check tenen un periode de validesa, i poden desactivar-se manualment. Cada check assigna uns punts en funció de la complexitat, i hi ha un bonus per assolir-los dins el termini.
+
+L'objectiu de l'eina no és proporcionar una nota numérica. Simplement es vol proporcionar una eina a docents i alumnes que permeti avaluar l'evolució de les tasques assignades.
+
+Per entendre com funcionen les **Accions** i els **Checks**, llegeix [Com funciona](?doc=com-funciona).
 
 ## El menú
 

@@ -19,19 +19,18 @@ mai al repositori.
 | **Usuari i contrasenya** | Usuari i contrasenya. | Accés a Windows (WinRM) o a una API. |
 | **Clau SSH** | Usuari, clau privada (o la ruta del fitxer al servidor) i clau pública. | Accés per SSH als Linux i MikroTik. |
 
-Com les variables, un secret té un **nivell** (global, curs o mòdul), i mana el més concret.
+Tant els secrets com les variables es poden definir a tres **nivells** (global, curs o mòdul), en cas d'estar definits a diferents nivells, sempre mana el més específic.
 
 ## L'accés
 
-Un secret de clau SSH o d'usuari i contrasenya pot fer d'**accés**: és l'usuari amb què HeimdEye
+A les accions i els checks cal definir un **accés**: és el secret amb què HeimdEye
 entra als equips.
 
 - Cada mòdul té un **accés per defecte** (Inventari → Equips → **Accés per defecte**). El fan servir
-  tots els equips que no en diuen un altre i els scripts `local`.
+  tots els equips que no en tenen un altre específic i l'executor `local`.
 - Un **tipus d'equip** pot tenir un accés propi. Per exemple, els Windows amb un usuari i
-  contrasenya, i la resta amb la clau SSH.
-- Amb Ansible, la contrasenya d'un accés d'usuari i contrasenya serveix també per al `sudo`
-  (`become: true`). Amb una clau SSH, l'usuari ha de poder fer `sudo` sense contrasenya.
+  contrasenya, i la resta amb la clau SSH. Això permet tenir credencials diferents segons els equips.
+- Amb Ansible, la contrasenya d'un accés de tipus `usuari i contrasenya` serveix també elevar privilegis amb  `sudo`  (`become: true`). Si fem servir un accés de tipus `clau SSH`, l'usuari ha de poder fer `sudo` sense contrasenya.
 
 A **Inventari → Alumnes**, el botó ▶ prova la connexió de cada equip amb el seu accés.
 
@@ -68,7 +67,7 @@ HeimdEye **no deixa desar ni executar** codi que hi faria arribar un secret:
 - **`ssh`**: el codi s'executa a l'equip de l'alumne, així que només pot fer servir `_USER` i
   `_PUBKEY` (no són secrets). La clau privada de l'accés es queda al servidor: ssh la fa servir
   per entrar, però no arriba a l'equip.
-- **Ansible**: el valor, la contrasenya o la clau només dins una expressió amb `password_hash`
+- **`Ansible`**: el valor, la contrasenya o la clau només dins una expressió amb `password_hash`
   (a l'equip hi arriba el hash) o en una tasca amb `delegate_to: localhost`.
 
 **Exemple (Ansible): posar una contrasenya sense enviar-la.**
@@ -84,4 +83,4 @@ HeimdEye **no deixa desar ni executar** codi que hi faria arribar un secret:
         password: "{{ contrasenya_alumnes | password_hash('sha512') }}"
 ```
 
-La comprovació és de text i, si dubta, rebutja: si el codi no es pot desar, el missatge diu per què.
+La comprovació no canvia res, si el resultat no és ok, rebutja. Es mostra el missatge amb el problema.

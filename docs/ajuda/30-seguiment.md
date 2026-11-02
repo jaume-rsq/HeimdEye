@@ -19,8 +19,8 @@ es pot compartir amb un altre professor.
 
 | Botó | Què fa |
 | --- | --- |
-| **Info** | El text del check per a l'alumne i el codi amb les seves dades. |
+| **Info** | Un text explicatiu de check per a l'alumne i el codi amb les seves dades. Pot ajudar a entrendre què ha de fer per assolir el checl. |
 | **Verificar** | Executa ara el check, la tasca, el bloc o tot el mòdul, **només per a aquest alumne**. La pàgina es posa al dia sola. |
 | **Corregir** | Força assolit o no assolit (o torna a automàtic) i deixa un comentari que veurà l'alumne. La correcció mana també al leaderboard. |
-| **Prorrogar** | A la línia del bloc: dates noves per a tots els checks del bloc i **per a tota la classe**. Vegeu [Checks](?doc=checks). |
+| **Prorrogar** | A la línia del bloc: dates noves per a tots els checks del bloc i afecta a la puntuació **de tots els alumnes**. Vegeu [Checks](?doc=checks). |
 | **✎** | Edita el check (si és d'un mòdul que imparteixes). |
