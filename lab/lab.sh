@@ -66,7 +66,7 @@ new_instance() {
     exists "$name" && incus delete --force "$name"
     out=$(incus init "$image" "$name" -p he-lab "$@" 2>&1) || { echo "$out" >&2; return 1; }
 }
-# Espera que systemd hagi acabat d'arrencar dins el contenidor (si no, netplan apply falla amb
+# Espera que systemd hagi acabat d'arrencar dins el contenidor (si no, les ordres hi fallen amb
 # "Failed to connect to bus").
 wait_boot() {
     local state
@@ -81,15 +81,19 @@ wait_boot() {
 he() { incus exec "$HE" --cwd / -- "$@"; }
 artisan() { incus exec "$HE" --cwd "$CURRENT" -- sudo -u heimdeye -H php artisan "$@"; }
 nic() { incus config device add "$1" "$2" nic network="$3" name="$4" "${@:5}" >/dev/null; }
-# Adreces fixes en un contenidor: fitxer de netplan i l'aplica. No amb "netplan apply": en un
-# contenidor, udevadm hi falla. systemd-networkd torna a llegir la configuració sol.
+# Adreces fixes d'un contenidor encara aturat: un fitxer de netplan que s'aplica en arrencar.
+# Res d'aplicar-lo amb el contenidor engegat: "netplan apply" i "networkctl reload" hi poden fallar
+# (udevadm, systemd-networkd encara no a punt).
 addresses() {
-    local name=$1 file=$2
+    local name=$1 file=$2 tmp
     shift 2
+    tmp=$(mktemp)
     {
         printf 'network:\n  version: 2\n  ethernets:\n'
         while (($#)); do printf '    %s:\n      addresses: [%s]\n' "$1" "$2"; shift 2; done
-    } | incus exec "$name" -- sh -c "cat > /etc/netplan/$file && chmod 600 /etc/netplan/$file && netplan generate && networkctl reload"
+    } > "$tmp"
+    incus file push --mode 0600 "$tmp" "$name/etc/netplan/$file"
+    rm -f "$tmp"
 }
 lab_instances() {
     [[ $MODE == plantilla ]] || return 0
@@ -120,13 +124,22 @@ wait_internet() {
     die "$1 no té Internet"
 }
 
-# Internet per a un contenidor (per instal·lar), per la xarxa per defecte d'Incus (eth0, DHCP).
+# Internet per a un contenidor (per instal·lar), per la xarxa per defecte d'Incus (eth0, DHCP de la
+# imatge). La targeta s'afegeix amb el contenidor aturat (si està engegat, es reinicia): així la
+# xarxa es configura en arrencar, sense haver d'aplicar res.
 internet() {
     local name=$1
     if [[ $2 == on ]]; then
-        incus config device show "$name" | grep -q '^inet:' || nic "$name" inet incusbr0 eth0
-        incus exec "$name" -- sh -c "netplan generate && networkctl reload" || true
-        wait_internet "$name"
+        local running=false
+        incus info "$name" | grep -q '^Status: RUNNING' && running=true
+        if ! incus config device show "$name" | grep -q '^inet:'; then
+            nic "$name" inet incusbr0 eth0
+            if $running; then
+                incus restart "$name"
+                wait_boot "$name"
+            fi
+        fi
+        if $running; then wait_internet "$name"; fi
     else
         incus config device show "$name" | grep -q '^inet:' && incus config device remove "$name" inet >/dev/null
         return 0
@@ -143,6 +156,12 @@ prepare_incus() {
         log "Inicialitzant Incus"
         incus admin init --minimal
     fi
+    # Amb una desena de contenidors, els límits d'inotify per defecte (128) s'acaben i systemd ja no
+    # pot engegar serveis als contenidors nous (p. ex. systemd-networkd). Valors de la guia de
+    # producció d'Incus.
+    printf '%s\n' 'fs.inotify.max_user_instances = 1024' 'fs.inotify.max_user_watches = 1048576' \
+        'fs.inotify.max_queued_events = 1048576' > /etc/sysctl.d/60-heimdeye-lab.conf
+    sysctl -q -p /etc/sysctl.d/60-heimdeye-lab.conf
     incus profile show he-lab >/dev/null 2>&1 || {
         incus profile create he-lab
         incus profile device add he-lab root disk path=/ pool=default
@@ -225,9 +244,9 @@ student_lab() {
                 nic "$name" eth1 "he-dmz$x" eth1
                 ;;
         esac
+        addresses "$name" 50-gestio.yaml eth0 "10.255.$x.$host/16"
         retry incus start "$name"
         wait_boot "$name"
-        addresses "$name" 50-gestio.yaml eth0 "10.255.$x.$host/16"
         incus config set "$name" user.lab.llest=1
     done
 }
@@ -241,9 +260,9 @@ tutorial_servers() {
         log "Servidor del tutorial $name"
         retry new_instance "$IMAGE" "$name" -c limits.memory=256MiB -c limits.cpu=1 -c boot.autostart=true
         nic "$name" eth0 he-gestio eth0
+        addresses "$name" 50-gestio.yaml eth0 "10.255.1.$i/16"
         retry incus start "$name"
         wait_boot "$name"
-        addresses "$name" 50-gestio.yaml eth0 "10.255.1.$i/16"
         incus exec "$name" -- sh -euc '
             id alumne >/dev/null 2>&1 || useradd --create-home --shell /bin/bash alumne
             echo "alumne ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/alumne'
@@ -276,10 +295,11 @@ sandbox_container() {
     retry new_instance "$UBUNTU_APP" "$SANDBOX" -c limits.memory=512MiB -c limits.cpu=1 \
         -c limits.processes=256 -c boot.autostart=true
     nic "$SANDBOX" gestio he-gestio eth1
-    retry incus start "$SANDBOX"
-    wait_boot "$SANDBOX"
     addresses "$SANDBOX" 50-lab.yaml eth1 10.255.0.3/16
     internet "$SANDBOX" on
+    retry incus start "$SANDBOX"
+    wait_boot "$SANDBOX"
+    wait_internet "$SANDBOX"
     incus exec "$SANDBOX" -- bash -euc '
         export DEBIAN_FRONTEND=noninteractive
         apt-get update -q
@@ -368,10 +388,11 @@ heimdeye_container() {
         retry new_instance "$UBUNTU_APP" "$HE" -c security.nesting=true -c boot.autostart=true
         nic "$HE" gestio he-gestio eth1
         nic "$HE" wan he-wan eth2
-        retry incus start "$HE"
-        wait_boot "$HE"
         addresses "$HE" 50-lab.yaml eth1 10.255.0.2/16 eth2 203.0.113.2/24
         internet "$HE" on
+        retry incus start "$HE"
+        wait_boot "$HE"
+        wait_internet "$HE"
         he bash -euc '
             export DEBIAN_FRONTEND=noninteractive
             apt-get update -q
