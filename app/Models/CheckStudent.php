@@ -42,9 +42,25 @@ class CheckStudent extends Model
         return $this->belongsTo(User::class, 'modificat_per');
     }
 
-    /** L'estat del professor, si n'hi ha, preval sobre el resultat automàtic. */
+    /** Si passa ara (la darrera execució). L'estat del professor, si n'hi ha, preval sobre el resultat automàtic. */
     public function isPassing(): bool
     {
         return $this->estat_professor ?? $this->estat_actual === CheckStatus::Pass;
+    }
+
+    /**
+     * Si l'ha assolit: ha passat algun cop (els punts es queden encara que després falli, l'equip
+     * estigui apagat o el check doni error). La correcció del professor preval, també per treure'ls.
+     */
+    public function isAchieved(): bool
+    {
+        return $this->estat_professor ?? $this->data_primer_assoliment !== null;
+    }
+
+    /** Assolit, sense correcció del professor, però la darrera execució no passa. */
+    public function isRegressed(): bool
+    {
+        return $this->estat_professor === null && $this->data_primer_assoliment !== null
+            && $this->estat_actual !== null && $this->estat_actual !== CheckStatus::Pass;
     }
 }

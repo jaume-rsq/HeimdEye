@@ -322,8 +322,20 @@ class StudentTracking extends Page
             ->modalCancelActionLabel('Tancar');
     }
 
+    /** Si aquí es pot verificar ara aquest check per a l'alumne: els professors, sempre. */
+    public function canVerify(Check $check): bool
+    {
+        return ! $this->readonly();
+    }
+
+    /** Minuts que falten per poder tornar a verificar aquest check (0: ja es pot). */
+    public function verifyWaitMinutes(Check $check): int
+    {
+        return 0;
+    }
+
     /** Un check del mòdul triat (els arguments venen del navegador). */
-    private function visibleCheck(array $arguments): ?Check
+    protected function visibleCheck(array $arguments): ?Check
     {
         $module = $this->module();
 

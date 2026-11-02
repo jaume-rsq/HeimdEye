@@ -49,7 +49,8 @@ class StudentProgress
             return [
                 'check' => $check,
                 'state' => $state,
-                'assolit' => $state?->isPassing() ?? false,
+                'assolit' => $state?->isAchieved() ?? false,
+                'ara_no_passa' => $state?->isRegressed() ?? false,
                 'corregit' => $state?->estat_professor !== null,
                 'compta' => Leaderboard::counts($check),
                 'punts' => Leaderboard::points($check, $state),

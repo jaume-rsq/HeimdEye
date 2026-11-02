@@ -45,7 +45,7 @@ php artisan db:seed --class=Block08DhcpSeeder       # Bloc 8 (blocs 7 i 8): DHCP
 
 ### Autenticació
 
-`HEIMDEYE_AUTH` tria com s'entra al panell `/admin`. En els dos casos només hi entren els
+`HEIMDEYE_AUTH` tria com s'entra al panell `/admin`. En tots els casos només hi entren els
 administradors i professors actius de la taula `usuaris` (no hi ha autoregistre).
 
 - `local`: formulari de correu i contrasenya. Per a desenvolupament.
@@ -55,6 +55,9 @@ administradors i professors actius de la taula `usuaris` (no hi ha autoregistre)
   `equip.cloudflareaccess.com`) i l'audiència de l'aplicació (`CF_ACCESS_AUD`), i busca
   l'usuari pel correu. Convé que el tallafoc només deixi arribar al port 80 el `cloudflared`.
   Com configurar-ho a Cloudflare: [docs/cloudflare.md](docs/cloudflare.md).
+- `plantilla`: còpia per a un sol professor (la demo SMIX2, [docs/demo-smix2.md](docs/demo-smix2.md)).
+  S'entra directament com l'administrador `HEIMDEYE_ADMIN_EMAIL`, sense contrasenya
+  (`LogInTemplateAdmin`). Només quan l'app no és accessible des de fora de la màquina.
 
 ### Cua
 
@@ -167,6 +170,14 @@ verificació. És la base de dades de la demo (`DemoSeeder`).
 
 Els textos són a l'app (enunciats, descripcions, info) i [docs/demo-tutorial.md](docs/demo-tutorial.md)
 se'n genera: `php artisan heimdeye:tutorial` (amb el tutorial a la BBDD).
+
+## Demo SMIX2 (laboratori de xarxa)
+
+Una segona demo, per a professors de cicles: el mòdul *SMX2 Serveis de xarxa (laboratori)*
+(`Smix2LabSeeder`), on cada alumne fictici té la xarxa d'una petita empresa en contenidors LXC
+(router Linux amb WAN, LAN i DMZ, un client i un servidor) i la va muntant amb accions, mentre els
+checks en comproven el funcionament. `lab/lab.sh` ho munta tot en una sola VM, amb HeimdEye en mode
+`plantilla` (`docker/compose.plantilla.yaml`). Vegeu [docs/demo-smix2.md](docs/demo-smix2.md).
 
 ## Variables
 
@@ -493,7 +504,11 @@ una regla de Bypass per a aquest camí), on només surt l'àlies de l'alumne o �
 - Compten els checks que ja han començat: no els desactivats a mà ni els que encara no han arribat a
   `actiu_des`. Els que ja han acabat continuen comptant.
 - Cada check assolit dona els seus punts, amb el bonus de puntualitat si es va assolir abans de la
-  data límit. L'estat del professor mana: assolit sense data dona els punts sense bonus; no assolit, 0.
+  data límit. **Assolit** vol dir que ha passat algun cop (`data_primer_assoliment`,
+  `CheckStudent::isAchieved()`): els punts es queden encara que després falli, doni `error` o
+  l'equip no respongui. L'estat del professor mana: assolit sense data dona els punts sense bonus;
+  no assolit, 0. Al Seguiment, un check assolit que ara no passa (`isRegressed()`) porta l'avís
+  «ara no passa».
 - Columnes: punts, % d'obligatoris assolits, progrés per bloc i data del darrer assoliment.
 - En cas d'empat, va davant qui hi va arribar abans (darrer assoliment més antic).
 
@@ -513,7 +528,7 @@ d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
   obligatoris, punts, checks amb error, darrer assoliment i dates del bloc. La columna Pos. dona
   l'ordre dels checks.
 - Cada check ocupa dues línies: a dalt el nom, si és obligatori i els punts, l'estat, el primer
-  assoliment, els punts obtinguts i els botons (Info, Verificar, Corregir i ✎ editar, aquest
+  assoliment, els punts obtinguts i els botons (ⓘ Info, ▶ Verificar, Corregir i ✎ editar, aquest
   només per a administradors i professors del mòdul); a sota la darrera execució (resultat, data,
   versió, durada i missatge). El comentari del professor, si n'hi ha, va en una tercera línia.
 - **Prorrogar** (a la línia del bloc, només per a administradors i professors del mòdul): dates
@@ -529,9 +544,17 @@ amb fitxa d'alumne (l'importador ja els crea amb l'email de la llista). Amb Clou
 amb el seu compte de Google; en local, pel formulari de `/alumne/login`. Un alumne que obre `/admin`
 (o `/`) va a `/alumne`, i un professor no pot entrar a `/alumne`.
 
-És la pantalla de Seguiment de només lectura i sempre amb l'alumne connectat: els seus mòduls, els
-checks amb l'estat, la darrera execució, el comentari del professor i el botó Info. No hi ha selector
-d'alumne, Verificar, Corregir ni editar, i el servidor els rebutja encara que es cridin a mà.
+És la pantalla de Seguiment sempre amb l'alumne connectat: els seus mòduls, els checks amb l'estat,
+la darrera execució, el comentari del professor i les icones Info (ⓘ) i Verificar (▶). No hi ha
+selector d'alumne, Corregir ni editar, i el servidor els rebutja encara que es cridin a mà.
+
+L'alumne pot **verificar** un check (`MyProgress::verify`): només un check actiu cada vegada, només
+per a ell i el mateix check com a molt un cop cada 10 minuts (`MyProgress::VERIFY_EVERY`). Abans,
+el navegador li demana que comprovi primer que funciona; mentre espera, la icona surt grisa amb els
+minuts que falten. El compte és al `RateLimiter` de Laravel (memòria cau, clau per alumne i check):
+no afegeix cap taula ni camp, caduca sol i no se'l salta canviant de navegador o de sessió. El
+resultat compta com una verificació del professor (lot manual amb `llancat_per` = l'alumne). Verificar
+la tasca, el bloc o el mòdul sencer continua sent només per als professors.
 
 ## Accions
 

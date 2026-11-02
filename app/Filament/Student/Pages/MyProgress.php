@@ -10,17 +10,22 @@ use App\Models\Student;
 use App\Models\User;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\RateLimiter;
 use Livewire\Attributes\Computed;
 
 /**
- * El seguiment de l'alumne connectat, de només lectura: la mateixa pantalla que la dels professors,
- * però sempre amb el seu alumne i sense verificar, corregir ni editar res.
+ * El seguiment de l'alumne connectat: la mateixa pantalla que la dels professors, però sempre amb el
+ * seu alumne i sense corregir ni editar res. Només pot verificar els checks actius, d'un en un.
  */
 class MyProgress extends StudentTracking
 {
+    /** Temps mínim entre dues verificacions del mateix check per part de l'alumne. */
+    public const VERIFY_EVERY = 600;
+
     protected static ?string $slug = 'seguiment';
 
     protected static ?string $title = 'El meu seguiment';
@@ -73,9 +78,44 @@ class MyProgress extends StudentTracking
         return false;
     }
 
+    /**
+     * L'alumne només pot verificar un check actiu, d'un en un i per a ell mateix, i el mateix check
+     * com a molt un cop cada VERIFY_EVERY segons. El compte és a la memòria cau de Laravel, que caduca
+     * sola (cap taula ni camp nou), i no a la sessió: amb un altre navegador no se'l salta.
+     */
     public function verify(?int $checkId = null, ?int $taskId = null, ?int $blockId = null): void
     {
-        abort(403);
+        $check = $checkId && ! $taskId && ! $blockId ? $this->visibleCheck(['check' => $checkId]) : null;
+        abort_unless($check && $this->canVerify($check), 403);
+
+        if ($minutes = $this->verifyWaitMinutes($check)) {
+            Notification::make()->warning()
+                ->title('Encara no')
+                ->body("Podràs tornar a verificar aquest check d'aquí a {$minutes} min.")
+                ->send();
+
+            return;
+        }
+        RateLimiter::hit($this->verifyKey($check), self::VERIFY_EVERY);
+
+        parent::verify($check->id);
+    }
+
+    public function canVerify(Check $check): bool
+    {
+        return $check->isActiveOn();
+    }
+
+    public function verifyWaitMinutes(Check $check): int
+    {
+        $key = $this->verifyKey($check);
+
+        return RateLimiter::tooManyAttempts($key, 1) ? (int) ceil(RateLimiter::availableIn($key) / 60) : 0;
+    }
+
+    private function verifyKey(Check $check): string
+    {
+        return "verificar-alumne:{$this->ownStudent()?->id}:{$check->id}";
     }
 
     public function go(int $step): void {}

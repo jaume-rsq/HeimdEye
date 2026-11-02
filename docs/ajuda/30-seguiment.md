@@ -2,7 +2,7 @@
 titol: Seguiment
 ordre: 30
 per: [professors]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-01
 ---
 
 # Seguiment
@@ -14,13 +14,16 @@ es pot compartir amb un altre professor.
 - A dalt, una targeta per mòdul amb els punts, la posició i el percentatge d'obligatoris.
 - La taula agrupa els checks per bloc i tasca. Clica la línia d'un bloc per plegar-lo.
 - Clica un check per veure la sortida de la darrera execució i l'historial de canvis d'estat.
+- **Els punts no es perden**: un check assolit continua assolit encara que després falli, doni
+  error o la màquina estigui apagada. Si ara no passa, surt l'avís taronja **ara no passa**. Per
+  treure'ls els punts, **Corregir** → no assolit.
 
 ## Botons
 
 | Botó | Què fa |
 | --- | --- |
-| **Info** | Un text explicatiu de check per a l'alumne i el codi amb les seves dades. Pot ajudar a entrendre què ha de fer per assolir el checl. |
-| **Verificar** | Executa ara el check, la tasca, el bloc o tot el mòdul, **només per a aquest alumne**. La pàgina es posa al dia sola. |
+| **ⓘ Info** | Un text explicatiu de check per a l'alumne i el codi amb les seves dades. Pot ajudar a entrendre què ha de fer per assolir el checl. |
+| **▶ Verificar** | Executa ara el check, la tasca, el bloc o tot el mòdul, **només per a aquest alumne**. La pàgina es posa al dia sola. Els alumnes també tenen ▶ al seu seguiment: només per als checks actius i un cop cada 10 minuts per check. |
 | **Corregir** | Força assolit o no assolit (o torna a automàtic) i deixa un comentari que veurà l'alumne. La correcció mana també al leaderboard. |
 | **Prorrogar** | A la línia del bloc: dates noves per a tots els checks del bloc i afecta a la puntuació **de tots els alumnes**. Vegeu [Checks](?doc=checks). |
 | **✎** | Edita el check (si és d'un mòdul que imparteixes). |
