@@ -2,13 +2,19 @@
 titol: Novetats
 ordre: 0
 per: [professors]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-01
 ---
 
 # Novetats
 
 Els canvis de HeimdEye que et poden afectar, el més nou primer. Les pàgines d'ajuda que han
 canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esquerra.
+
+## 01/11/2026
+
+- **Els punts d'un check assolit es mantenen** encara que després falli, doni error o la màquina
+  estigui apagada. Al seguiment, l'avís **ara no passa** mostra els que han deixat de passar. Només
+  una correcció del professor (no assolit) els treu.
 
 ## 29/10/2026
 
