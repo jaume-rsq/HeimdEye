@@ -8,6 +8,7 @@ use App\Enums\RunOrigin;
 use App\Filament\Pages\StudentTracking;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Jobs\RunCheck;
+use App\Models\Block;
 use App\Models\Check;
 use App\Models\CheckRun;
 use App\Models\CheckStudent;
@@ -165,6 +166,21 @@ class StudentTrackingTest extends TestCase
         Livewire::test(StudentTracking::class, ['alumne' => $this->student->id, 'tasca' => $this->check->tasca_id])
             ->assertSee('Assolit')
             ->assertSee('ara no passa');
+    }
+
+    public function test_block_in_the_url_is_kept_without_module_and_student(): void
+    {
+        // Tornant enrere, la URL només porta el bloc si l'alumne i el mòdul eren els primers.
+        $block = $this->check->task->block;
+
+        Livewire::test(StudentTracking::class, ['bloc' => $block->id])
+            ->assertSet('modul', $this->module->id)
+            ->assertSet('bloc', $block->id);
+
+        $other = Block::where('modul_id', '!=', $this->module->id)->first();
+        if ($other) {
+            Livewire::test(StudentTracking::class, ['bloc' => $other->id])->assertSet('bloc', null);
+        }
     }
 
     public function test_verify_queues_the_checks_of_a_task(): void
