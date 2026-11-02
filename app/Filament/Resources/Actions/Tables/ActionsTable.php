@@ -9,6 +9,7 @@ use App\Filament\Actions\LaunchAction;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Models\AcademicYear;
 use App\Models\Action as ActionModel;
+use App\Models\Module;
 use App\Support\ActionSummary;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
@@ -20,6 +21,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Grouping\Group;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use WeakMap;
@@ -32,9 +34,27 @@ class ActionsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['module', 'currentVersion']))
-            ->defaultSort('updated_at', 'desc')
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['module', 'block', 'currentVersion']))
+            ->defaultSort('posicio')
+            // Un grup per bloc, plegable, com a la llista de checks: es veu la seqüència d'accions.
+            ->groups([
+                Group::make('bloc_id')
+                    ->label('Bloc')
+                    ->titlePrefixedWithLabel(false)
+                    ->getTitleFromRecordUsing(fn (ActionModel $record) => $record->block
+                        ? "{$record->module->codi} · Bloc {$record->block->numero}: {$record->block->titol}"
+                        : "{$record->module->codi} · Sense bloc")
+                    ->orderQueryUsing(fn (Builder $query, string $direction) => $query->orderByBlock($direction))
+                    ->collapsible(),
+            ])
+            ->defaultGroup('bloc_id')
             ->columns([
+                TextColumn::make('posicio')
+                    ->label('Posició')
+                    ->state(fn (ActionModel $record) => $record->positionLabel())
+                    ->tooltip('Bloc.acció: l\'ordre en què es llancen')
+                    ->fontFamily('mono')
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderByPosition($direction)),
                 IconColumn::make('estat')
                     ->label('Estat')
                     ->state(fn (ActionModel $record) => self::summary($record)->overview()->value)
@@ -47,12 +67,15 @@ class ActionsTable
                     ->weight('bold'),
                 TextColumn::make('descripcio')
                     ->label('Descripció')
-                    ->wrap(),
+                    ->wrap()
+                    ->grow()
+                    ->extraAttributes(['style' => 'min-width: 22rem']),
                 TextColumn::make('executor')
                     ->badge()
                     ->color('gray'),
-                TextColumn::make('module.nom')
+                TextColumn::make('module.codi')
                     ->label('Mòdul')
+                    ->tooltip(fn (ActionModel $record) => $record->module?->nom)
                     ->toggleable(),
                 TextColumn::make('currentVersion.versio')
                     ->label('Versió')
@@ -75,7 +98,9 @@ class ActionsTable
                     )),
                 SelectFilter::make('modul_id')
                     ->label('Mòdul')
-                    ->relationship('module', 'nom'),
+                    ->relationship('module', 'nom', fn (Builder $query) => $query->orderBy('codi'))
+                    ->getOptionLabelFromRecordUsing(fn (Module $m) => trim("{$m->codi} {$m->nom}"))
+                    ->columnSpan(2),
                 SelectFilter::make('executor')
                     ->options(collect(Executor::cases())->mapWithKeys(fn (Executor $e) => [$e->value => $e->value])),
                 Filter::make('execucions')
@@ -105,7 +130,8 @@ class ActionsTable
                     ->indicateUsing(fn (array $data) => blank($data['estat'] ?? null) ? null
                         : "Darrera execució {$data['estat']} per a ".(($data['abast'] ?? 'algun') === 'tots' ? 'tots els alumnes' : 'algun alumne')),
             ], layout: FiltersLayout::AboveContent)
-            ->filtersFormColumns(5)
+            // Amb poc espai, els filtres passen a dues línies.
+            ->filtersFormColumns(['default' => 1, 'md' => 3, 'xl' => 6])
             ->deferFilters(false)
             ->recordActions([
                 Action::make('versions')

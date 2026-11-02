@@ -344,17 +344,21 @@ class ActionPanelTest extends TestCase
         $this->assertSame(0, ActionRun::count());
     }
 
-    public function test_the_list_shows_the_last_modified_actions_first(): void
+    public function test_the_list_is_ordered_by_block_and_position(): void
     {
         $this->actingAs($this->teacher);
-        $old = $this->action();
-        $old->forceFill(['updated_at' => now()->subWeek()])->saveQuietly();
-        $recent = $this->action();
-        $recent->forceFill(['updated_at' => now()->subDay()])->saveQuietly();
+        $block = $this->module->blocks()->orderBy('numero')->firstOrFail();
+        $second = $this->action();
+        $second->forceFill(['bloc_id' => $block->id, 'posicio' => 2, 'updated_at' => now()->subDay()])->saveQuietly();
+        $first = $this->action();
+        $first->forceFill(['bloc_id' => $block->id, 'posicio' => 1, 'updated_at' => now()->subWeek()])->saveQuietly();
+        $loose = $this->action();
 
-        Livewire::test(ListActions::class)->assertCanSeeTableRecords([$recent, $old], inOrder: true);
-
-        $old->versions()->create(['versio' => 2, 'codi' => 'echo nova', 'temps_max_seg' => 60]);
-        Livewire::test(ListActions::class)->assertCanSeeTableRecords([$old->fresh(), $recent], inOrder: true);
+        Livewire::test(ListActions::class)
+            ->assertCanSeeTableRecords([$first, $second, $loose], inOrder: true)
+            ->assertTableColumnStateSet('posicio', "{$block->numero}.1", $first)
+            ->assertTableColumnStateSet('posicio', '–.0', $loose)
+            ->sortTable('updated_at', 'desc')
+            ->assertCanSeeTableRecords([$second, $first], inOrder: true);
     }
 }

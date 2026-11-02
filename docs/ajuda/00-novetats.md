@@ -2,13 +2,20 @@
 titol: Novetats
 ordre: 0
 per: [professors]
-actualitzat: 2026-11-01
+actualitzat: 2026-11-02
 ---
 
 # Novetats
 
 Darrers canvis de HeimdEye, el més nou primer. Les pàgines d'ajuda que han
 canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esquerra.
+
+## 02/11/2026
+
+- **Accions** agrupades per bloc i ordenades per posició, com els checks. El filtre de mòdul
+  mostra el codi i el nom, i a la taula el mòdul és només el codi.
+- **Menú**: Inventari, Administració i Ajuda surten plegats d'entrada, i hi ha la icona al costat
+  del nom.
 
 ## 01/11/2026
 

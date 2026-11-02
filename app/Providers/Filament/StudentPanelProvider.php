@@ -32,6 +32,8 @@ class StudentPanelProvider extends PanelProvider
             ->id('alumne')
             ->path('alumne')
             ->brandName('HeimdEye')
+            ->brandLogo(fn () => view('filament.brand'))
+            ->brandLogoHeight('1.75rem')
             ->colors([
                 'primary' => Color::Amber,
             ])

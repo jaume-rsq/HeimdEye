@@ -39,7 +39,7 @@ class ActionForm
                         TextInput::make('nom')->required()->maxLength(255),
                         Select::make('modul_id')
                             ->label('Mòdul')
-                            ->options(fn () => Module::with('academicYear')->get()->mapWithKeys(fn (Module $m) => [$m->id => "{$m->nom} ({$m->academicYear->nom})"]))
+                            ->options(fn () => Module::with('academicYear')->get()->mapWithKeys(fn (Module $m) => [$m->id => trim("{$m->codi} {$m->nom}")." ({$m->academicYear->nom})"]))
                             ->required()
                             ->live()
                             ->disabledOn('edit'),
@@ -55,8 +55,10 @@ class ActionForm
                             ->label('Bloc')
                             ->options(fn (Get $get) => Block::where('modul_id', $get('modul_id'))->orderBy('numero')->get()
                                 ->mapWithKeys(fn (Block $b) => [$b->id => "Bloc {$b->numero}: {$b->titol}"]))
-                            ->placeholder('Cap'),
-                        TextInput::make('posicio')->label('Posició')->numeric()->default(0)->minValue(0),
+                            ->placeholder('Cap')
+                            ->helperText('La llista d\'accions s\'agrupa per bloc; les que no en tenen surten al final.'),
+                        TextInput::make('posicio')->label('Posició')->numeric()->default(0)->minValue(0)
+                            ->helperText('Ordre dins del bloc: la seqüència en què es llancen.'),
                     ]),
                 Section::make(fn (string $operation) => $operation === 'edit' ? 'Darrera versió' : 'Primera versió')
                     ->description(fn (string $operation) => $operation === 'edit'

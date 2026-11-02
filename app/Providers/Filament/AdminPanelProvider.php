@@ -35,6 +35,8 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->path('admin')
             ->brandName('HeimdEye')
+            ->brandLogo(fn () => view('filament.brand'))
+            ->brandLogoHeight('1.75rem')
             ->colors([
                 'primary' => Color::Amber,
             ])
@@ -42,9 +44,10 @@ class AdminPanelProvider extends PanelProvider
             ->navigationGroups([
                 NavigationGroup::make('Checks'),
                 NavigationGroup::make('Accions'),
-                NavigationGroup::make('Inventari'),
-                NavigationGroup::make('Administració'),
-                NavigationGroup::make('Ajuda'),
+                // Els menys usats, plegats d'entrada (el navegador recorda si l'usuari els obre).
+                NavigationGroup::make('Inventari')->collapsed(),
+                NavigationGroup::make('Administració')->collapsed(),
+                NavigationGroup::make('Ajuda')->collapsed(),
             ])
             ->navigationItems([
                 NavigationItem::make('Nou check')

@@ -2,13 +2,17 @@
 titol: Accions
 ordre: 40
 per: [professors]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-02
 ---
 
 # Accions
 
 Les accions són scripts o playbooks que llances tu per canviar els equips dels alumnes: posar una
 contrasenya, donar accés a la clau de HeimdEye, instal·lar un agent... No puntuen.
+
+La llista s'agrupa per **bloc** i s'ordena per **posició** (`bloc.acció`, com als checks): és la
+seqüència en què es llancen. El bloc i la posició es trien a l'acció; les que no tenen bloc surten
+al final del mòdul.
 
 - **Simular** (només Ansible) executa amb `--check --diff`: no canvia res i mostra què canviaria.
   Les simulacions no surten a l'historial, només a «Darrera simulació».
