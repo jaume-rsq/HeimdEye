@@ -149,13 +149,14 @@ class StudentImporter
      * i, si es demana, marca inactius els que ja no hi són.
      *
      * @param  list<array<string, string>>  $rows
+     * @param  int|null  $groupId  grup-classe on van tots els alumnes de la llista
      * @return array{nous: int, canvis: int, desactivats: int}
      */
-    public function apply(Module $module, array $rows, bool $deactivateMissing = true): array
+    public function apply(Module $module, array $rows, bool $deactivateMissing = true, ?int $groupId = null): array
     {
         $plan = $this->plan($module, $rows);
 
-        DB::transaction(function () use ($module, $plan, $deactivateMissing) {
+        DB::transaction(function () use ($module, $rows, $plan, $deactivateMissing, $groupId) {
             foreach ([...$plan['nous'], ...array_column($plan['canvis'], 'data')] as $data) {
                 $user = User::updateOrCreate(
                     ['email' => $data['email']],
@@ -179,6 +180,13 @@ class StudentImporter
 
             if ($deactivateMissing) {
                 Student::whereKey(array_map(fn (Student $s) => $s->id, $plan['absents']))->update(['es_actiu' => false]);
+            }
+
+            // Amb un grup, tots els de la llista (també els que no canvien) hi passen.
+            if ($groupId) {
+                Student::where('curs_id', $module->curs_id)
+                    ->whereIn('usuari', array_map(fn (array $row) => $this->attributes($row)['usuari'], $rows))
+                    ->update(['grup_id' => $groupId]);
             }
         });
 

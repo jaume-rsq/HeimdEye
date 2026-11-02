@@ -203,6 +203,9 @@ Els noms de taules i camps són en català (sense accents); les classes PHP es m
 - `moduls`: oficial o lliure (`combina` llista els mòduls oficials que agrupa), amb l'accés
   per defecte als equips (`secret_acces_id`). Les variables són a `variables` (vegeu «Variables»)
   i els secrets a `secrets` (vegeu «Equips, inventari Ansible i secrets»).
+- `grups`: grups-classe d'un curs (codi únic per curs, cicle opcional). Un alumne és d'un grup
+  (`alumnes.grup_id`, opcional) i es matricula als mòduls que calgui. Un grup amb alumnes no es
+  pot esborrar; esborrar el curs esborra els seus grups.
 - `alumnes` pertanyen a un curs i un cicle i es matriculen a mòduls (`modul_alumne`).
   Els professors s'assignen a mòduls (`modul_professor`).
 - `checks`: tipus obligatori/opcional, punts, `es_actiu` (null = segueix `actiu_des`/`actiu_fins`),
@@ -465,6 +468,9 @@ també poden ser playbooks (`executor = ansible`).
   panell; els crea l'importador). Amb `HEIMDEYE_AUTH=cloudflare` l'usuari es reconeix pel correu de
   Google Workspace i no hi ha contrasenya. Ningú es pot canviar el rol, desactivar-se ni esborrar-se
   a si mateix; un usuari amb fitxa d'alumne no s'esborra des d'aquí.
+- **Grups** (`/admin/grups`): grups-classe de cada curs. Els alumnes s'hi posen des de la fitxa,
+  amb l'acció en bloc **Posar al grup** de la llista d'alumnes o en importar la llista (es tria el
+  grup al costat del mòdul).
 - **Cursos** (`/admin/cursos`) i **Cicles** (`/admin/cicles`). Només hi ha un curs actual: marcar-ne
   un desmarca l'anterior. Un curs o un cicle amb mòduls o alumnes no es pot esborrar.
 - **Mòduls i blocs** (`/admin/moduls-i-blocs`): dades del mòdul, professors, i els seus blocs amb
@@ -492,7 +498,8 @@ enllaça la demo pública (`HEIMDEYE_DEMO_URL`; buit, no surt; a la mateixa demo
 
 ## Leaderboard
 
-Classificació d'un mòdul del curs actual. Públic a `/leaderboard` (sense login: a Cloudflare Access cal
+Classificació d'un mòdul del curs actual, per grup-classe: a dalt es tria el grup (o tots) i el
+mòdul, que només llista els mòduls amb algun alumne del grup (`?grup=` i `?modul=` a l'URL). Públic a `/leaderboard` (sense login: a Cloudflare Access cal
 una regla de Bypass per a aquest camí), on només surt l'àlies de l'alumne o «Taula NN»; al panell
 (menú Leaderboard) surt amb els noms reals.
 
@@ -513,8 +520,11 @@ Detall d'un alumne per a professors i admins (menú Seguiment, `/admin/seguiment
 el nom al leaderboard del panell, des de la fitxa de l'alumne o des d'una cel·la de la graella d'alumnes
 d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
 
+- A la capçalera, selectors de grup i de mòdul (com al leaderboard); després l'alumne, d'entre els
+  del grup matriculats al mòdul. Un alumne a l'URL que no és del grup treu el filtre de grup.
 - Un admin veu tots els mòduls; un professor només els que imparteix (i els alumnes d'aquests mòduls).
-- Una targeta per mòdul amb punts, posició, % d'obligatoris, progrés per bloc i dates.
+- El quadre del mòdul triat (punts, posició, % d'obligatoris, progrés per bloc i dates) i, al
+  costat, els filtres.
 - Taula del mòdul agrupada per bloc i tasca, filtrable per bloc, tasca, estat i només obligatoris:
   estat (amb la correcció del professor), darrera execució, missatge, primer assoliment, punts i comentari.
 - Clicant una fila es veu la sortida de la darrera execució i l'historial reduït als canvis d'estat
@@ -539,7 +549,7 @@ amb fitxa d'alumne (l'importador ja els crea amb l'email de la llista). Amb Clou
 amb el seu compte de Google; en local, pel formulari de `/alumne/login`. Un alumne que obre `/admin`
 (o `/`) va a `/alumne`, i un professor no pot entrar a `/alumne`.
 
-És la pantalla de Seguiment sempre amb l'alumne connectat: els seus mòduls, els checks amb l'estat,
+És la pantalla de Seguiment sempre amb l'alumne connectat: el selector dels seus mòduls (sense grup), els checks amb l'estat,
 la darrera execució, el comentari del professor i les icones Info (ⓘ) i Verificar (▶). No hi ha
 selector d'alumne, Corregir ni editar, i el servidor els rebutja encara que es cridin a mà.
 

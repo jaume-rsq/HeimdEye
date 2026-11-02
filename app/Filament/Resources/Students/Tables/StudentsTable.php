@@ -2,10 +2,12 @@
 
 namespace App\Filament\Resources\Students\Tables;
 
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\Student;
 use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Schemas\Components\Text;
@@ -25,12 +27,14 @@ class StudentsTable
     {
         return $table
             ->defaultSort('num_taula')
+            ->modifyQueryUsing(fn (Builder $query) => $query->with('group'))
             ->columns([
                 TextColumn::make('num_taula')->label('Taula')->formatStateUsing(fn ($state) => sprintf('%02d', $state))->sortable(),
                 TextColumn::make('usuari')->searchable()->sortable(),
                 TextColumn::make('nom_complet')->label('Nom')->searchable()->sortable(),
                 TextColumn::make('alies')->label('Àlies')->placeholder('—'),
                 TextColumn::make('x')->label('X')->sortable(),
+                TextColumn::make('group.codi')->label('Grup')->placeholder('—')->sortable(),
                 TextColumn::make('modules.codi')->label('Mòduls')->badge(),
                 TextColumn::make('own_variables_count')
                     ->label('Variables pròpies')
@@ -50,6 +54,9 @@ class StudentsTable
                         fn (Builder $query, $id) => $query->whereHas('modules', fn (Builder $query) => $query->whereKey($id)),
                     )),
                 SelectFilter::make('curs_id')->label('Curs')->relationship('academicYear', 'nom'),
+                SelectFilter::make('grup_id')
+                    ->label('Grup')
+                    ->options(fn () => Group::with('academicYear')->orderBy('codi')->get()->mapWithKeys(fn (Group $g) => [$g->id => "{$g->label()} ({$g->academicYear->nom})"])),
             ])
             ->recordActions([
                 EditAction::make()->label('Fitxa'),
@@ -61,6 +68,20 @@ class StudentsTable
                     ->requiresConfirmation()
                     ->modalDescription('Deixen de sortir a les execucions i al leaderboard. No s\'esborra res.')
                     ->action(fn (Collection $records) => Student::whereKey($records->modelKeys())->update(['es_actiu' => false]))
+                    ->deselectRecordsAfterCompletion(),
+                BulkAction::make('grup')
+                    ->label('Posar al grup')
+                    ->icon(Heroicon::OutlinedUserGroup)
+                    ->schema([
+                        Select::make('grup_id')
+                            ->label('Grup')
+                            ->options(fn () => Group::with('academicYear')->orderBy('codi')->get()->mapWithKeys(fn (Group $g) => [$g->id => "{$g->label()} ({$g->academicYear->nom})"]))
+                            ->placeholder('Cap (treure del grup)'),
+                    ])
+                    ->action(function (Collection $records, array $data) {
+                        Student::whereKey($records->modelKeys())->update(['grup_id' => $data['grup_id'] ?: null]);
+                        Notification::make()->success()->title($records->count().' '.($records->count() === 1 ? 'alumne canviat' : 'alumnes canviats').' de grup')->send();
+                    })
                     ->deselectRecordsAfterCompletion(),
                 BulkAction::make('activar')
                     ->label('Marcar actius')

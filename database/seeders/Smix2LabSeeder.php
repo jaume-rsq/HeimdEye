@@ -12,6 +12,7 @@ use App\Models\Action;
 use App\Models\Block;
 use App\Models\Check;
 use App\Models\Cycle;
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\Secret;
 use App\Models\Student;
@@ -65,10 +66,12 @@ class Smix2LabSeeder extends Seeder
             $access->update(['valor' => $path]);
         }
 
+        $group = Group::updateOrCreate(['curs_id' => $year->id, 'codi' => 'SMIX2-LAB'], ['cicle_id' => $cycle->id, 'nom' => '2n SMIX (laboratori)']);
+
         $count = max(1, min(count(self::STUDENTS), (int) config('heimdeye.lab.students', 2)));
         $students = collect(array_slice(self::STUDENTS, 0, $count))->map(fn (array $s) => Student::updateOrCreate(
             ['curs_id' => $year->id, 'usuari' => $s[1]],
-            ['cicle_id' => $cycle->id, 'nom_complet' => $s[2], 'alies' => strtok($s[2], ' '), 'num_taula' => $s[0], 'x' => 20 + $s[0], 'es_actiu' => true],
+            ['cicle_id' => $cycle->id, 'grup_id' => $group->id, 'nom_complet' => $s[2], 'alies' => strtok($s[2], ' '), 'num_taula' => $s[0], 'x' => 20 + $s[0], 'es_actiu' => true],
         ));
 
         $module = Module::updateOrCreate(

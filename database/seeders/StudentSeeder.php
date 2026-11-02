@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\AcademicYear;
 use App\Models\Cycle;
+use App\Models\Group;
 use App\Models\Module;
 use App\Support\StudentImporter;
 use Illuminate\Database\Seeder;
@@ -29,8 +30,10 @@ class StudentSeeder extends Seeder
             ->where('codi', '9991')
             ->firstOrFail();
 
+        $group = Group::updateOrCreate(['curs_id' => $year->id, 'codi' => 'SMIX2'], ['cicle_id' => $cycle->id, 'nom' => '2n SMIX']);
+
         // El seeder no desactiva ningú: només afegeix i actualitza.
-        app(StudentImporter::class)->apply($module, $this->rows(), deactivateMissing: false);
+        app(StudentImporter::class)->apply($module, $this->rows(), deactivateMissing: false, groupId: $group->id);
     }
 
     /** @return list<array<string, string>> */

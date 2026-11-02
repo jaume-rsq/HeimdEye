@@ -4,12 +4,14 @@ namespace App\Filament\Resources\Students\Schemas;
 
 use App\Enums\Role;
 use App\Models\AcademicYear;
+use App\Models\Group;
 use App\Models\Student;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -40,8 +42,14 @@ class StudentForm
                             ->label('Curs')
                             ->relationship('academicYear', 'nom')
                             ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
-                            ->required(),
+                            ->required()
+                            ->live(),
                         Select::make('cicle_id')->label('Cicle')->relationship('cycle', 'codi')->required(),
+                        Select::make('grup_id')
+                            ->label('Grup')
+                            ->options(fn (Get $get) => Group::where('curs_id', $get('curs_id'))->orderBy('codi')->get()->mapWithKeys(fn (Group $g) => [$g->id => $g->label()]))
+                            ->placeholder('Cap')
+                            ->helperText('Grup-classe del curs (Administració → Grups).'),
                         Select::make('modules')->label('Mòduls')
                             // Només id i nom: amb moduls.* el "select distinct" falla a Postgres per la columna json.
                             ->relationship('modules', 'nom', fn (Builder $query) => $query->select('moduls.id', 'moduls.nom'))

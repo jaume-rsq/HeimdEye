@@ -12,6 +12,12 @@ canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esq
 
 ## 02/11/2026
 
+- **Grups-classe** (1r SMIX, 2n SMIX...): es creen a **Administració → Grups**. Un alumne és d'un
+  grup i es matricula als mòduls que calgui. S'hi posen des de la llista d'alumnes (**Posar al
+  grup**), des de la fitxa o en importar la llista.
+- **Leaderboard** i **Seguiment**: a dalt a la dreta, primer el grup i després el mòdul (només els
+  que tenen algun alumne del grup). Al seguiment, el quadre del mòdul és el resum del mòdul triat i
+  els filtres de bloc, tasca i estat van al costat.
 - **Accions** agrupades per bloc i ordenades per posició, com els checks. El filtre de mòdul
   mostra el codi i el nom, i a la taula el mòdul és només el codi.
 - **Menú**: Inventari, Administració i Ajuda surten plegats d'entrada, i hi ha la icona al costat

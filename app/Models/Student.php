@@ -17,7 +17,7 @@ class Student extends Model
     protected $table = 'alumnes';
 
     protected $fillable = [
-        'usuari_id', 'curs_id', 'cicle_id', 'usuari', 'nom_complet',
+        'usuari_id', 'curs_id', 'cicle_id', 'grup_id', 'usuari', 'nom_complet',
         'alies', 'num_taula', 'x', 'variables', 'es_actiu',
     ];
 
@@ -64,6 +64,11 @@ class Student extends Model
     public function cycle(): BelongsTo
     {
         return $this->belongsTo(Cycle::class, 'cicle_id');
+    }
+
+    public function group(): BelongsTo
+    {
+        return $this->belongsTo(Group::class, 'grup_id');
     }
 
     public function modules(): BelongsToMany

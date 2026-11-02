@@ -30,6 +30,11 @@ class AcademicYear extends Model
         return $this->hasMany(Variable::class, 'curs_id');
     }
 
+    public function groups(): HasMany
+    {
+        return $this->hasMany(Group::class, 'curs_id');
+    }
+
     public function students(): HasMany
     {
         return $this->hasMany(Student::class, 'curs_id');

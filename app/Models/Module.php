@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\ModuleKind;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -51,6 +52,18 @@ class Module extends Model
     public function students(): BelongsToMany
     {
         return $this->belongsToMany(Student::class, 'modul_alumne', 'modul_id', 'alumne_id');
+    }
+
+    /** Mòduls amb algun alumne del grup matriculat (sense grup, tots). */
+    public function scopeWithGroup(Builder $query, ?int $groupId): Builder
+    {
+        return $query->when($groupId, fn (Builder $q) => $q->whereHas('students', fn (Builder $s) => $s->where('grup_id', $groupId)));
+    }
+
+    /** «9991 SX+SI+AW». */
+    public function label(): string
+    {
+        return trim("{$this->codi} {$this->nom}");
     }
 
     public function blocks(): HasMany

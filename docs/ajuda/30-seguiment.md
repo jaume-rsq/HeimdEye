@@ -2,16 +2,19 @@
 titol: Seguiment
 ordre: 30
 per: [professors]
-actualitzat: 2026-11-01
+actualitzat: 2026-11-02
 ---
 
 # Seguiment
 
-Menú **Seguiment**: tria un alumne i un mòdul. També s'hi arriba clicant un nom al leaderboard o
-una casella de la graella d'alumnes d'un check. L'adreça guarda l'alumne, el mòdul i els filtres, i
-es pot compartir amb un altre professor.
+Menú **Seguiment**: a dalt a la dreta tria el **grup** i el **mòdul**, i després l'alumne. El
+selector de mòdul només mostra els mòduls amb algun alumne del grup, i la llista d'alumnes només
+els del grup matriculats al mòdul. Amb «Tots els grups» surten tots. També s'hi arriba clicant un
+nom al leaderboard o una casella de la graella d'alumnes d'un check. L'adreça guarda el grup,
+l'alumne, el mòdul i els filtres, i es pot compartir amb un altre professor.
 
-- A dalt, una targeta per mòdul amb els punts, la posició i el percentatge d'obligatoris.
+- El quadre del mòdul resumeix l'alumne en el mòdul triat: punts, posició, percentatge
+  d'obligatoris i progrés per bloc. Al costat hi ha els filtres de bloc, tasca i estat.
 - La taula agrupa els checks per bloc i tasca. Clica la línia d'un bloc per plegar-lo.
 - Clica un check per veure la sortida de la darrera execució i l'historial de canvis d'estat.
 - **Els punts no es perden**: un check assolit continua assolit encara que després falli, doni

@@ -16,6 +16,11 @@ class Cycle extends Model
         return $this->hasMany(Module::class, 'cicle_id');
     }
 
+    public function groups(): HasMany
+    {
+        return $this->hasMany(Group::class, 'cicle_id');
+    }
+
     public function students(): HasMany
     {
         return $this->hasMany(Student::class, 'cicle_id');
