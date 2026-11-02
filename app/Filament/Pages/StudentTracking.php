@@ -109,7 +109,13 @@ class StudentTracking extends Page
         $ids = $this->studentModules()->pluck('id');
         if ($this->modul === null || ! $ids->contains($this->modul)) {
             $this->modul = $ids->first();
+        }
+        // El bloc i la tasca de la URL es mantenen si són del mòdul (en tornar enrere, la URL no
+        // porta el mòdul quan és el primer i s'ha de triar de nou).
+        if ($this->bloc !== null && ! Block::whereKey($this->bloc)->where('modul_id', $this->modul)->exists()) {
             $this->bloc = null;
+        }
+        if ($this->tasca !== null && ! Task::whereKey($this->tasca)->whereHas('block', fn ($q) => $q->where('modul_id', $this->modul))->exists()) {
             $this->tasca = null;
         }
     }
