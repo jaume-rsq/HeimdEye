@@ -21,7 +21,7 @@ use Illuminate\Database\Seeder;
 /**
  * Tutorial de HeimdEye: un curs a part, organitzat com qualsevol curs real, que alhora és la
  * documentació de l'app. El visitant fa de professor de 4 alumnes ficticis (els contenidors
- * alumne01..alumne04 de docker/compose.demo.yaml): llegeix l'enunciat de cada tasca, executa els
+ * LXC alumne01..alumne04 de lab/lab.sh): llegeix l'enunciat de cada tasca, executa els
  * checks, fa servir les accions per configurar els equips dels alumnes i crea els seus.
  *
  * L'estructura mateixa és un exemple: curs → cicle → mòduls → blocs → tasques → checks, amb
@@ -41,7 +41,7 @@ class TutorialSeeder extends Seeder
         );
         $cycle = Cycle::updateOrCreate(['codi' => self::CYCLE], ['nom' => 'Tutorial de HeimdEye']);
 
-        // A la demo, la clau és una ruta que només existeix al contenidor de proves (HEIMDEYE_DEMO_STUDENT_KEY).
+        // A la demo, la clau és una ruta al contenidor on s'executa el codi (HEIMDEYE_DEMO_STUDENT_KEY).
         $access = Secret::firstOrCreate(
             ['nivell' => Level::Global, 'curs_id' => null, 'modul_id' => null, 'clau' => 'ssh_demo'],
             ['tipus' => SecretType::SshKey, 'nom_usuari' => 'alumne', 'descripcio' => 'SSH als equips dels alumnes de la demo'],

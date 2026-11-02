@@ -1,22 +1,27 @@
 #!/usr/bin/env bash
-# Laboratori de la demo SMIX2: HeimdEye i la xarxa de cada alumne fictici en contenidors LXC (Incus),
-# tot dins una sola VM. Vegeu docs/demo-smix2.md.
+# Demos de HeimdEye en contenidors LXC (Incus), tot dins una sola VM. Vegeu docs/demo.md i
+# docs/demo-smix2.md.
 #
-#   sudo lab/lab.sh crea        # prepara Incus, la imatge base, els equips, HeimdEye i l'estat inicial
+#   sudo lab/lab.sh crea        # prepara Incus, els equips, HeimdEye i l'estat inicial
 #   sudo lab/lab.sh restaura    # torna els equips dels alumnes a l'estat inicial
 #   sudo lab/lab.sh estat       # llista dels contenidors
-#   sudo lab/lab.sh actualitza  # HeimdEye amb el codi d'aquesta carpeta (cal Internet)
-#   sudo lab/lab.sh esborra     # esborra els contenidors i les xarxes (no la imatge base)
+#   sudo lab/lab.sh actualitza  # HeimdEye amb el darrer commit d'aquesta carpeta (cal Internet)
+#   sudo lab/lab.sh esborra     # esborra els contenidors i les xarxes (no les imatges)
 #   sudo lab/lab.sh clon        # secrets nous i BBDD neta (ho fa sol el servei heimdeye-lab-clon)
 #
-# Plantilla: crea instal·la el servei heimdeye-lab-clon, que en arrencar mira si la VM és un clon
-# (identificador de maquinari diferent del de la plantilla) i, si ho és, fa "clon" sol, sense Internet.
+# Modes (HEIMDEYE_LAB_MODE, en crear; després, el que es va crear):
+#   plantilla  (per defecte) un sol professor: s'hi entra sense contrasenya des de la mateixa VM
+#              (http://localhost:8080), amb el tutorial i el laboratori de xarxa SMIX2. Pensat per
+#              clonar-lo: el servei heimdeye-lab-clon detecta el clon i hi posa secrets nous sol.
+#   publica    demo oberta a tothom (HEIMDEYE_DEMO): el tutorial, i el codi dels checks s'executa al
+#              contenidor "sandbox", no al de HeimdEye. HEIMDEYE_LAB_URL: l'adreça pública.
 #
-# Alumnes: HEIMDEYE_LAB_ALUMNES (1 a 4, per defecte 2; després, els que es van crear). Crear-ho tot
-# necessita Internet (paquets, imatges, Docker); en acabar, cap contenidor en té.
+# Alumnes del laboratori SMIX2: HEIMDEYE_LAB_ALUMNES (1 a 4, per defecte 2). Crear-ho tot necessita
+# Internet (paquets, imatges); en acabar, cap contenidor en té.
 #
 # Pla d'adreces (X = 20 + número d'alumne), el mateix que database/seeders/Smix2LabSeeder.php:
-#   gestió  he-gestio 10.255.0.0/16  amfitrió .0.1, HeimdEye .0.2, router .X.1, client .X.10, DMZ .X.20
+#   gestió  he-gestio 10.255.0.0/16  amfitrió .0.1, HeimdEye .0.2, sandbox .0.3,
+#                                    tutorial alumne0N .1.N, router .X.1, client .X.10, DMZ .X.20
 #   WAN     he-wan    203.0.113.0/24 amfitrió .1, HeimdEye .2, router .X
 #   LAN     he-lanX   10.X.1.0/24    (sense adreça a l'amfitrió: la configura l'alumne)
 #   DMZ     he-dmzX   10.X.2.0/24
@@ -25,16 +30,21 @@ set -euo pipefail
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 STATE=/var/lib/heimdeye-lab
 N=${HEIMDEYE_LAB_ALUMNES:-$(cat "$STATE/alumnes" 2>/dev/null || echo 2)}
-UBUNTU=images:ubuntu/24.04
+MODE=${HEIMDEYE_LAB_MODE:-$(cat "$STATE/mode" 2>/dev/null || echo plantilla)}
+UBUNTU=images:ubuntu/24.04      # equips dels alumnes
+UBUNTU_APP=images:ubuntu/26.04  # HeimdEye i el sandbox, com a producció
 IMAGE=heimdeye-lab-base
 HE=heimdeye
-APP=/opt/heimdeye
-COMPOSE=(docker compose -f compose.yaml -f compose.demo.yaml -f compose.plantilla.yaml)
+SANDBOX=sandbox
+SRC=/opt/heimdeye-src           # còpia del repositori dins el contenidor de HeimdEye
+CURRENT=/var/www/heimdeye/current
+KEY=/var/lib/heimdeye/lab/id_ed25519  # clau dels equips, al contenidor que executa el codi
 ROLES=(router client dmz)
 
 log() { echo "== $*"; }
 die() { echo "ERROR: $*" >&2; exit 1; }
 exists() { incus info "$1" >/dev/null 2>&1; }
+ready() { exists "$1" && [[ $(incus config get "$1" user.lab.llest) == 1 ]]; }
 # Incus pot donar errors transitoris amb el disc lent ("context deadline exceeded"): 3 intents.
 retry() {
     local i
@@ -65,18 +75,38 @@ wait_boot() {
     done
     die "$1 no acaba d'arrencar"
 }
-# Ordres dins el contenidor de HeimdEye, a la carpeta del Compose.
-he() { incus exec "$HE" --cwd "$APP/docker" -- "$@"; }
-artisan() { he "${COMPOSE[@]}" exec -T app php artisan "$@"; }
+# Ordres dins el contenidor de HeimdEye: com a root, i artisan com a usuari heimdeye.
+he() { incus exec "$HE" --cwd / -- "$@"; }
+artisan() { incus exec "$HE" --cwd "$CURRENT" -- sudo -u heimdeye -H php artisan "$@"; }
+nic() { incus config device add "$1" "$2" nic network="$3" name="$4" "${@:5}" >/dev/null; }
+# Adreces fixes en un contenidor: fitxer de netplan i, si cal, l'aplica.
+addresses() {
+    local name=$1 file=$2
+    shift 2
+    {
+        printf 'network:\n  version: 2\n  ethernets:\n'
+        while (($#)); do printf '    %s:\n      addresses: [%s]\n' "$1" "$2"; shift 2; done
+    } | incus exec "$name" -- sh -c "cat > /etc/netplan/$file && chmod 600 /etc/netplan/$file && netplan apply >/dev/null 2>&1"
+}
 lab_instances() {
+    [[ $MODE == plantilla ]] || return 0
     local n
     for ((n = 1; n <= N; n++)); do
         for role in "${ROLES[@]}"; do echo "$role$((20 + n))"; done
     done
 }
+tutorial_instances() { echo alumne01 alumne02 alumne03 alumne04; }
+# Els contenidors d'usar i llençar, amb instantània "inicial".
+student_instances() {
+    lab_instances
+    tutorial_instances
+    [[ $MODE == publica ]] && echo "$SANDBOX"
+    return 0
+}
 
 [[ $EUID -eq 0 ]] || die "cal executar-ho amb sudo"
 [[ $N =~ ^[1-4]$ ]] || die "HEIMDEYE_LAB_ALUMNES ha de ser de 1 a 4"
+[[ $MODE == plantilla || $MODE == publica ]] || die "HEIMDEYE_LAB_MODE ha de ser plantilla o publica"
 
 # Espera que el contenidor tingui xarxa cap a Internet (per instal·lar paquets).
 wait_internet() {
@@ -85,6 +115,19 @@ wait_internet() {
         sleep 2
     done
     die "$1 no té Internet"
+}
+
+# Internet per a un contenidor (per instal·lar), per la xarxa per defecte d'Incus (eth0, DHCP).
+internet() {
+    local name=$1
+    if [[ $2 == on ]]; then
+        incus config device show "$name" | grep -q '^inet:' || nic "$name" inet incusbr0 eth0
+        incus exec "$name" -- netplan apply >/dev/null 2>&1 || true
+        wait_internet "$name"
+    else
+        incus config device show "$name" | grep -q '^inet:' && incus config device remove "$name" inet >/dev/null
+        return 0
+    fi
 }
 
 prepare_incus() {
@@ -114,7 +157,7 @@ network() {
     fi
 }
 
-# Imatge comuna dels equips del laboratori: els paquets de tots els blocs, aturats, i l'usuari heimdeye.
+# Imatge comuna dels equips dels alumnes: els paquets de tots els blocs, aturats, i l'usuari heimdeye.
 base_image() {
     incus image info "$IMAGE" >/dev/null 2>&1 && return
     log "Imatge base dels equips (paquets dels serveis, aturats)"
@@ -145,121 +188,245 @@ lab_key() {
     [[ -s $STATE/id_ed25519 ]] || ssh-keygen -q -t ed25519 -N '' -C heimdeye-lab -f "$STATE/id_ed25519"
 }
 
-# Adreça de gestió i clau de HeimdEye en un equip ja engegat.
-setup_access() {
-    local name=$1 address=$2
-    incus exec "$name" -- sh -c 'cat > /etc/netplan/50-gestio.yaml && chmod 600 /etc/netplan/50-gestio.yaml && netplan apply >/dev/null 2>&1' <<EOF
-network:
-  version: 2
-  ethernets:
-    eth0:
-      addresses: [$address/16]
-EOF
-    incus exec "$name" -- sh -c 'cat > /home/heimdeye/.ssh/authorized_keys && chown heimdeye: /home/heimdeye/.ssh/authorized_keys && chmod 600 /home/heimdeye/.ssh/authorized_keys' < "$STATE/id_ed25519.pub"
+# Un fitxer de l'amfitrió (stdin) dins un contenidor, amb propietari i mode 600.
+put_file() {
+    local name=$1 path=$2 owner=$3
+    incus exec "$name" -- sh -c "install -d -o $owner -g $owner -m 700 \"\$(dirname $path)\" && umask 077 && cat > $path && chown $owner: $path"
 }
 
+# Laboratori SMIX2: router, client i servidor de la DMZ de l'alumne $1.
 student_lab() {
     local x=$((20 + $1))
     network "he-lan$x" none
     network "he-dmz$x" none
     for role in "${ROLES[@]}"; do
         local name=$role$x host
-        # Un equip a mig crear (una execució anterior que ha fallat) es torna a fer.
-        if exists "$name"; then
-            [[ $(incus config get "$name" user.lab.llest) == 1 ]] && continue
-            incus delete --force "$name"
-        fi
+        ready "$name" && continue
         log "Equip $name"
         retry new_instance "$IMAGE" "$name" -c limits.memory=256MiB -c limits.cpu=1 -c boot.autostart=true
-        incus config device add "$name" eth0 nic network=he-gestio name=eth0 >/dev/null
+        nic "$name" eth0 he-gestio eth0
         case $role in
             router)
                 host=1
-                incus config device add "$name" eth1 nic network=he-wan name=eth1 >/dev/null
-                incus config device add "$name" eth2 nic network="he-lan$x" name=eth2 >/dev/null
-                incus config device add "$name" eth3 nic network="he-dmz$x" name=eth3 >/dev/null
+                nic "$name" eth1 he-wan eth1
+                nic "$name" eth2 "he-lan$x" eth2
+                nic "$name" eth3 "he-dmz$x" eth3
                 ;;
             client)
                 host=10
                 # La MAC de la reserva de DHCP (variable mac_client del seeder).
-                incus config device add "$name" eth1 nic network="he-lan$x" name=eth1 hwaddr="00:16:3e:00:01:$x" >/dev/null
+                nic "$name" eth1 "he-lan$x" eth1 hwaddr="00:16:3e:00:01:$x"
                 ;;
             dmz)
                 host=20
-                incus config device add "$name" eth1 nic network="he-dmz$x" name=eth1 >/dev/null
+                nic "$name" eth1 "he-dmz$x" eth1
                 ;;
         esac
         retry incus start "$name"
         wait_boot "$name"
-        setup_access "$name" "10.255.$x.$host"
+        addresses "$name" 50-gestio.yaml eth0 "10.255.$x.$host/16"
         incus config set "$name" user.lab.llest=1
     done
 }
 
-# HeimdEye: el Docker Compose de la demo dins un contenidor LXC amb niament (Docker dins LXC).
-# Docker i Incus a la mateixa màquina xoquen al tallafoc; dins el contenidor, no.
-heimdeye_container() {
-    if ! exists "$HE"; then
-        log "Contenidor de HeimdEye"
-        retry new_instance "$UBUNTU" "$HE" -c security.nesting=true -c boot.autostart=true
-        incus config device add "$HE" gestio nic network=he-gestio name=eth1 >/dev/null
-        incus config device add "$HE" wan nic network=he-wan name=eth2 >/dev/null
-        incus start "$HE"
-        wait_boot "$HE"
-        incus exec "$HE" -- sh -c 'cat > /etc/netplan/50-lab.yaml && chmod 600 /etc/netplan/50-lab.yaml' <<'EOF'
-network:
-  version: 2
-  ethernets:
-    eth1:
-      addresses: [10.255.0.2/16]
-    eth2:
-      addresses: [203.0.113.2/24]
+# Servidors dels alumnes del tutorial (alumne01..04): SSH amb l'usuari alumne (sudo) i nginx aturat.
+tutorial_servers() {
+    local i name
+    for i in 1 2 3 4; do
+        name=alumne0$i
+        ready "$name" && continue
+        log "Servidor del tutorial $name"
+        retry new_instance "$IMAGE" "$name" -c limits.memory=256MiB -c limits.cpu=1 -c boot.autostart=true
+        nic "$name" eth0 he-gestio eth0
+        retry incus start "$name"
+        wait_boot "$name"
+        addresses "$name" 50-gestio.yaml eth0 "10.255.1.$i/16"
+        incus exec "$name" -- sh -euc '
+            id alumne >/dev/null 2>&1 || useradd --create-home --shell /bin/bash alumne
+            echo "alumne ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/alumne'
+        incus config set "$name" user.lab.llest=1
+    done
+}
+
+# Noms dels servidors del tutorial (ip_servidor = alumne{{num_taula}}) i del sandbox.
+hosts_file() {
+    incus exec "$1" -- sh -c 'sed -i "/# heimdeye-lab$/d" /etc/hosts && cat >> /etc/hosts' <<'EOF'
+10.255.1.1 alumne01 # heimdeye-lab
+10.255.1.2 alumne02 # heimdeye-lab
+10.255.1.3 alumne03 # heimdeye-lab
+10.255.1.4 alumne04 # heimdeye-lab
+10.255.0.3 sandbox # heimdeye-lab
 EOF
+}
+
+# ping sense privilegis (sockets ICMP) per als checks locals, també dins els workers (NoNewPrivileges).
+unprivileged_ping() {
+    incus exec "$1" -- sh -c 'echo "net.ipv4.ping_group_range = 0 2147483647" > /etc/sysctl.d/60-heimdeye-ping.conf
+        sysctl -q -p /etc/sysctl.d/60-heimdeye-ping.conf || true'
+}
+
+# Demo pública: on s'executa el codi dels checks i les accions, en lloc del contenidor de HeimdEye
+# (que té el .env i la BBDD). Usuari heimdeye sense sudo, SSH sense reenviaments ni terminal.
+sandbox_container() {
+    ready "$SANDBOX" && return
+    log "Contenidor de proves (sandbox)"
+    retry new_instance "$UBUNTU_APP" "$SANDBOX" -c limits.memory=512MiB -c limits.cpu=1 \
+        -c limits.processes=256 -c boot.autostart=true
+    nic "$SANDBOX" gestio he-gestio eth1
+    retry incus start "$SANDBOX"
+    wait_boot "$SANDBOX"
+    addresses "$SANDBOX" 50-lab.yaml eth1 10.255.0.3/16
+    internet "$SANDBOX" on
+    incus exec "$SANDBOX" -- bash -euc '
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update -q
+        apt-get install -y -q --no-install-recommends openssh-server openssh-client ansible-core \
+            python3 iputils-ping netcat-openbsd bind9-dnsutils curl ca-certificates
+        id heimdeye >/dev/null 2>&1 || useradd --home-dir /var/lib/heimdeye --create-home --shell /bin/bash heimdeye
+        install -d -o heimdeye -g heimdeye -m 700 /var/lib/heimdeye/.ssh
+        cat > /etc/ssh/sshd_config.d/heimdeye.conf <<EOF
+AllowUsers heimdeye
+PasswordAuthentication no
+KbdInteractiveAuthentication no
+PermitRootLogin no
+AllowTcpForwarding no
+AllowAgentForwarding no
+AllowStreamLocalForwarding no
+X11Forwarding no
+PermitTunnel no
+PermitTTY no
+EOF
+        cd / && sudo -u heimdeye -H ansible-galaxy collection install ansible.windows
+        apt-get clean'
+    internet "$SANDBOX" off
+    unprivileged_ping "$SANDBOX"
+    hosts_file "$SANDBOX"
+    incus config set "$SANDBOX" user.lab.llest=1
+}
+
+# Valors del .env de HeimdEye (CLAU=valor...): substitueix la línia o l'afegeix.
+app_env() {
+    he bash -euc '
+        f=/var/www/heimdeye/shared/.env
+        for kv in "$@"; do
+            { grep -v "^${kv%%=*}=" "$f" || true; printf "%s\n" "$kv"; } > "$f.new"
+            cat "$f.new" > "$f"
+            rm "$f.new"
+        done' app_env "$@"
+}
+
+# APP_KEY i contrasenya de la BBDD noves.
+app_secrets() {
+    local password
+    password=$(he openssl rand -hex 24)
+    he sudo -u postgres psql -qc "ALTER ROLE heimdeye PASSWORD '$password'"
+    app_env "APP_KEY=base64:$(he openssl rand -base64 32)" "DB_PASSWORD=$password"
+}
+
+app_config() {
+    local url=${HEIMDEYE_LAB_URL:-http://localhost:8080} secure=false
+    [[ $url == https://* ]] && secure=true
+    app_env "APP_URL=$url" "SESSION_SECURE_COOKIE=$secure" HEIMDEYE_TRUSTED_PROXIES=127.0.0.1 \
+        HEIMDEYE_ADMIN_NAME=Professor HEIMDEYE_ADMIN_EMAIL=professor@heimdeye.test \
+        "HEIMDEYE_DEMO_STUDENT_KEY=$KEY" "HEIMDEYE_LAB_KEY=$KEY" "HEIMDEYE_LAB_ALUMNES=$N"
+    if [[ $MODE == plantilla ]]; then
+        app_env HEIMDEYE_AUTH=plantilla HEIMDEYE_DEMO=false HEIMDEYE_LAB=true HEIMDEYE_RUNNER_WRAPPER=
+    else
+        app_env HEIMDEYE_AUTH=local HEIMDEYE_DEMO=true HEIMDEYE_LAB=false \
+            "HEIMDEYE_RUNNER_WRAPPER=$CURRENT/lab/heimdeye-sandbox"
     fi
-    wait_boot "$HE"
-    internet on
-    incus exec "$HE" -- netplan apply >/dev/null 2>&1
-    wait_internet "$HE"
-    incus exec "$HE" -- bash -euc 'command -v docker >/dev/null && command -v curl >/dev/null \
-        || { apt-get update -q; DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io docker-compose-v2 curl; }'
-    copy_code
+}
 
-    incus exec "$HE" --cwd "$APP/docker" -- test -s .env || app_secrets
-    push_lab_key
+# El darrer commit d'aquesta carpeta, a $SRC dins el contenidor (deploy.sh en clona els releases).
+push_code() {
+    git -c safe.directory="$REPO" -C "$REPO" bundle create "$STATE/heimdeye.bundle" HEAD 2>/dev/null
+    incus file push "$STATE/heimdeye.bundle" "$HE/tmp/heimdeye.bundle"
+    he bash -euc "rm -rf $SRC && git clone -q --no-checkout /tmp/heimdeye.bundle $SRC \
+        && git -C $SRC checkout -q $(git -c safe.directory="$REPO" -C "$REPO" rev-parse HEAD) && rm /tmp/heimdeye.bundle"
+    he chown -R heimdeye:heimdeye "$SRC" 2>/dev/null || true
+}
 
-    log "Construint i engegant HeimdEye (uns minuts)"
-    he "${COMPOSE[@]}" up -d --build
-    internet off
+# Desplegament com a producció (deploy/deploy.sh): release nou, composer install, migracions.
+deploy() {
+    local sha
+    sha=$(git -c safe.directory="$REPO" -C "$REPO" rev-parse HEAD)
+    he sudo -u heimdeye -H env SKIP_CI=1 SKIP_GUARD=1 HEIMDEYE_REPO="$SRC" "$SRC/deploy/deploy.sh" "$sha"
+    [[ $(he cat "$CURRENT/REVISION") == "$sha" ]] || die "no s'ha desplegat ${sha:0:7}"
+    # Seeders idempotents: el primer cop omplen la BBDD i després hi afegeixen el que sigui nou.
+    artisan db:seed --class=DemoSeeder --force
+}
 
+# HeimdEye instal·lat com a producció (deploy/install.sh) dins un contenidor LXC: Apache, php-fpm,
+# PostgreSQL i els serveis de systemd. L'app és a http://localhost:8080 de la VM (dispositiu proxy).
+heimdeye_container() {
+    if ! ready "$HE"; then
+        log "Contenidor de HeimdEye (instal·lació, uns minuts)"
+        # Niament: els serveis de systemd amb aïllament (ProtectSystem...) el necessiten.
+        retry new_instance "$UBUNTU_APP" "$HE" -c security.nesting=true -c boot.autostart=true
+        nic "$HE" gestio he-gestio eth1
+        nic "$HE" wan he-wan eth2
+        retry incus start "$HE"
+        wait_boot "$HE"
+        addresses "$HE" 50-lab.yaml eth1 10.255.0.2/16 eth2 203.0.113.2/24
+        internet "$HE" on
+        he bash -euc '
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update -q
+            apt-get install -y -q php8.5-fpm php8.5-{pgsql,mbstring,xml,curl,zip,intl,bcmath} \
+                apache2 postgresql composer git sudo openssh-client iputils-ping netcat-openbsd \
+                bind9-dnsutils curl'
+        push_code
+        he "$SRC/deploy/install.sh" >/dev/null
+        he chown -R heimdeye:heimdeye "$SRC"
+        # Només hi entra la mateixa màquina: el dispositiu proxy d'Incus hi connecta des de 127.0.0.1.
+        he sed -i 's/^\(\s*\)Require ip .*/\1Require ip 127.0.0.1 ::1/' /etc/apache2/sites-available/heimdeye.conf
+        he systemctl reload apache2
+        he bash -euc '
+            cd /
+            sudo -u postgres psql -tAc "select 1 from pg_roles where rolname = '\''heimdeye'\''" | grep -q 1 \
+                || sudo -u postgres createuser heimdeye
+            sudo -u postgres psql -tAc "select 1 from pg_database where datname = '\''heimdeye'\''" | grep -q 1 \
+                || sudo -u postgres createdb -O heimdeye heimdeye'
+        app_secrets
+        app_config
+        unprivileged_ping "$HE"
+        hosts_file "$HE"
+        deploy
+        he systemctl enable --now heimdeye-queue@1 heimdeye-queue@2 heimdeye-schedule.timer >/dev/null 2>&1
+        internet "$HE" off
+        incus config set "$HE" user.lab.llest=1
+    fi
+    local listen=127.0.0.1
+    [[ $MODE == publica ]] && listen=0.0.0.0
     incus config device show "$HE" | grep -q '^web:' \
-        || incus config device add "$HE" web proxy listen=tcp:127.0.0.1:8080 connect=tcp:127.0.0.1:8080 >/dev/null
+        || incus config device add "$HE" web proxy "listen=tcp:$listen:8080" connect=tcp:127.0.0.1:8080 >/dev/null
     wait_app
 }
 
-# .env de HeimdEye amb secrets nous: APP_KEY i contrasenya de la BBDD.
-app_secrets() {
-    incus exec "$HE" --cwd "$APP/docker" --env N="$N" -- bash -euc '
-        [ -s .env ] || cp env.example .env
-        sed -i -e "s|^APP_KEY=.*|APP_KEY=base64:$(openssl rand -base64 32)|" \
-               -e "s|^DB_PASSWORD=.*|DB_PASSWORD=$(openssl rand -hex 24)|" \
-               -e "s|^HEIMDEYE_ADMIN_NAME=.*|HEIMDEYE_ADMIN_NAME=Professor|" \
-               -e "s|^HEIMDEYE_ADMIN_EMAIL=.*|HEIMDEYE_ADMIN_EMAIL=professor@heimdeye.test|" \
-               -e "/^HEIMDEYE_LAB_ALUMNES=/d" .env
-        echo "HEIMDEYE_LAB_ALUMNES=$N" >> .env'
-}
-
-# La clau privada del laboratori, al Compose de HeimdEye.
-push_lab_key() {
-    incus exec "$HE" --cwd "$APP/docker" -- install -d -o 1000 -g 1000 -m 700 lab-key
-    incus file push "$STATE/id_ed25519" "$HE$APP/docker/lab-key/id_ed25519" --uid 1000 --gid 1000 --mode 0600
+# Claus: la del laboratori als equips (i, privada, on s'executa el codi) i la del sandbox.
+distribute_keys() {
+    local name
+    for name in $(lab_instances); do
+        put_file "$name" /home/heimdeye/.ssh/authorized_keys heimdeye < "$STATE/id_ed25519.pub"
+    done
+    for name in $(tutorial_instances); do
+        put_file "$name" /home/alumne/.ssh/authorized_keys alumne < "$STATE/id_ed25519.pub"
+    done
+    if [[ $MODE == plantilla ]]; then
+        put_file "$HE" "$KEY" heimdeye < "$STATE/id_ed25519"
+    else
+        put_file "$SANDBOX" "$KEY" heimdeye < "$STATE/id_ed25519"
+        he sudo -u heimdeye sh -c 'test -s ~/.ssh/sandbox_ed25519 || ssh-keygen -q -t ed25519 -N "" -C heimdeye-sandbox -f ~/.ssh/sandbox_ed25519'
+        he cat /var/lib/heimdeye/.ssh/sandbox_ed25519.pub | put_file "$SANDBOX" /var/lib/heimdeye/.ssh/authorized_keys heimdeye
+    fi
 }
 
 wait_app() {
-    for _ in $(seq 120); do
+    for _ in $(seq 60); do
         he curl -sf -o /dev/null http://127.0.0.1:8080/up && return
         sleep 5
     done
-    die "HeimdEye no respon: incus exec $HE --cwd $APP/docker -- ${COMPOSE[*]} logs app"
+    die "HeimdEye no respon: incus exec $HE -- journalctl -u apache2 -u php8.5-fpm, i $CURRENT/storage/logs"
 }
 
 # Identificador de la màquina: canvia en clonar la VM (UUID del maquinari; si no n'hi ha, machine-id).
@@ -287,27 +454,10 @@ EOF
     systemctl enable heimdeye-lab-clon.service >/dev/null
 }
 
-# El codi d'aquesta carpeta, sense vendor ni .git (la imatge fa el composer install).
-copy_code() {
-    incus exec "$HE" -- install -d "$APP"
-    tar -C "$REPO" --exclude=./.git --exclude=./vendor --exclude=./node_modules --exclude=./docker/.env --exclude=./docker/lab-key -cf - . \
-        | incus exec "$HE" -- tar -C "$APP" -xf -
-}
-
-# Internet per al contenidor de HeimdEye (per instal·lar i construir), per la xarxa per defecte d'Incus.
-internet() {
-    if [[ $1 == on ]]; then
-        incus config device show "$HE" | grep -q '^inet:' \
-            || incus config device add "$HE" inet nic network=incusbr0 name=eth0 >/dev/null
-    else
-        incus config device show "$HE" | grep -q '^inet:' && incus config device remove "$HE" inet >/dev/null
-        return 0
-    fi
-}
-
 # Els alumnes comencen en punts diferents, perquè el seguiment i el leaderboard tinguin vida:
 # 1 té els blocs 1 i 2, 2 només les adreces, 3 els tres blocs i 4 res.
 initial_state() {
+    [[ $MODE == plantilla ]] || return 0
     log "Estat inicial dels alumnes"
     run_action 'Router: adreces i reenviament' 1 2 3
     run_action 'Client i DMZ: adreces' 1 2 3
@@ -315,6 +465,11 @@ initial_state() {
     run_action 'Router: tallafoc' 1 3
     run_action 'Router: servidor DHCP Kea' 3
     run_action 'Client: adreça per DHCP' 3
+    run_checks
+}
+
+run_checks() {
+    [[ $MODE == plantilla ]] || return 0
     artisan heimdeye:run --module=SMX2 >/dev/null || true
 }
 
@@ -327,9 +482,18 @@ run_action() {
 }
 
 snapshot() {
-    for name in $(lab_instances); do
+    for name in $(student_instances); do
         incus snapshot delete "$name" inicial 2>/dev/null || true
         incus snapshot create "$name" inicial
+    done
+}
+
+restore() {
+    for name in $(student_instances); do
+        incus stop --force "$name" 2>/dev/null || true
+        incus snapshot restore "$name" inicial
+        incus start "$name"
+        wait_boot "$name"
     done
 }
 
@@ -339,40 +503,52 @@ cmd_crea() {
     network he-wan 203.0.113.1/24
     base_image
     lab_key
-    for ((n = 1; n <= N; n++)); do student_lab "$n"; done
+    install -d -m 700 "$STATE"
+    echo "$MODE" > "$STATE/mode"
+    if [[ $MODE == plantilla ]]; then
+        for ((n = 1; n <= N; n++)); do student_lab "$n"; done
+    else
+        sandbox_container
+    fi
+    tutorial_servers
     heimdeye_container
+    distribute_keys
     initial_state
     snapshot
     echo "$N" > "$STATE/alumnes"
-    machine_id > "$STATE/maquina"
-    clone_service
-    log "Fet. HeimdEye: http://localhost:8080 (en aquesta màquina)"
+    if [[ $MODE == plantilla ]]; then
+        machine_id > "$STATE/maquina"
+        clone_service
+        log "Fet. HeimdEye: http://localhost:8080 (en aquesta màquina)"
+    else
+        log "Fet. HeimdEye: port 8080 de la VM (publica-ho amb el túnel de Cloudflare, docs/demo.md)"
+    fi
 }
 
 # Un clon de la plantilla: clau del laboratori i secrets de HeimdEye nous, i BBDD neta.
-# No cal Internet: les imatges ja hi són (--no-build).
+# No cal Internet.
 cmd_clon() {
-    exists "$HE" || die "primer: lab.sh crea"
+    ready "$HE" || die "primer: lab.sh crea"
     log "Clon: secrets nous"
-    for _ in $(seq 60); do he docker info >/dev/null 2>&1 && break; sleep 2; done
-    he "${COMPOSE[@]}" down -v
-    for name in $(lab_instances); do
-        incus stop --force "$name" 2>/dev/null || true
-        incus snapshot restore "$name" inicial
-        incus start "$name"
-        wait_boot "$name"
-    done
+    wait_boot "$HE"
+    restore
     rm -f "$STATE/id_ed25519" "$STATE/id_ed25519.pub"
     lab_key
-    for name in $(lab_instances); do
-        incus exec "$name" -- sh -c 'cat > /home/heimdeye/.ssh/authorized_keys' < "$STATE/id_ed25519.pub"
-    done
+    [[ $MODE == publica ]] && he rm -f /var/lib/heimdeye/.ssh/sandbox_ed25519 /var/lib/heimdeye/.ssh/sandbox_ed25519.pub
+    distribute_keys
     snapshot
+
+    he systemctl stop heimdeye-schedule.timer 'heimdeye-queue@*'
+    for _ in $(seq 30); do he pg_isready -q && break; sleep 2; done
+    he bash -euc 'cd / && sudo -u postgres dropdb --force --if-exists heimdeye && sudo -u postgres createdb -O heimdeye heimdeye'
     app_secrets
-    push_lab_key
-    he "${COMPOSE[@]}" up -d --no-build
+    artisan optimize >/dev/null
+    artisan migrate --force
+    artisan db:seed --class=DemoSeeder --force
+    he systemctl restart php8.5-fpm
+    he systemctl start heimdeye-queue@1 heimdeye-queue@2 heimdeye-schedule.timer
     wait_app
-    artisan heimdeye:run --module=SMX2 >/dev/null || true
+    run_checks
     machine_id > "$STATE/maquina"
     log "Fet. HeimdEye: http://localhost:8080"
 }
@@ -385,24 +561,18 @@ cmd_clon-si-cal() {
 
 cmd_restaura() {
     log "Equips dels alumnes a l'estat inicial"
-    for name in $(lab_instances); do
-        incus stop --force "$name"
-        incus snapshot restore "$name" inicial
-        incus start "$name"
-        wait_boot "$name"
-    done
-    artisan heimdeye:run --module=SMX2 >/dev/null || true
+    restore
+    run_checks
 }
 
 cmd_actualitza() {
-    exists "$HE" || die "primer: lab.sh crea"
+    ready "$HE" || die "primer: lab.sh crea"
     wait_boot "$HE"
-    internet on
-    incus exec "$HE" -- netplan apply >/dev/null 2>&1
-    wait_internet "$HE"
-    copy_code
-    he "${COMPOSE[@]}" up -d --build
-    internet off
+    internet "$HE" on
+    push_code
+    deploy
+    internet "$HE" off
+    log "Fet: $(he cat "$CURRENT/REVISION" | cut -c1-7)"
 }
 
 cmd_estat() {
@@ -410,7 +580,10 @@ cmd_estat() {
 }
 
 cmd_esborra() {
-    for name in $(lab_instances) "$HE"; do exists "$name" && incus delete --force "$name"; done
+    local name
+    for name in router2{1..4} client2{1..4} dmz2{1..4} $(tutorial_instances) "$SANDBOX" "$HE"; do
+        exists "$name" && incus delete --force "$name"
+    done
     for ((n = 1; n <= 4; n++)); do
         incus network delete "he-lan$((20 + n))" 2>/dev/null || true
         incus network delete "he-dmz$((20 + n))" 2>/dev/null || true
@@ -424,5 +597,5 @@ cmd_esborra() {
 
 case ${1:-} in
     crea | restaura | actualitza | estat | esborra | clon | clon-si-cal) "cmd_$1" ;;
-    *) sed -n '2,15p' "$0"; exit 1 ;;
+    *) sed -n '2,20p' "$0"; exit 1 ;;
 esac

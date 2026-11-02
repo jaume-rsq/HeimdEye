@@ -102,23 +102,18 @@ Instal·lació en un servidor propi amb desplegament continu (cada commit de `ma
 verd es desplega sol): [docs/produccio.md](docs/produccio.md). Publicació amb un túnel de
 Cloudflare i login amb Google (Cloudflare Access): [docs/cloudflare.md](docs/cloudflare.md).
 
-## Docker
+## Demos (Incus)
 
-`docker/` té una imatge (FrankenPHP amb PHP 8.5, ssh i Ansible) i un `compose.yaml` amb el web,
-2 workers de la cua, el scheduler i PostgreSQL 18. És l'opció per aixecar HeimdEye en una màquina
-nova sense instal·lar res més que Docker, i és la base de la demo.
+Les demos corren en contenidors LXC amb [Incus](https://linuxcontainers.org/incus/), tot dins una
+sola VM: `lab/lab.sh crea` instal·la HeimdEye en un contenidor igual que en producció (paquets,
+`deploy/install.sh`, `deploy/deploy.sh`) i hi posa al costat els equips dels alumnes ficticis.
+Dos modes:
 
-```bash
-cd docker
-cp env.example .env       # APP_KEY (php artisan key:generate --show), DB_PASSWORD, HEIMDEYE_ADMIN_*
-docker compose up -d --build
-docker compose --profile tunnel up -d   # opcional: cloudflared dins el Compose (TUNNEL_TOKEN)
-```
-
-L'app queda al port `HEIMDEYE_PORT` (8080). El contenidor `app` migra en arrencar i, amb
-`HEIMDEYE_SEED=true`, omple la BBDD la primera vegada. Els contenidors corren com un usuari sense
-privilegis, sense capabilities i amb `no-new-privileges`; els workers tenen límits de CPU,
-memòria i processos. `docker compose down -v` ho esborra tot, BBDD inclosa.
+- **plantilla** (per defecte): per a un sol professor, a `http://localhost:8080` de la VM, amb el
+  tutorial i el laboratori de xarxa SMIX2. Es pot convertir en plantilla (p. ex. a IsardVDI): cada
+  clon es posa secrets nous sol. Vegeu [docs/demo-smix2.md](docs/demo-smix2.md).
+- **publica** (`HEIMDEYE_LAB_MODE=publica`): demo oberta a tothom, amb el codi aïllat en un
+  contenidor de proves. Vegeu [docs/demo.md](docs/demo.md).
 
 ## Mode demo
 
@@ -141,29 +136,24 @@ document de seguretat de la demo).
 
 ### Contenidor de proves i alumnes ficticis
 
-```bash
-cd docker
-docker compose -f compose.yaml -f compose.demo.yaml up -d --build
-```
+`HEIMDEYE_LAB_MODE=publica sudo lab/lab.sh crea` munta la demo pública amb aquests contenidors LXC:
 
-`compose.demo.yaml` activa el mode demo i hi afegeix:
-
-| Servei | Què és |
+| Contenidor | Què és |
 | --- | --- |
-| `sandbox` | Contenidor de proves: hi corre tot el codi dels checks i les accions (bash, ssh, `ansible-playbook`). La mateixa imatge, amb un `sshd` sense root al port 2222. Sense `.env` ni accés a la BBDD, sistema de fitxers de només lectura menys `/tmp`, sense capabilities i amb límits |
+| `heimdeye` | L'app, com en producció (Apache, php-fpm, PostgreSQL, workers i nocturna amb systemd) |
+| `sandbox` | Contenidor de proves: hi corre tot el codi dels checks i les accions (bash, ssh, `ansible-playbook`). Usuari `heimdeye` sense `sudo`, SSH sense reenviaments ni terminal, sense `.env` ni accés a la BBDD, amb límits de memòria, CPU i processos |
 | `alumne01`…`alumne04` | Alumnes ficticis: Ubuntu amb SSH, l'usuari `alumne` amb `sudo` i Python per a Ansible |
-| `keys` | Genera la primera vegada les claus worker → sandbox i sandbox → alumnes |
 
-El worker fa servir `HEIMDEYE_RUNNER_WRAPPER=heimdeye-sandbox` (`docker/sandbox/heimdeye-sandbox`):
-cada execució hi copia els fitxers temporals (inventari, playbook), l'executa per SSH amb el temps
-màxim i les variables, i els esborra. La clau dels alumnes només és al sandbox. Les xarxes
-`runner` (worker ↔ sandbox) i `alumnes` (sandbox ↔ alumnes) són internes: sense sortida a Internet.
+El worker fa servir `HEIMDEYE_RUNNER_WRAPPER=/var/www/heimdeye/current/lab/heimdeye-sandbox`
+(`lab/heimdeye-sandbox`): cada execució hi copia els fitxers temporals (inventari, playbook),
+l'executa per SSH al sandbox amb el temps màxim i les variables, i els esborra. La clau dels
+alumnes només és al sandbox. Cap contenidor té sortida a Internet.
 
 ## Tutorial
 
 El tutorial de HeimdEye és un curs a part (`TutorialSeeder`): el curs **Tutorial**, el cicle
 **TUT** i dos mòduls, *TUT1 Primers passos amb els checks* i *TUT2 Accions*, amb 4 alumnes
-ficticis que tenen cadascun un `servidor` (els contenidors `alumne01`…`alumne04` de la demo).
+ficticis que tenen cadascun un `servidor` (els contenidors `alumne01`…`alumne04` de la demo, `lab/lab.sh`).
 L'estructura és un exemple d'ús: tipus d'equip, variable de mòdul, clau SSH d'accés, checks local i
 ssh amb paràmetres i info, un check opcional per duplicar i accions Ansible i ssh amb checks de
 verificació. És la base de dades de la demo (`DemoSeeder`).
@@ -177,7 +167,7 @@ Una segona demo, per a professors de cicles: el mòdul *SMX2 Serveis de xarxa (l
 (`Smix2LabSeeder`), on cada alumne fictici té la xarxa d'una petita empresa en contenidors LXC
 (router Linux amb WAN, LAN i DMZ, un client i un servidor) i la va muntant amb accions, mentre els
 checks en comproven el funcionament. `lab/lab.sh` ho munta tot en una sola VM, amb HeimdEye en mode
-`plantilla` (`docker/compose.plantilla.yaml`). Vegeu [docs/demo-smix2.md](docs/demo-smix2.md).
+`plantilla` (`HEIMDEYE_AUTH=plantilla`). Vegeu [docs/demo-smix2.md](docs/demo-smix2.md).
 
 ## Variables
 

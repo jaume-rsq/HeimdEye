@@ -52,7 +52,7 @@ return [
     | - wrapper: ordre que embolcalla cada execució, p. ex.
     |   "systemd-run --uid=heimdeye-runner --pipe --wait --collect --quiet -p MemoryMax=256M -p CPUQuota=50%"
     |   (amb systemd-run s'hi afegeixen RuntimeMaxSec i les variables amb --setenv). Buit = directe.
-    |   A la demo, "heimdeye-sandbox": s'executa al contenidor de proves (docker/compose.demo.yaml).
+    |   A la demo pública, lab/heimdeye-sandbox: s'executa al contenidor LXC de proves (lab/lab.sh).
     | Les claus SSH són secrets (Inventari → Secrets comuns): heimdeye:import-key en carrega una.
     */
     'runner' => [
@@ -69,8 +69,8 @@ return [
     | - runs_per_hour: execucions (per alumne) que pot llançar cada visitant en una hora.
     | - visitor_hours: hores d'inactivitat després de les quals heimdeye:demo-cleanup esborra el
     |   visitant i els checks i les accions que ha creat.
-    | - student_key: ruta de la clau dels alumnes ficticis, que només existeix al contenidor de
-    |   proves. TutorialSeeder la desa al secret ssh_demo.
+    | - student_key: ruta de la clau dels alumnes ficticis, al contenidor on s'executa el codi (a la
+    |   demo pública, només al de proves). TutorialSeeder la desa al secret ssh_demo.
     | - url: la demo pública, enllaçada al menú Ajuda de les altres instàncies (buit: no s'enllaça).
     */
     'demo' => [

@@ -26,58 +26,44 @@ On posar-la:
   el trànsit, perquè des de dins de la VM no es pot desactivar.
 - **VPS al núvol**: ja és fora de la xarxa del centre. Tanca tots els ports d'entrada al tallafoc del
   proveïdor (*security group*) i limita la sortida si el proveïdor ho permet.
-- **No** en un contenidor LXC ni a la mateixa màquina que producció: la separació és molt més feble.
+- **No** a la mateixa màquina que producció, ni en un contenidor (la demo ja fa servir contenidors
+  a dins de la VM): la separació és molt més feble.
 
 ## Què porta
 
-La demo és el Docker Compose de HeimdEye (`docker/compose.yaml`) amb `docker/compose.demo.yaml`:
+`lab/lab.sh` en mode `publica` munta la demo amb contenidors LXC d'[Incus](https://linuxcontainers.org/incus/)
+dins la VM:
 
-- **Mode demo** (`HEIMDEYE_DEMO=true`): el login és un botó que crea un professor visitant, que veu
-  l'estructura en només lectura, només edita el que ha creat ell i té límits d'execució
+- **HeimdEye** (contenidor `heimdeye`), instal·lat com en producció ([produccio.md](produccio.md)),
+  en **mode demo** (`HEIMDEYE_DEMO=true`): el login és un botó que crea un professor visitant, que
+  veu l'estructura en només lectura, només edita el que ha creat ell i té límits d'execució
   (30 s per execució, 60 execucions per hora). Els visitants inactius s'esborren cada hora.
 - **Contenidor de proves** (`sandbox`): hi corre tot el codi dels checks i les accions, sense accés
-  a la BBDD ni al `.env`, amb el sistema de fitxers de només lectura i sense privilegis.
-- **Alumnes ficticis** (`alumne01`…`alumne04`): contenidors Ubuntu amb SSH, en una xarxa interna.
-- **Tutorial**: el curs *Tutorial* (`DemoSeeder`) es carrega sol el primer cop.
+  a la BBDD ni al `.env`, amb un usuari sense privilegis i amb límits.
+- **Alumnes ficticis** (`alumne01`…`alumne04`): contenidors Ubuntu amb SSH.
+- **Tutorial**: el curs *Tutorial* (`DemoSeeder`).
 
-Els detalls són al README, secció *Mode demo*.
+Cap contenidor té sortida a Internet. Els detalls són al README, secció *Mode demo*.
 
 ## 1. Instal·lació
 
-Amb Internet, una sola vegada:
+Una VM **Ubuntu Server 24.04 o posterior**, amb Internet durant la instal·lació:
 
 ```bash
-curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER        # i torna a entrar
 git clone https://github.com/jaume-rsq/HeimdEye.git ~/heimdeye
-cd ~/heimdeye/docker
-cp env.example .env
+sudo HEIMDEYE_LAB_MODE=publica HEIMDEYE_LAB_URL=https://demo-heimdeye.exemple.cat ~/heimdeye/lab/lab.sh crea
+sudo ~/heimdeye/lab/lab.sh estat      # heimdeye, sandbox i alumne01..04 en marxa
+curl -s localhost:8080/up             # respon
 ```
 
-A `docker/.env`:
+`lab.sh` instal·la Incus si cal, crea els contenidors i genera tots els secrets (`APP_KEY`,
+contrasenya de la BBDD, claus SSH). `HEIMDEYE_LAB_URL` és l'adreça pública (`APP_URL`); amb
+`https://`, la cookie de sessió només viatja per HTTPS. L'app queda al port 8080 de la VM.
 
-| Variable | Valor |
-| --- | --- |
-| `APP_KEY` | `base64:` + `openssl rand -base64 32` |
-| `APP_URL` | L'adreça pública de la demo, p. ex. `https://demo-heimdeye.exemple.cat` |
-| `DB_PASSWORD` | `openssl rand -hex 24` (només lletres i xifres) |
-| `SESSION_SECURE_COOKIE` | `true` |
-| `HEIMDEYE_TRUSTED_PROXIES` | L'adreça del `cloudflared`. Si corre dins el Compose (perfil `tunnel`), el rang de les xarxes de Docker: `172.16.0.0/12` |
-| `HEIMDEYE_ADMIN_NAME`, `HEIMDEYE_ADMIN_EMAIL` | Les teves dades (l'administrador no entra per la web de la demo) |
-| `TUNNEL_TOKEN` | El token del túnel, si `cloudflared` corre dins el Compose |
-
-`HEIMDEYE_DEMO`, `HEIMDEYE_SEED` i el seeder de la demo ja els posa `compose.demo.yaml`.
-
-```bash
-docker compose -f compose.yaml -f compose.demo.yaml up -d --build
-docker compose -f compose.yaml -f compose.demo.yaml ps     # tot "running", keys "exited (0)"
-curl -s localhost:8080/up                                   # respon
-```
-
-**Per provar-la abans de publicar-la**, des de la xarxa local per `http://<IP>:8080`, posa
-temporalment `SESSION_SECURE_COOKIE=false` i `APP_URL=http://<IP>:8080`. Amb `true`, el navegador no
-desa la cookie sense HTTPS i el login dona «Page expired» (419). Torna-les a deixar com a la
-taula abans de publicar-la i recrea els contenidors.
+**Per provar-la abans de publicar-la**, des de la xarxa local per `http://<IP>:8080`, crea-la amb
+`HEIMDEYE_LAB_URL=http://<IP>:8080`. Amb `https://`, el navegador no desa la cookie sense HTTPS i el
+login dona «Page expired» (419). Abans de publicar-la, `sudo lab/lab.sh esborra` i torna-la a crear
+amb l'adreça bona.
 
 Prova: botó **Entrar a la demo**, **Checks → Llista**, verifica *El servidor de l'alumne respon*
 per a tots els alumnes (ha de sortir en verd) i executa l'acció *Publicar la web* (TUT2).
@@ -89,6 +75,7 @@ Al tallafoc de l'hipervisor o del proveïdor:
 - **Entrada**: res, excepte el port 8080 des del `cloudflared` (si és en una altra màquina) i el 22
   des del teu equip d'administració.
 - **Sortida**: res. Les respostes de les connexions acceptades passen soles (el tallafoc té estat).
+  Els contenidors ja no tenen Internet, però la VM sí: és aquí on es talla.
   Si `cloudflared` és dins la VM, necessita sortida cap a Cloudflare: el port 7844 (TCP i UDP) i
   el DNS per resoldre `region1.v2.argotunnel.com` i `region2.v2.argotunnel.com`
   ([Tunnel with firewall](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-tunnel/configure-tunnels/tunnel-with-firewall/)).
@@ -136,17 +123,16 @@ qm snapshot <vmid> net --description "Demo neta" --vmstate 0
 */10 * * * * curl -sfm5 http://<IP de la demo>:8080/up >/dev/null || (sleep 30; curl -sfm5 http://<IP de la demo>:8080/up >/dev/null) || (qm rollback <vmid> net && qm start <vmid>)
 ```
 
-En un VPS, fes el mateix amb les instantànies del proveïdor (o amb `docker compose down -v` i
-`up -d` cada nit, que torna la BBDD a l'estat inicial però no la màquina).
+En un VPS, fes el mateix amb les instantànies del proveïdor. `sudo lab/lab.sh restaura` torna els
+alumnes i el sandbox a l'estat inicial (instantànies d'Incus), però no la BBDD.
 
-Els contenidors tenen `restart: unless-stopped` i arrenquen sols amb la màquina.
+Els contenidors arrenquen sols amb la màquina (`boot.autostart`).
 
 ## 5. Actualitzar-la
 
 ```bash
-# Obre temporalment la sortida a Internet
+# Obre temporalment la sortida a Internet de la VM
 cd ~/heimdeye && git pull
-cd docker && docker compose -f compose.yaml -f compose.demo.yaml down -v
-docker compose -f compose.yaml -f compose.demo.yaml up -d --build
+sudo lab/lab.sh actualitza    # desplega el darrer commit al contenidor de HeimdEye (amb migracions)
 # Torna a tancar la sortida, comprova la demo i refés la instantània neta
 ```

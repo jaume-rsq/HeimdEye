@@ -5,6 +5,8 @@
 #
 # Variables: FORCE=1 desplega encara que el sha ja hi sigui o hagi fallat abans;
 #            SKIP_CI=1 no mira el CI; SKIP_GUARD=1 no mira la cua ni la ronda nocturna.
+#            HEIMDEYE_REPO: usuari/repositori de GitHub, o una ruta local amb un repositori git
+#            (les demos, sense Internet: lab/lab.sh hi copia el codi).
 set -euo pipefail
 
 BASE=${HEIMDEYE_BASE:-/var/www/heimdeye}
@@ -18,11 +20,14 @@ KEEP_BACKUPS=10
 
 log() { echo "[heimdeye-deploy] $*"; }
 
+url=$REPO
+[[ $REPO == /* ]] || url="https://github.com/$REPO.git"
+
 cd "$BASE"
 exec 9>"$BASE/deploy.lock"
 flock -n 9 || { log "Ja hi ha un desplegament en marxa"; exit 0; }
 
-sha=${1:-$(git ls-remote "https://github.com/$REPO.git" "refs/heads/$BRANCH" | cut -f1)}
+sha=${1:-$(git ls-remote "$url" "refs/heads/$BRANCH" | cut -f1)}
 [[ $sha =~ ^[0-9a-f]{40}$ ]] || { log "No s'ha pogut obtenir el commit de $BRANCH"; exit 1; }
 current_sha=$(cat "$BASE/current/REVISION" 2>/dev/null || true)
 
@@ -62,7 +67,7 @@ fail() {
 }
 log "Desplegant ${sha:0:7} a $release"
 
-git clone -q --filter=blob:none --no-checkout "https://github.com/$REPO.git" "$release" || fail "git clone"
+git clone -q --filter=blob:none --no-checkout "$url" "$release" || fail "git clone"
 git -C "$release" checkout -q "$sha" || fail "git checkout"
 rm -rf "$release/.git" "$release/storage"
 echo "$sha" >"$release/REVISION"

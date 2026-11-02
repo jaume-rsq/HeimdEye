@@ -5,13 +5,15 @@ fictici té la xarxa d'una petita empresa i la va muntant bloc a bloc. Les **acc
 servei amb una configuració bàsica (la solució del professor) i els **checks** en comproven el
 funcionament, sempre que es pot des del punt de vista d'un client.
 
-Tot corre en **una sola VM**, en contenidors LXC (Incus): HeimdEye i, per a cada alumne, un router,
-un client i un servidor. S'hi entra directament com a professor (mode `plantilla`), sense
+Tot corre en **una sola VM**, en contenidors LXC (Incus): HeimdEye (instal·lat com en producció),
+els servidors dels alumnes del tutorial i, per a cada alumne del laboratori, un router, un client i
+un servidor. S'hi entra directament com a professor (mode `plantilla`), sense
 contrasenya: és una còpia per a una sola persona, pensada per clonar-la (p. ex. a IsardVDI).
 
-> **Estat: prototip.** Hi ha els blocs 1 a 3, el mode plantilla i la posada en marxa sola dels clons. Falten els blocs 4 a 8, la
-> plantilla d'IsardVDI amb escriptori i navegador, i la versió pública amb reserves.
-> `lab/lab.sh` encara no s'ha provat de punta a punta en una VM.
+> **Estat: prototip.** Hi ha els blocs 1 a 3, el mode plantilla i la posada en marxa sola dels
+> clons. Falten els blocs 4 a 8, la plantilla d'IsardVDI amb escriptori i navegador, i la versió
+> pública amb reserves (la demo pública actual, `HEIMDEYE_LAB_MODE=publica`, només té el tutorial:
+> vegeu [demo.md](demo.md)). `lab/lab.sh` encara no s'ha provat de punta a punta en una VM.
 
 ## Topologia
 
@@ -28,7 +30,7 @@ contrasenya: és una còpia per a una sola persona, pensada per clonar-la (p. ex
           clientX .100          dmzX .10   bind9, nginx
 
    Gestió 10.255.0.0/16 (he-gestio, eth0 de cada equip): HeimdEye .0.2, routerX .X.1,
-   clientX .X.10, dmzX .X.20. Només per a HeimdEye.
+   clientX .X.10, dmzX .X.20, i els servidors del tutorial alumne0N .1.N. Només per a HeimdEye.
 ```
 
 - **X = 20 + número de l'alumne** (21, 22...), com a l'aula. Tot el pla d'adreces són variables del
@@ -77,25 +79,25 @@ sudo ~/heimdeye/lab/lab.sh crea                         # o: sudo HEIMDEYE_LAB_A
 2. Crea les xarxes `he-gestio`, `he-wan` i la LAN i la DMZ de cada alumne, sense NAT ni DHCP.
 3. Prepara la imatge base dels equips (`heimdeye-lab-base`) amb els paquets i l'usuari `heimdeye`
    (`sudo` sense contrasenya).
-4. Genera una clau SSH nova per a HeimdEye i crea el router, el client i el servidor de cada alumne.
-5. Crea el contenidor `heimdeye` (amb niament: Docker dins LXC) i hi engega el Docker Compose de la
-   demo amb `compose.plantilla.yaml`, amb un `.env` amb secrets nous (`APP_KEY`, contrasenya de la BBDD).
+4. Genera una clau SSH nova per a HeimdEye i crea el router, el client i el servidor de cada
+   alumne, i els servidors `alumne01`…`alumne04` del tutorial.
+5. Crea el contenidor `heimdeye` (Ubuntu 26.04) i hi instal·la HeimdEye com en producció:
+   PHP 8.5, Apache, PostgreSQL, `deploy/install.sh` i `deploy/deploy.sh` amb el darrer commit de la
+   carpeta. El `.env` té secrets nous (`APP_KEY`, contrasenya de la BBDD) i `HEIMDEYE_AUTH=plantilla`.
+   Omple la BBDD (`DemoSeeder`) i engega els workers i la nocturna.
 6. Treu Internet al contenidor de HeimdEye i publica l'app a `http://localhost:8080` de la VM
    (dispositiu *proxy* d'Incus): només s'hi pot entrar des de la mateixa VM.
 7. Porta els alumnes a l'estat inicial amb les accions, executa els checks i fa una instantània
    `inicial` de cada equip.
-
-**Per què HeimdEye en LXC i no Docker a la VM:** Docker i Incus a la mateixa màquina xoquen al
-tallafoc (Docker posa la política de `FORWARD` a `DROP` i talla els ponts d'Incus). Dins el seu
-contenidor, Docker no toca el tallafoc de la VM.
 
 Altres ordres:
 
 ```bash
 sudo lab/lab.sh restaura     # els equips dels alumnes tornen a l'estat inicial
 sudo lab/lab.sh estat        # contenidors i adreces
-sudo lab/lab.sh actualitza   # HeimdEye amb el codi de la carpeta (torna a obrir Internet un moment)
-sudo lab/lab.sh esborra      # contenidors i xarxes (la imatge base es queda)
+sudo lab/lab.sh actualitza   # HeimdEye amb el darrer commit de la carpeta (obre Internet un moment)
+sudo lab/lab.sh esborra      # contenidors i xarxes (les imatges es queden)
+incus exec heimdeye -- bash  # el servidor de HeimdEye (/var/www/heimdeye, journalctl -u 'heimdeye-*')
 incus exec router21 -- bash  # entrar a un equip, com faria l'alumne
 ```
 
@@ -111,7 +113,7 @@ l'hipervisor i és diferent per a cada VM) amb el de la plantilla, desat a
 `/var/lib/heimdeye-lab/maquina`. Si ha canviat, és un clon i fa `lab.sh clon`, sense Internet:
 
 - una clau nova per al laboratori, als equips (que tornen a l'estat inicial) i a HeimdEye;
-- `APP_KEY` i contrasenya de la BBDD noves, i una BBDD neta (`down -v` i `up --no-build`);
+- `APP_KEY` i contrasenya de la BBDD noves, i una BBDD neta (migracions i `DemoSeeder`);
 - els checks del mòdul, per tenir el seguiment al dia.
 
 Tarda uns minuts. Després, HeimdEye és a `http://localhost:8080`. Pendent: un escriptori lleuger
@@ -121,7 +123,8 @@ que obri el navegador a l'app en entrar.
 
 `HEIMDEYE_AUTH=plantilla`: qui obre l'app entra com l'administrador de la configuració
 (`HEIMDEYE_ADMIN_EMAIL`, a la demo `professor@heimdeye.test`), sense contrasenya i sense els límits
-de la demo pública. El codi s'executa directament al worker (no cal el sandbox: hi ha un sol usuari).
+de la demo pública. El codi s'executa directament als workers del contenidor de HeimdEye (no cal el
+sandbox de la demo pública: hi ha un sol usuari).
 
 És segur només perquè l'app no és accessible des de fora de la VM. No el facis servir en una
 instància publicada.

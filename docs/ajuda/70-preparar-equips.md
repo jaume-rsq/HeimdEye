@@ -28,7 +28,7 @@ cat /var/lib/heimdeye/.ssh/id_ed25519.pub     # la clau pública, per als script
   dir sense contrasenya, perquè HeimdEye la fa servir sol a la nit.
 - `heimdeye:import-key` crea el secret `ssh_heimdeye` de tipus clau SSH. Amb `--ruta`, la clau es
   queda al fitxer i el secret només en té la ruta.
-- Amb Docker, o si prefereixes no fer servir cap fitxer, genera la clau on vulguis i enganxa-la a
+- Si prefereixes no fer servir cap fitxer, genera la clau on vulguis i enganxa-la a
   **Inventari → Secrets → Nou secret** (tipus clau SSH, usuari `heimdeye`).
 
 Després, a **Inventari → Equips**, tria `ssh_heimdeye` com a **Accés per defecte** del mòdul.

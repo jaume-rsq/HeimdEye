@@ -104,7 +104,7 @@ class ProcessRunner
                 $wrapper[] = '--setenv='.$name;
             }
         }
-        // Contenidor de proves de la demo (docker/sandbox/heimdeye-sandbox).
+        // Contenidor de proves de la demo pública (lab/heimdeye-sandbox).
         if (basename($wrapper[0]) === 'heimdeye-sandbox') {
             $wrapper[] = '--timeout='.$timeout;
             foreach (array_keys($env) as $name) {
