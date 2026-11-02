@@ -473,6 +473,11 @@ també poden ser playbooks (`executor = ansible`).
 - **Alumnes** (Inventari): a més de la fitxa, es poden marcar actius o inactius en bloc. Esborrar un
   alumne esborra les seves execucions; si només ha deixat el curs, millor marcar-lo inactiu.
 
+## Menú
+
+Inventari, Administració i Ajuda surten plegats d'entrada (el navegador recorda si l'usuari els
+obre). Al costat del nom hi ha la icona de `public/` (`resources/views/filament/brand.blade.php`).
+
 ## Ajuda
 
 Menú **Ajuda** (`/admin/ajuda`, i `/alumne/ajuda` per als alumnes): les pàgines són els fitxers
@@ -573,6 +578,8 @@ php artisan heimdeye:action 4 --queue          # tots els alumnes, a la cua
 
 Menú Accions → Llista d'accions (`/admin/accions`):
 
+- Agrupada per bloc (plegable) i ordenada per **posició** `bloc.acció` (`Action::orderByPosition`), com
+  els checks; les accions sense bloc van al final del mòdul. El mòdul surt només amb el codi.
 - Filtres per curs (per defecte l'actual), mòdul, executor, nom i estat de la darrera execució
   real per a tots o algun alumne.
 - Icona d'estat segons la darrera execució real (les simulacions no compten) de cada alumne
