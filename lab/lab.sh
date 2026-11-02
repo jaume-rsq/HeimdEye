@@ -54,6 +54,17 @@ new_instance() {
     exists "$name" && incus delete --force "$name"
     out=$(incus init "$image" "$name" -p he-lab "$@" 2>&1) || { echo "$out" >&2; return 1; }
 }
+# Espera que systemd hagi acabat d'arrencar dins el contenidor (si no, netplan apply falla amb
+# "Failed to connect to bus").
+wait_boot() {
+    local state
+    for _ in $(seq 60); do
+        state=$(incus exec "$1" -- systemctl is-system-running --wait 2>/dev/null) || true
+        [[ $state == running || $state == degraded ]] && return 0
+        sleep 2
+    done
+    die "$1 no acaba d'arrencar"
+}
 # Ordres dins el contenidor de HeimdEye, a la carpeta del Compose.
 he() { incus exec "$HE" --cwd "$APP/docker" -- "$@"; }
 artisan() { he "${COMPOSE[@]}" exec -T app php artisan "$@"; }
@@ -179,6 +190,7 @@ student_lab() {
                 ;;
         esac
         retry incus start "$name"
+        wait_boot "$name"
         setup_access "$name" "10.255.$x.$host"
         incus config set "$name" user.lab.llest=1
     done
@@ -193,6 +205,7 @@ heimdeye_container() {
         incus config device add "$HE" gestio nic network=he-gestio name=eth1 >/dev/null
         incus config device add "$HE" wan nic network=he-wan name=eth2 >/dev/null
         incus start "$HE"
+        wait_boot "$HE"
         incus exec "$HE" -- sh -c 'cat > /etc/netplan/50-lab.yaml && chmod 600 /etc/netplan/50-lab.yaml' <<'EOF'
 network:
   version: 2
@@ -203,6 +216,7 @@ network:
       addresses: [203.0.113.2/24]
 EOF
     fi
+    wait_boot "$HE"
     internet on
     incus exec "$HE" -- netplan apply >/dev/null 2>&1
     wait_internet "$HE"
@@ -346,6 +360,7 @@ cmd_clon() {
         incus stop --force "$name" 2>/dev/null || true
         incus snapshot restore "$name" inicial
         incus start "$name"
+        wait_boot "$name"
     done
     rm -f "$STATE/id_ed25519" "$STATE/id_ed25519.pub"
     lab_key
@@ -374,12 +389,14 @@ cmd_restaura() {
         incus stop --force "$name"
         incus snapshot restore "$name" inicial
         incus start "$name"
+        wait_boot "$name"
     done
     artisan heimdeye:run --module=SMX2 >/dev/null || true
 }
 
 cmd_actualitza() {
     exists "$HE" || die "primer: lab.sh crea"
+    wait_boot "$HE"
     internet on
     incus exec "$HE" -- netplan apply >/dev/null 2>&1
     wait_internet "$HE"
