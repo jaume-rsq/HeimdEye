@@ -35,6 +35,36 @@ ROLES=(router client dmz)
 log() { echo "== $*"; }
 die() { echo "ERROR: $*" >&2; exit 1; }
 exists() { incus info "$1" >/dev/null 2>&1; }
+# Incus pot donar errors transitoris amb el disc lent ("context deadline exceeded"): 3 intents.
+retry() {
+    local i
+    for i in 1 2 3; do
+        "$@" && return 0
+        echo "   Ha fallat (intent $i de 3), es torna a provar..."
+        sleep 10
+    done
+    return 1
+}
+# Crea un contenidor sense xarxa (les targetes s'hi afegeixen després); si un intent anterior l'ha
+# deixat a mig fer, primer l'esborra.
+new_instance() {
+    local image=$1 name=$2
+    shift 2
+    local out
+    exists "$name" && incus delete --force "$name"
+    out=$(incus init "$image" "$name" -p he-lab "$@" 2>&1) || { echo "$out" >&2; return 1; }
+}
+# Espera que systemd hagi acabat d'arrencar dins el contenidor (si no, netplan apply falla amb
+# "Failed to connect to bus").
+wait_boot() {
+    local state
+    for _ in $(seq 60); do
+        state=$(incus exec "$1" -- systemctl is-system-running --wait 2>/dev/null) || true
+        [[ $state == running || $state == degraded ]] && return 0
+        sleep 2
+    done
+    die "$1 no acaba d'arrencar"
+}
 # Ordres dins el contenidor de HeimdEye, a la carpeta del Compose.
 he() { incus exec "$HE" --cwd "$APP/docker" -- "$@"; }
 artisan() { he "${COMPOSE[@]}" exec -T app php artisan "$@"; }
@@ -118,7 +148,7 @@ lab_key() {
 # Adreça de gestió i clau de HeimdEye en un equip ja engegat.
 setup_access() {
     local name=$1 address=$2
-    incus exec "$name" -- sh -c 'cat > /etc/netplan/50-gestio.yaml && chmod 600 /etc/netplan/50-gestio.yaml && netplan apply' <<EOF
+    incus exec "$name" -- sh -c 'cat > /etc/netplan/50-gestio.yaml && chmod 600 /etc/netplan/50-gestio.yaml && netplan apply >/dev/null 2>&1' <<EOF
 network:
   version: 2
   ethernets:
@@ -134,9 +164,13 @@ student_lab() {
     network "he-dmz$x" none
     for role in "${ROLES[@]}"; do
         local name=$role$x host
-        exists "$name" && continue
+        # Un equip a mig crear (una execució anterior que ha fallat) es torna a fer.
+        if exists "$name"; then
+            [[ $(incus config get "$name" user.lab.llest) == 1 ]] && continue
+            incus delete --force "$name"
+        fi
         log "Equip $name"
-        incus init "$IMAGE" "$name" -p he-lab -c limits.memory=256MiB -c limits.cpu=1 -c boot.autostart=true
+        retry new_instance "$IMAGE" "$name" -c limits.memory=256MiB -c limits.cpu=1 -c boot.autostart=true
         incus config device add "$name" eth0 nic network=he-gestio name=eth0 >/dev/null
         case $role in
             router)
@@ -155,8 +189,10 @@ student_lab() {
                 incus config device add "$name" eth1 nic network="he-dmz$x" name=eth1 >/dev/null
                 ;;
         esac
-        incus start "$name"
+        retry incus start "$name"
+        wait_boot "$name"
         setup_access "$name" "10.255.$x.$host"
+        incus config set "$name" user.lab.llest=1
     done
 }
 
@@ -165,10 +201,11 @@ student_lab() {
 heimdeye_container() {
     if ! exists "$HE"; then
         log "Contenidor de HeimdEye"
-        incus init "$UBUNTU" "$HE" -p he-lab -c security.nesting=true -c boot.autostart=true
+        retry new_instance "$UBUNTU" "$HE" -c security.nesting=true -c boot.autostart=true
         incus config device add "$HE" gestio nic network=he-gestio name=eth1 >/dev/null
         incus config device add "$HE" wan nic network=he-wan name=eth2 >/dev/null
         incus start "$HE"
+        wait_boot "$HE"
         incus exec "$HE" -- sh -c 'cat > /etc/netplan/50-lab.yaml && chmod 600 /etc/netplan/50-lab.yaml' <<'EOF'
 network:
   version: 2
@@ -179,8 +216,9 @@ network:
       addresses: [203.0.113.2/24]
 EOF
     fi
+    wait_boot "$HE"
     internet on
-    incus exec "$HE" -- netplan apply
+    incus exec "$HE" -- netplan apply >/dev/null 2>&1
     wait_internet "$HE"
     incus exec "$HE" -- bash -euc 'command -v docker >/dev/null && command -v curl >/dev/null \
         || { apt-get update -q; DEBIAN_FRONTEND=noninteractive apt-get install -y -q docker.io docker-compose-v2 curl; }'
@@ -322,6 +360,7 @@ cmd_clon() {
         incus stop --force "$name" 2>/dev/null || true
         incus snapshot restore "$name" inicial
         incus start "$name"
+        wait_boot "$name"
     done
     rm -f "$STATE/id_ed25519" "$STATE/id_ed25519.pub"
     lab_key
@@ -350,14 +389,16 @@ cmd_restaura() {
         incus stop --force "$name"
         incus snapshot restore "$name" inicial
         incus start "$name"
+        wait_boot "$name"
     done
     artisan heimdeye:run --module=SMX2 >/dev/null || true
 }
 
 cmd_actualitza() {
     exists "$HE" || die "primer: lab.sh crea"
+    wait_boot "$HE"
     internet on
-    incus exec "$HE" -- netplan apply
+    incus exec "$HE" -- netplan apply >/dev/null 2>&1
     wait_internet "$HE"
     copy_code
     he "${COMPOSE[@]}" up -d --build
