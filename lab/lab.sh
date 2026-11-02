@@ -25,7 +25,9 @@
 #   WAN     he-wan    203.0.113.0/24 amfitrió .1, HeimdEye .2, router .X
 #   LAN     he-lanX   10.X.1.0/24    (sense adreça a l'amfitrió: la configura l'alumne)
 #   DMZ     he-dmzX   10.X.2.0/24
-set -euo pipefail
+set -Eeuo pipefail
+# Si una ordre falla, que es vegi quina (si no, set -e surt sense dir res).
+trap 'echo "ERROR: ha fallat (línia $LINENO): $BASH_COMMAND" >&2' ERR
 
 REPO=$(cd "$(dirname "$0")/.." && pwd)
 STATE=/var/lib/heimdeye-lab
@@ -86,7 +88,7 @@ addresses() {
     {
         printf 'network:\n  version: 2\n  ethernets:\n'
         while (($#)); do printf '    %s:\n      addresses: [%s]\n' "$1" "$2"; shift 2; done
-    } | incus exec "$name" -- sh -c "cat > /etc/netplan/$file && chmod 600 /etc/netplan/$file && netplan apply >/dev/null 2>&1"
+    } | incus exec "$name" -- sh -c "cat > /etc/netplan/$file && chmod 600 /etc/netplan/$file && netplan apply"
 }
 lab_instances() {
     [[ $MODE == plantilla ]] || return 0
@@ -339,7 +341,7 @@ app_config() {
 
 # El darrer commit d'aquesta carpeta, a $SRC dins el contenidor (deploy.sh en clona els releases).
 push_code() {
-    git -c safe.directory="$REPO" -C "$REPO" bundle create "$STATE/heimdeye.bundle" HEAD 2>/dev/null
+    git -c safe.directory="$REPO" -C "$REPO" bundle create -q "$STATE/heimdeye.bundle" HEAD
     incus file push "$STATE/heimdeye.bundle" "$HE/tmp/heimdeye.bundle"
     he bash -euc "rm -rf $SRC && git clone -q --no-checkout /tmp/heimdeye.bundle $SRC \
         && git -C $SRC checkout -q $(git -c safe.directory="$REPO" -C "$REPO" rev-parse HEAD) && rm /tmp/heimdeye.bundle"
@@ -392,7 +394,7 @@ heimdeye_container() {
         unprivileged_ping "$HE"
         hosts_file "$HE"
         deploy
-        he systemctl enable --now heimdeye-queue@1 heimdeye-queue@2 heimdeye-schedule.timer >/dev/null 2>&1
+        he systemctl enable --now heimdeye-queue@1 heimdeye-queue@2 heimdeye-schedule.timer
         internet "$HE" off
         incus config set "$HE" user.lab.llest=1
     fi
