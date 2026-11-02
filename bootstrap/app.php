@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\AuthenticateWithCloudflareAccess;
+use App\Http\Middleware\LogInTemplateAdmin;
 use Illuminate\Contracts\Auth\Middleware\AuthenticatesRequests;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -13,8 +14,9 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Cloudflare Access ha d'iniciar la sessió abans que el panell comprovi si n'hi ha.
+        // Cloudflare Access i el mode plantilla han d'iniciar la sessió abans que el panell comprovi si n'hi ha.
         $middleware->prependToPriorityList(AuthenticatesRequests::class, AuthenticateWithCloudflareAccess::class);
+        $middleware->prependToPriorityList(AuthenticatesRequests::class, LogInTemplateAdmin::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

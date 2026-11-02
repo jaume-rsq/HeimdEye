@@ -16,7 +16,9 @@ return [
     | - local: formulari de correu i contrasenya (desenvolupament).
     | - cloudflare: l'app és darrere Cloudflare Access (login de Google Workspace); es valida
     |   el JWT de la capçalera Cf-Access-Jwt-Assertion i l'usuari es busca pel correu.
-    | En tots dos casos només entren els usuaris que ja són a la taula usuaris.
+    | - plantilla: còpia d'un sol professor (p. ex. un escriptori d'IsardVDI): s'entra directament
+    |   com l'administrador (admin.email), sense contrasenya. Només si l'app no és accessible de fora.
+    | En tots els casos només entren els usuaris que ja són a la taula usuaris.
     */
     'auth' => [
         'mode' => env('HEIMDEYE_AUTH', 'local'),
@@ -78,6 +80,18 @@ return [
         'visitor_hours' => (int) env('HEIMDEYE_DEMO_VISITOR_HOURS', 2),
         'student_key' => env('HEIMDEYE_DEMO_STUDENT_KEY'),
         'url' => env('HEIMDEYE_DEMO_URL', 'https://heimdeye-demo.julioantonio.cat/'),
+    ],
+
+    /*
+    | Laboratori de xarxa de la demo SMIX2 (lab/lab.sh, docs/demo-smix2.md): router, client i
+    | servidor de la DMZ per alumne, en contenidors LXC. Si està actiu, DemoSeeder hi afegeix el mòdul.
+    | - students: alumnes ficticis (1 a 4), els mateixos que crea lab/lab.sh.
+    | - key: ruta de la clau privada amb què HeimdEye entra als equips del laboratori (secret ssh_lab).
+    */
+    'lab' => [
+        'enabled' => (bool) env('HEIMDEYE_LAB', false),
+        'students' => (int) env('HEIMDEYE_LAB_ALUMNES', 2),
+        'key' => env('HEIMDEYE_LAB_KEY'),
     ],
 
     /*

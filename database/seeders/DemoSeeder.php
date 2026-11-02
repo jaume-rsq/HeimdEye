@@ -7,8 +7,9 @@ use App\Models\User;
 use Illuminate\Database\Seeder;
 
 /**
- * BBDD de la demo pública: només el tutorial (alumnes ficticis) i l'administrador de la configuració.
- * Els visitants entren amb el botó de la demo (App\Support\Demo).
+ * BBDD de la demo: el tutorial (alumnes ficticis) i l'administrador de la configuració, i amb el
+ * laboratori de xarxa (HEIMDEYE_LAB=true, lab/lab.sh) el mòdul de la demo SMIX2.
+ * A la demo pública, els visitants entren amb el botó de la demo (App\Support\Demo).
  */
 class DemoSeeder extends Seeder
 {
@@ -20,5 +21,9 @@ class DemoSeeder extends Seeder
         );
 
         $this->call(TutorialSeeder::class);
+
+        if (config('heimdeye.lab.enabled')) {
+            $this->call(Smix2LabSeeder::class);
+        }
     }
 }
