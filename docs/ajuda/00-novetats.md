@@ -12,6 +12,9 @@ canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esq
 
 ## 02/11/2026
 
+- **Seguiment** més endreçat: cada selector porta el seu títol (Grup, Mòdul, Alumne, Bloc,
+  Tasca, Estat) i els filtres van en un quadre al costat del resum del mòdul. Les columnes
+  **Pos.**, **Primer assoliment** i **Punts** s'ordenen clicant-ne el títol.
 - **Grups-classe** (1r SMIX, 2n SMIX...): es creen a **Administració → Grups**. Un alumne és d'un
   grup i es matricula als mòduls que calgui. S'hi posen des de la llista d'alumnes (**Posar al
   grup**), des de la fitxa o en importar la llista.

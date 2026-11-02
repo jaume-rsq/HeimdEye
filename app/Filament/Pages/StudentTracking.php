@@ -72,6 +72,12 @@ class StudentTracking extends Page
     #[Url]
     public bool $obligatoris = false;
 
+    /** Ordre de la taula: null = posició (agrupada per bloc i tasca); primer o punts (amb - davant, descendent) = llista plana. */
+    #[Url]
+    public ?string $ordre = null;
+
+    private const SORTS = ['primer', '-primer', 'punts', '-punts'];
+
     /** Lots llançats amb Verificar que encara no han acabat: mentre n'hi ha, la pàgina es posa al dia sola. */
     public array $pending = [];
 
@@ -133,11 +139,11 @@ class StudentTracking extends Page
         if ($this->modul === null || ! $ids->contains($this->modul)) {
             $this->modul = $ids->first();
         }
-        unset($this->students, $this->student, $this->studentModules, $this->module, $this->cards, $this->progress, $this->blocks);
+        unset($this->students, $this->student, $this->studentModules, $this->module, $this->cards, $this->progress, $this->table, $this->blocks);
         $students = $this->students();
         if ($this->alumne === null || ! $students->contains('id', $this->alumne)) {
             $this->alumne = $students->first()?->id;
-            unset($this->student, $this->studentModules, $this->module, $this->cards, $this->progress);
+            unset($this->student, $this->studentModules, $this->module, $this->cards, $this->progress, $this->table);
         }
         // El bloc i la tasca de la URL es mantenen si són del mòdul (en tornar enrere, la URL no
         // porta el mòdul quan és el primer i s'ha de triar de nou).
@@ -264,6 +270,52 @@ class StudentTracking extends Page
         ]);
     }
 
+    /** Ordena per una columna; un segon clic en canvia el sentit. Posició torna a l'ordre agrupat. */
+    public function sortBy(?string $column): void
+    {
+        $first = ['primer' => 'primer', 'punts' => '-punts'];
+        $this->ordre = match (true) {
+            ! isset($first[$column]) => null,
+            ltrim((string) $this->ordre, '-') === $column => str_starts_with($this->ordre, '-') ? $column : '-'.$column,
+            default => $first[$column],
+        };
+    }
+
+    /**
+     * La taula tal com es mostra: per posició, els blocs i les tasques de progress(); per una altra
+     * columna, un sol grup sense capçaleres (flat) amb tots els checks ordenats.
+     *
+     * @return array{flat: bool, groups: array}
+     */
+    #[Computed]
+    public function table(): array
+    {
+        if (! in_array($this->ordre, self::SORTS, true) || $this->progress === []) {
+            return ['flat' => false, 'groups' => $this->progress];
+        }
+
+        $desc = str_starts_with($this->ordre, '-');
+        $rows = collect($this->progress)->flatMap(fn (array $g) => collect($g['tasks'])->flatMap(fn (array $t) => $t['rows']))->values();
+        // Els que no tenen valor (mai assolits) sempre al final; a igualtat, l'ordre de posició.
+        $key = ltrim($this->ordre, '-') === 'primer'
+            ? fn (array $r) => $r['state']?->data_primer_assoliment?->getTimestamp()
+            : fn (array $r) => (float) $r['punts'];
+        $rows = $rows->map(fn (array $r, int $i) => [$r, $key($r), $i])
+            ->sort(function (array $a, array $b) use ($desc) {
+                if (($a[1] === null) !== ($b[1] === null)) {
+                    return $a[1] === null ? 1 : -1;
+                }
+                $cmp = $desc ? $b[1] <=> $a[1] : $a[1] <=> $b[1];
+
+                return $cmp ?: $a[2] <=> $b[2];
+            })
+            ->map(fn (array $x) => $x[0])->values()->all();
+
+        $first = $this->progress[0];
+
+        return ['flat' => true, 'groups' => [['block' => $first['block'], 'resum' => $first['resum'], 'tasks' => [['task' => null, 'rows' => $rows]]]]];
+    }
+
     /** @return Collection<int, Block> */
     #[Computed]
     public function blocks(): Collection
@@ -355,7 +407,7 @@ class StudentTracking extends Page
             ->title($queued === 1 ? 'Check a la cua' : "{$queued} checks a la cua")
             ->body($errors ? implode("\n", $errors) : 'La pàgina es posa al dia sola a mesura que acaben.')
             ->send();
-        unset($this->progress, $this->cards);
+        unset($this->table, $this->progress, $this->cards);
     }
 
     /** Cada pocs segons mentre hi ha verificacions en marxa: torna a llegir els resultats. */
@@ -366,7 +418,7 @@ class StudentTracking extends Page
             ->whereNull('data_fi')
             ->where('data_inici', '>', now()->subHour())
             ->pluck('id')->all();
-        unset($this->progress, $this->cards);
+        unset($this->table, $this->progress, $this->cards);
     }
 
     /**
@@ -455,7 +507,7 @@ class StudentTracking extends Page
                 $state->save();
 
                 Notification::make()->success()->title('Correcció desada')->send();
-                unset($this->progress, $this->cards);
+                unset($this->table, $this->progress, $this->cards);
             });
     }
 
@@ -481,7 +533,7 @@ class StudentTracking extends Page
                 /** @var User $user */
                 $user = Auth::user();
                 ExtendChecks::apply($this->blockChecks($this->visibleBlock($arguments)), $data, $user);
-                unset($this->progress, $this->cards, $this->blocks);
+                unset($this->table, $this->progress, $this->cards, $this->blocks);
             });
     }
 

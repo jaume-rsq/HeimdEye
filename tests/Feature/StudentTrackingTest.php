@@ -298,4 +298,30 @@ class StudentTrackingTest extends TestCase
         $this->assertSame('2026-11-01', $this->check->actiu_fins->toDateString());
         $this->assertSame('2026-11-08 12:00', $this->check->data_limit->format('Y-m-d H:i'));
     }
+
+    public function test_the_table_sorts_by_first_achievement_and_points(): void
+    {
+        $checks = Check::whereIn('tasca_id', $this->module->tasks()->select('tasques.id'))->orderBy('id')->take(3)->get();
+        $this->assertCount(3, $checks);
+        // El primer check s'assoleix més tard que el segon; el tercer, mai.
+        foreach ([[$checks[0], '2026-10-20 03:00'], [$checks[1], '2026-10-10 03:00']] as [$check, $when]) {
+            CheckStudent::create(['check_id' => $check->id, 'alumne_id' => $this->student->id, 'estat_actual' => 'pass', 'data_primer_assoliment' => $when]);
+        }
+
+        $page = Livewire::test(StudentTracking::class, ['alumne' => $this->student->id])
+            ->assertSet('ordre', null)
+            ->call('sortBy', 'primer')
+            ->assertSet('ordre', 'primer')
+            ->assertSee('ordre per posició');
+        $ids = fn () => collect($page->instance()->table['groups'][0]['tasks'][0]['rows'])->pluck('check.id')->take(2)->all();
+        $this->assertTrue($page->instance()->table['flat']);
+        $this->assertSame([$checks[1]->id, $checks[0]->id], $ids());
+
+        $page->call('sortBy', 'primer')->assertSet('ordre', '-primer');
+        $this->assertSame([$checks[0]->id, $checks[1]->id], $ids());
+
+        $page->call('sortBy', 'punts')->assertSet('ordre', '-punts')
+            ->call('sortBy', null)->assertSet('ordre', null);
+        $this->assertFalse($page->instance()->table['flat']);
+    }
 }
