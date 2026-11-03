@@ -146,7 +146,9 @@ class GroupsTest extends TestCase
         $first = $this->smix2->students()->orderBy('num_taula')->firstOrFail();
         Livewire::test(StudentTracking::class, ['grup' => $this->other->id])
             ->set('grup', $this->smix2->id)
-            ->assertSet('alumne', $first->id);
+            ->assertSet('alumne', $first->id)
+            // El desplegable d'alumne marca el mateix que es mostra (no la posició de l'opció d'abans).
+            ->assertSeeHtml('<option value="'.$first->id.'" selected');
 
         // Un alumne a l'enllaç mana sobre un grup que no és el seu: es tria el seu.
         Livewire::test(StudentTracking::class, ['grup' => $this->smix2->id, 'alumne' => $this->moved->id])

@@ -17,6 +17,7 @@ use App\Filament\Resources\Checks\Pages\ManageCheckRuns;
 use App\Jobs\RunCheck;
 use App\Jobs\RunEditorTest;
 use App\Models\Action;
+use App\Models\Block;
 use App\Models\Check;
 use App\Models\CheckRun;
 use App\Models\CheckStudent;
@@ -511,5 +512,29 @@ class CheckPanelTest extends TestCase
 
         Queue::assertPushed(RunCheck::class, 2);
         $this->assertSame(2, RunBatch::count());
+    }
+
+    public function test_the_list_starts_on_the_latest_block_and_can_be_ungrouped(): void
+    {
+        $this->actingAs($this->teacher);
+        $old = $this->check();
+        $block = Block::create(['modul_id' => $this->module->id, 'numero' => 99, 'titol' => 'Bloc nou', 'posicio' => 99]);
+        $block->forceFill(['created_at' => now()->addMinute()])->saveQuietly();
+        $task = $block->tasks()->create(['titol' => 'Tasca nova', 'posicio' => 1]);
+        $new = $task->checks()->create(['nom' => 'Nou', 'executor' => Executor::Local, 'es_actiu' => true]);
+        $new->versions()->create(['versio' => 1, 'codi' => 'echo hola', 'temps_max_seg' => 10]);
+
+        $list = Livewire::test(ListChecks::class);
+        $list->assertTableFilterExists('bloc')
+            ->assertSet('tableFilters.bloc.value', $block->id)
+            ->assertSet('tableFilters.modul.value', $this->module->id)
+            ->assertCanSeeTableRecords([$new])
+            ->assertCanNotSeeTableRecords([$old])
+            ->assertSee('No agrupar per bloc')
+            ->assertSee('Més filtres')
+            ->assertSet('tableGrouping', 'task.bloc_id:asc')
+            ->set('tableGrouping', '')
+            ->assertCanSeeTableRecords([$new]);
+        $this->assertNull($list->instance()->getTableGrouping());
     }
 }
