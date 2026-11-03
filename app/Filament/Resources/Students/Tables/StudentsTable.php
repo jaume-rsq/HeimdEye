@@ -31,13 +31,16 @@ class StudentsTable
             ->columns([
                 TextColumn::make('num_taula')->label('Taula')->formatStateUsing(fn ($state) => sprintf('%02d', $state))->sortable(),
                 TextColumn::make('usuari')->searchable()->sortable(),
-                TextColumn::make('nom_complet')->label('Nom')->searchable()->sortable(),
+                TextColumn::make('nom_complet')->label('Nom')->searchable()->sortable()->grow()->wrap(),
                 TextColumn::make('alies')->label('Àlies')->placeholder('—'),
                 TextColumn::make('x')->label('X')->sortable(),
                 TextColumn::make('group.codi')->label('Grup')->placeholder('—')->sortable(),
                 TextColumn::make('modules.codi')->label('Mòduls')->badge(),
                 TextColumn::make('own_variables_count')
-                    ->label('Variables pròpies')
+                    ->label('Variables')
+                    ->tooltip('Variables pròpies de l\'alumne')
+                    ->alignCenter()
+                    ->grow(false)
                     ->counts('ownVariables')
                     ->formatStateUsing(fn (int $state) => $state ?: '—'),
                 IconColumn::make('es_actiu')->label('Actiu')->boolean(),

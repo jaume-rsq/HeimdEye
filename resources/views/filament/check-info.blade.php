@@ -1,5 +1,15 @@
 @if ($check)
     <div style="display: grid; gap: 1rem; font-size: .875rem">
+        {{-- Dates del check: quan està actiu i fins quan compta la puntualitat. --}}
+        <div style="display: flex; flex-wrap: wrap; gap: .25rem 1.25rem; font-size: .8rem">
+            @if ($check->es_actiu !== null)
+                <span><span style="opacity: .65">Actiu:</span> {{ $check->es_actiu ? 'sempre (forçat)' : 'mai (desactivat)' }}</span>
+            @else
+                <span><span style="opacity: .65">Actiu des de:</span> {{ $check->actiu_des?->format('d/m/Y') ?? '—' }}</span>
+                <span><span style="opacity: .65">Actiu fins:</span> {{ $check->actiu_fins?->format('d/m/Y') ?? '—' }}</span>
+            @endif
+            <span><span style="opacity: .65">Data límit:</span> {{ $check->data_limit?->format('d/m/Y H:i') ?? '—' }}</span>
+        </div>
         @if (filled($check->info))
             <div class="fi-prose" style="line-height: 1.55">
                 {!! \Illuminate\Support\Str::markdown($check->info, ['html_input' => 'escape', 'allow_unsafe_links' => false]) !!}

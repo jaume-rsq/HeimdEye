@@ -28,7 +28,6 @@
         <form class="pick" method="get" action="{{ url('/leaderboard') }}">
             @if ($groups->isNotEmpty())
                 <select name="grup" aria-label="Grup" onchange="this.form.modul.value = ''; this.form.submit()">
-                    <option value="">Tots els grups</option>
                     @foreach ($groups as $g)
                         <option value="{{ $g->id }}" @selected($group?->id === $g->id)>{{ $g->label() }}</option>
                     @endforeach

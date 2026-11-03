@@ -54,6 +54,10 @@
         .he-tr tr.l2 td, .he-tr tr.l3 td { padding-top: 0; padding-bottom: .4rem; font-size: .8rem; }
         .he-tr .run { display: inline-flex; flex-wrap: wrap; gap: .2rem .9rem; align-items: baseline; }
         .he-tr .run > span:not(.msg) { white-space: nowrap; opacity: .85; }
+        .he-tr .blocs { display: grid; gap: .4rem; }
+        .he-tr .blocs.scroll { max-height: 6rem; overflow-y: auto; padding-right: .4rem; }
+        .he-tr .bloc { display: grid; grid-template-columns: 4.5rem 1fr 2.5rem; gap: .4rem; align-items: center; }
+        .he-tr .blk .agg .btns { margin-left: auto; display: inline-flex; gap: .5rem; }
         .he-tr .caret { display: inline-block; width: 1rem; transition: transform .15s; }
     </style>
 
@@ -66,9 +70,11 @@
                 @unless ($readonly)
                 <strong>Alumne</strong>
                 <button type="button" class="he-btn" wire:click="go(-1)" @disabled(! $this->neighbour(-1)) title="Alumne anterior">←</button>
-                <select wire:model.live="alumne" aria-label="Alumne" style="min-width: 16rem">
+                {{-- La clau i el selected fan que, en canviar la llista (grup, mòdul), el navegador no es
+                     quedi amb la posició de l'opció d'abans i mostri un altre alumne. --}}
+                <select wire:model.live="alumne" wire:key="alumne-{{ $this->grup }}-{{ $this->modul }}-{{ $student->id }}" aria-label="Alumne" style="min-width: 16rem">
                     @foreach ($this->students as $s)
-                        <option value="{{ $s->id }}">{{ sprintf('%02d', $s->num_taula) }} · {{ $s->nom_complet }}{{ $s->es_actiu ? '' : ' (inactiu)' }}</option>
+                        <option value="{{ $s->id }}" @selected($s->id === $student->id)>{{ sprintf('%02d', $s->num_taula) }} · {{ $s->nom_complet }}{{ $s->es_actiu ? '' : ' (inactiu)' }}</option>
                     @endforeach
                 </select>
                 <button type="button" class="he-btn" wire:click="go(1)" @disabled(! $this->neighbour(1)) title="Alumne següent">→</button>
@@ -104,18 +110,20 @@
                                 <div @class(['bar', 'done' => $row['percentatge'] === 100])><span style="width: {{ $row['percentatge'] }}%"></span></div>
                                 <div class="sub">Obligatoris {{ $row['obligatoris'] }}/{{ $row['obligatoris_total'] }} · {{ $row['percentatge'] }}%</div>
                             </div>
-                            @foreach ($card['board']['blocks'] as $b)
-                                @php $cell = $row['blocs'][$b['block']->id]; @endphp
-                                <div style="display: grid; grid-template-columns: 4.5rem 1fr 2.5rem; gap: .4rem; align-items: center" title="{{ $b['block']->titol }}">
-                                    <span class="sub">Bloc {{ $b['block']->numero }}</span>
-                                    <div @class(['bar', 'done' => $cell['percentatge'] === 100])><span style="width: {{ $cell['percentatge'] }}%"></span></div>
-                                    <span class="sub">{{ $cell['assolits'] }}/{{ $cell['total'] }}</span>
-                                </div>
-                            @endforeach
-                            <div class="sub">
-                                Darrer assoliment: {{ $row['darrer_assoliment']?->format('d/m/Y H:i') ?? '—' }}
-                                · darrera execució: {{ $card['darrera_execucio'] ? \Illuminate\Support\Carbon::parse($card['darrera_execucio'])->format('d/m/Y H:i') : '—' }}
+                            {{-- Els blocs més recents (els que es treballen ara) a dalt; més de 4, amb scroll. --}}
+                            @php $cardBlocks = collect($card['board']['blocks'])->sortByDesc(fn ($b) => [$b['block']->created_at?->timestamp ?? 0, $b['block']->numero])->values(); @endphp
+                            <div @class(['blocs', 'scroll' => $cardBlocks->count() > 4])>
+                                @foreach ($cardBlocks as $b)
+                                    @php $cell = $row['blocs'][$b['block']->id]; @endphp
+                                    <div class="bloc" title="{{ $b['block']->titol }}">
+                                        <span class="sub">Bloc {{ $b['block']->numero }}</span>
+                                        <div @class(['bar', 'done' => $cell['percentatge'] === 100])><span style="width: {{ $cell['percentatge'] }}%"></span></div>
+                                        <span class="sub">{{ $cell['assolits'] }}/{{ $cell['total'] }}</span>
+                                    </div>
+                                @endforeach
                             </div>
+                            <div class="sub">Darrer assoliment: {{ $row['darrer_assoliment']?->format('d/m/Y H:i') ?? '—' }}</div>
+                            <div class="sub" style="margin-top: -.4rem">Darrera execució: {{ $card['darrera_execucio'] ? \Illuminate\Support\Carbon::parse($card['darrera_execucio'])->format('d/m/Y H:i') : '—' }}</div>
                         @else
                             <div class="sub">Inactiu: no surt al leaderboard.</div>
                         @endif
@@ -216,14 +224,15 @@
                                                         <span style="color: rgb(217,119,6)">{{ $sum['errors'] }} amb error</span>
                                                     @endif
                                                     <span class="sub">darrer assoliment: {{ $sum['darrer_assoliment']?->format('d/m/Y H:i') ?? '—' }}</span>
-                                                    @if ($group['block']->data_inici || $group['block']->data_fi)
-                                                        <span class="sub">{{ $group['block']->data_inici?->format('d/m') ?? '…' }} – {{ $group['block']->data_fi?->format('d/m/Y') ?? '…' }}</span>
-                                                    @endif
-                                                    @unless ($readonly)
-                                                        <button type="button" class="he-btn" x-on:click.stop wire:click="verify(null, null, {{ $blockId }})">Verificar el bloc</button>
-                                                    @endunless
-                                                    @if ($this->canEditModule())
-                                                        <button type="button" class="he-btn" x-on:click.stop wire:click="mountAction('extend', { block: {{ $blockId }} })" title="Dates noves per a tots els checks del bloc, per a tota la classe">Prorrogar</button>
+                                                    @if (! $readonly || $this->canEditModule())
+                                                        <span class="btns">
+                                                            @unless ($readonly)
+                                                                <button type="button" class="he-btn" x-on:click.stop wire:click="verify(null, null, {{ $blockId }})" title="Verificar tots els checks del bloc per a l'alumne">Verificar</button>
+                                                            @endunless
+                                                            @if ($this->canEditModule())
+                                                                <button type="button" class="he-btn" x-on:click.stop wire:click="mountAction('extend', { block: {{ $blockId }} })" title="Dates noves per a tots els checks del bloc, per a tota la classe">Prorrogar</button>
+                                                            @endif
+                                                        </span>
                                                     @endif
                                                 </div>
                                             </td>

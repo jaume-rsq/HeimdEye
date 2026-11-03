@@ -28,7 +28,9 @@ trait ManagesLevels
     #[Computed]
     public function course(): ?AcademicYear
     {
-        return $this->module?->academicYear ?? AcademicYear::where('es_actual', true)->first();
+        return $this->module?->academicYear
+            ?? ($this->curs ? AcademicYear::find($this->curs) : null)
+            ?? AcademicYear::where('es_actual', true)->first();
     }
 
     /** @return list<Level> */

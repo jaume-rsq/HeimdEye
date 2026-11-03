@@ -12,12 +12,15 @@ use App\Models\AcademicYear;
 use App\Models\Block;
 use App\Models\Check;
 use App\Models\Module;
+use App\Models\User;
 use App\Support\CheckSummary;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
+use Filament\Schemas\Components\Grid;
+use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
@@ -53,6 +56,9 @@ class ChecksTable
                     ->collapsible(),
             ])
             ->defaultGroup('task.bloc_id')
+            // En lloc del desplegable d'agrupar: una casella i el botó d'ordre a la capçalera de les accions.
+            ->groupingSettingsHidden()
+            ->recordActionsColumnLabel(fn () => view('filament.partials.group-toggle', ['group' => 'task.bloc_id']))
             ->toolbarActions([
                 LaunchCheck::bulk(),
                 BulkAction::make('prorrogar')
@@ -98,14 +104,15 @@ class ChecksTable
                 SelectFilter::make('curs')
                     ->label('Curs')
                     ->options(fn () => AcademicYear::orderByDesc('data_inici')->pluck('nom', 'id'))
-                    ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
+                    ->default(fn () => self::latestBlock()?->module->curs_id ?? AcademicYear::where('es_actual', true)->value('id'))
                     ->query(fn (Builder $query, array $data) => $query->when(
                         $data['value'] ?? null,
                         fn (Builder $q, $id) => $q->whereHas('task.block.module', fn (Builder $m) => $m->where('curs_id', $id)),
                     )),
                 SelectFilter::make('modul')
                     ->label('Mòdul')
-                    ->options(fn () => Module::orderBy('nom')->pluck('nom', 'id'))
+                    ->options(fn () => Module::orderBy('codi')->get()->mapWithKeys(fn (Module $m) => [$m->id => $m->label()]))
+                    ->default(fn () => self::latestBlock()?->modul_id)
                     ->query(fn (Builder $query, array $data) => $query->when(
                         $data['value'] ?? null,
                         fn (Builder $q, $id) => $q->whereHas('task.block', fn (Builder $b) => $b->where('modul_id', $id)),
@@ -114,6 +121,7 @@ class ChecksTable
                     ->label('Bloc')
                     ->options(fn () => Block::with('module')->orderBy('modul_id')->orderBy('numero')->get()
                         ->mapWithKeys(fn (Block $b) => [$b->id => "{$b->module->nom} · Bloc {$b->numero}: {$b->titol}"]))
+                    ->default(fn () => self::latestBlock()?->id)
                     ->query(fn (Builder $query, array $data) => $query->when(
                         $data['value'] ?? null,
                         fn (Builder $q, $id) => $q->whereHas('task', fn (Builder $t) => $t->where('bloc_id', $id)),
@@ -154,7 +162,21 @@ class ChecksTable
                     ->indicateUsing(fn (array $data) => blank($data['estat'] ?? null) ? null
                         : "Darrera execució {$data['estat']} per a ".(($data['abast'] ?? 'algun') === 'tots' ? 'tots els alumnes' : 'algun alumne')),
             ], layout: FiltersLayout::AboveContent)
-            ->filtersFormColumns(5)
+            // Curs, mòdul i bloc en una línia; la resta, en una secció plegada a sota.
+            ->filtersFormColumns(1)
+            ->filtersFormSchema(fn (array $filters) => [
+                Grid::make(['default' => 1, 'md' => 5])->schema([
+                    $filters['curs']->columnSpan(1),
+                    $filters['modul']->columnSpan(2),
+                    $filters['bloc']->columnSpan(2),
+                ]),
+                Section::make('Més filtres')
+                    ->collapsible()
+                    ->collapsed()
+                    ->compact()
+                    ->columns(['default' => 1, 'md' => 4])
+                    ->schema([$filters['executor'], $filters['actiu'], $filters['execucions']->columnSpan(2)]),
+            ])
             ->deferFilters(false)
             ->recordActions([
                 ActionGroup::make([
@@ -201,6 +223,28 @@ class ChecksTable
                         ->tooltip('Verificar ara'),
                 ])->buttonGroup(),
             ]);
+    }
+
+    /**
+     * El bloc més recent (per data de creació) dels mòduls que pot veure l'usuari: tots per a un
+     * administrador, els que imparteix per a un professor. És el filtre per defecte de la llista.
+     */
+    public static function latestBlock(): ?Block
+    {
+        /** @var User|null $user */
+        $user = auth()->user();
+        if ($user === null) {
+            return null;
+        }
+        $modules = $user->isAdmin() ? Module::query()->select('id') : $user->modules()->select('moduls.id');
+
+        return Block::with('module')
+            ->whereIn('modul_id', $modules)
+            ->whereHas('tasks.checks')
+            ->reorder()
+            ->latest('created_at')
+            ->latest('id')
+            ->first();
     }
 
     private static function summary(Check $record): CheckSummary
