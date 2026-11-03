@@ -59,6 +59,14 @@ class ActionForm
                             ->helperText('La llista d\'accions s\'agrupa per bloc; les que no en tenen surten al final.'),
                         TextInput::make('posicio')->label('Posició')->numeric()->default(0)->minValue(0)
                             ->helperText('Ordre dins del bloc: la seqüència en què es llancen.'),
+                        TextInput::make('caducitat_agent_seg')
+                            ->label('Caducitat de la feina (s)')
+                            ->numeric()
+                            ->minValue(10)
+                            ->maxValue(86400)
+                            ->placeholder('Per defecte (900)')
+                            ->helperText('Segons que la feina espera que l\'agent la reculli abans de caducar. Buit = valor per defecte.')
+                            ->visible(fn (Get $get) => $get('executor') === Executor::Agent->value),
                     ]),
                 Section::make(fn (string $operation) => $operation === 'edit' ? 'Darrera versió' : 'Primera versió')
                     ->description(fn (string $operation) => $operation === 'edit'
@@ -69,7 +77,7 @@ class ActionForm
                             ->label('Codi')
                             ->language(fn (Get $get) => $get('executor') === Executor::Ansible->value ? Language::Yaml : null)
                             ->required()
-                            ->helperText('Amb ssh, cal la capçalera "# hosts: pve, vm_router" a dalt de tot; amb Ansible, el hosts: de cada play (mai "all"). Els secrets es fan servir com a $HE_SECRET_NOM (bash) o {{ nom }} (Ansible). Cap secret pot arribar en clar a un equip d\'alumne: amb Ansible, només amb password_hash o delegate_to: localhost.'),
+                            ->helperText('Amb ssh, cal la capçalera "# hosts: pve, vm_router" a dalt de tot; amb Ansible, el hosts: de cada play (mai "all"); amb agent, "# hosts:" és el rol (hostname) de les instàncies. Els secrets es fan servir com a $HE_SECRET_NOM (bash) o {{ nom }} (Ansible). Cap secret pot arribar en clar a un equip d\'alumne (ni per ssh ni per agent).'),
                         Repeater::make('parametres')
                             ->label('Paràmetres')
                             ->table([

@@ -11,4 +11,6 @@ enum Executor: string
     case Ssh = 'ssh';
     case Ansible = 'ansible';
     case Http = 'http';
+    // L'agent que l'alumne té instal·lat a la instància recull la feina i l'executa en local.
+    case Agent = 'agent';
 }

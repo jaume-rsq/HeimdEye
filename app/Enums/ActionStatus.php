@@ -16,11 +16,20 @@ enum ActionStatus: string implements HasColor, HasLabel
     case Unavailable = 'unavailable';
     case Error = 'error';
     case Timeout = 'timeout';
+    // Feina d'agent: esperant que l'agent la reculli, o caducada sense recollir a temps.
+    case Pendent = 'pendent';
+    case Caducada = 'caducada';
 
-    /** Tot el que no és ok ni changed compta com a fallada. */
+    /** Tot el que no és ok ni changed compta com a fallada, tret del que encara està pendent. */
     public function isFailure(): bool
     {
-        return ! in_array($this, [self::Ok, self::Changed], true);
+        return ! in_array($this, [self::Ok, self::Changed, self::Pendent], true);
+    }
+
+    /** Feina d'agent encara sense resultat final. */
+    public function isPending(): bool
+    {
+        return $this === self::Pendent;
     }
 
     /** @return list<string> */
@@ -40,7 +49,8 @@ enum ActionStatus: string implements HasColor, HasLabel
             self::Ok => 'success',
             self::Changed => 'info',
             self::Failed, self::Error => 'danger',
-            self::Unavailable, self::Timeout => 'warning',
+            self::Unavailable, self::Timeout, self::Caducada => 'warning',
+            self::Pendent => 'gray',
         };
     }
 }

@@ -12,6 +12,11 @@ Schedule::command('heimdeye:run --nightly')
     ->dailyAt(config('heimdeye.runner.nightly_at'))
     ->withoutOverlapping();
 
+// Instàncies d'agent: marca les inactives i caduca la feina sense recollir.
+Schedule::command('heimdeye:agent-prune')
+    ->everyMinute()
+    ->withoutOverlapping();
+
 if (config('heimdeye.demo.enabled')) {
     Schedule::command('heimdeye:demo-cleanup')->hourly();
 }

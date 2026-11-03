@@ -38,6 +38,18 @@ class CodeValidator
      */
     public function hostTypes(Module $module, Executor $executor, string $code): ?Collection
     {
+        // L'executor agent fa servir "# hosts:" per dir a quin rol (hostname d'instància) va la
+        // feina, però aquests rols no són tipus d'equip del mòdul: no es validen contra l'inventari.
+        if ($executor === Executor::Agent) {
+            $rols = CodeHeaders::parse($code)->hosts
+                ?: throw new InvalidArgumentException('Falta la capçalera "# hosts:" amb el rol (hostname) de les instàncies on executar el codi');
+            if (in_array('all', $rols, true)) {
+                throw new InvalidArgumentException('No es pot fer servir "all": cal dir els rols concrets');
+            }
+
+            return null;
+        }
+
         $groups = match ($executor) {
             Executor::Ssh => CodeHeaders::parse($code)->hosts
                 ?: throw new InvalidArgumentException('Falta la capçalera "# hosts:" amb els equips on executar el codi'),
@@ -79,7 +91,8 @@ class CodeValidator
     {
         $secrets = $module->visibleSecrets();
         $leaked = match ($executor) {
-            Executor::Ssh => $secrets->flatMap(fn (Secret $secret) => SecretRefs::sensitiveEnvNamesIn($code, $secret))->values()->all(),
+            // L'agent executa bash a la màquina de l'alumne: cap secret no hi pot arribar en clar.
+            Executor::Ssh, Executor::Agent => $secrets->flatMap(fn (Secret $secret) => SecretRefs::sensitiveEnvNamesIn($code, $secret))->values()->all(),
             Executor::Ansible => Playbook::parse($code)->leakedSecrets($secrets->keys()->all()),
             default => [],
         };
@@ -88,7 +101,7 @@ class CodeValidator
         }
 
         throw new InvalidArgumentException(match ($executor) {
-            Executor::Ssh => 'El codi fa servir '.implode(', ', $leaked).': amb l\'executor ssh arribaria en clar a l\'equip de l\'alumne (només es poden fer servir _USER i _PUBKEY)',
+            Executor::Ssh, Executor::Agent => 'El codi fa servir '.implode(', ', $leaked).': arribaria en clar a la màquina de l\'alumne (només es poden fer servir _USER i _PUBKEY)',
             default => 'El secret '.implode(', ', $leaked).' arribaria en clar a l\'equip de l\'alumne: fes-lo servir amb password_hash o en una tasca amb delegate_to: localhost',
         });
     }

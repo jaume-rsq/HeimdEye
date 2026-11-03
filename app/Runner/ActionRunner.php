@@ -60,6 +60,15 @@ class ActionRunner
             'data_inici' => now(),
             'totals' => ['expected' => $students->count(), 'es_simulacio' => $checkMode],
         ]);
+
+        // L'executor agent no connecta amb els equips: deixa la feina pendent perquè l'agent de
+        // cada instància la reculli (long poll) i l'executi.
+        if ($action->executor === Executor::Agent) {
+            app(AgentDispatcher::class)->enqueue($action, $version, $students, $params, $user, $batch);
+
+            return $batch;
+        }
+
         $verification = $checkMode ? null : $this->verificationBatch($action, $version, $students->count(), $user);
 
         foreach ($students as $student) {
@@ -130,6 +139,9 @@ class ActionRunner
      */
     public function preview(Action $action, ActionVersion $version, Collection $students, array $hostTypes = [], array $params = [], bool $checkMode = false): array
     {
+        if ($action->executor === Executor::Agent) {
+            throw new InvalidArgumentException('Les accions d\'agent no es poden provar des de l\'editor: s\'executen a la instància de l\'alumne quan l\'agent les recull.');
+        }
         $params = $this->prepare($action, $version, $hostTypes, $params, $checkMode);
 
         return $students->map(fn (Student $student) => $this->runFor($action, $version, $student, $hostTypes, $params, $checkMode))->values()->all();
@@ -148,11 +160,17 @@ class ActionRunner
         if ($checkMode && $action->executor !== Executor::Ansible) {
             throw new InvalidArgumentException('Només es poden simular les accions d\'Ansible');
         }
-        if (! in_array($action->executor, [Executor::Ansible, Executor::Ssh, Executor::Local], true)) {
+        if (! in_array($action->executor, [Executor::Ansible, Executor::Ssh, Executor::Local, Executor::Agent], true)) {
             throw new InvalidArgumentException("L'executor {$action->executor->value} encara no està implementat");
         }
 
         $module = $action->module;
+        // Amb l'agent, els rols de "# hosts:" no són tipus d'equip del mòdul: només es valida el codi.
+        if ($action->executor === Executor::Agent) {
+            $this->validator->validate($module, $action->executor, $version->codi);
+
+            return $params;
+        }
         if ($unknown = array_diff($hostTypes, $module->visibleHostTypes()->pluck('nom')->all())) {
             throw new InvalidArgumentException('No existeix el tipus d\'equip '.implode(', ', $unknown));
         }
