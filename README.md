@@ -524,7 +524,11 @@ d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
   del grup matriculats al mòdul. Un alumne a l'URL que no és del grup treu el filtre de grup.
 - Un admin veu tots els mòduls; un professor només els que imparteix (i els alumnes d'aquests mòduls).
 - El quadre del mòdul triat (punts, posició, % d'obligatoris, progrés per bloc i dates) i, al
-  costat, els filtres.
+  costat, un quadre amb els filtres (Bloc, Tasca, Estat, un per línia amb el seu títol), Només
+  obligatoris i Verificar tot el mòdul.
+- Columnes ordenables (`?ordre=`): Pos. (per defecte, agrupat per bloc i tasca), Primer assoliment i
+  Punts (`primer`, `punts`; amb `-` davant, descendent). Ordenat per una d'aquestes dues, la taula és
+  una llista plana i els que no tenen valor van al final (`StudentTracking::table()`).
 - Taula del mòdul agrupada per bloc i tasca, filtrable per bloc, tasca, estat i només obligatoris:
   estat (amb la correcció del professor), darrera execució, missatge, primer assoliment, punts i comentari.
 - Clicant una fila es veu la sortida de la darrera execució i l'historial reduït als canvis d'estat

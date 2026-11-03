@@ -11,7 +11,7 @@
         $readonly = $this->readonly();
     @endphp
     <style>
-        .he-tr { font-size: .875rem; display: grid; gap: 1rem; }
+        .he-tr { font-size: .875rem; display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
         .he-tr select, .he-tr .he-btn { padding: .35rem .6rem; border: 1px solid rgba(128,128,128,.35); border-radius: .5rem; background: transparent; font-size: .85rem; }
         .he-tr .he-btn { cursor: pointer; white-space: nowrap; }
         .he-tr .he-btn:hover { background: rgba(245,158,11,.15); }
@@ -23,6 +23,17 @@
         .he-tr .cards { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr)); }
         .he-tr .card { border: 1px solid rgba(128,128,128,.25); border-radius: .75rem; padding: .75rem 1rem; display: grid; gap: .4rem; text-align: left; }
         .he-tr .card.on { border-color: rgb(245,158,11); box-shadow: 0 0 0 1px rgb(245,158,11); }
+        .he-tr .filters { display: grid; grid-template-columns: 4rem minmax(0, 1fr); gap: .6rem .75rem; align-items: center; align-content: start; }
+        .he-tr .filters > .lbl { font-weight: 600; }
+        .he-tr .filters select { width: 100%; }
+        .he-tr .filters .last { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .5rem .75rem; align-items: center; }
+        .he-tr .he-btn.accent { border-color: rgba(245,158,11,.7); background: rgba(245,158,11,.12); font-weight: 600; }
+        .he-tr .he-btn.accent:hover { background: rgba(245,158,11,.25); }
+        .he-tr th.sort { cursor: pointer; user-select: none; white-space: nowrap; }
+        .he-tr th.sort:hover { opacity: 1; }
+        .he-tr th.sort .arr { opacity: .35; }
+        .he-tr th.sort.on { opacity: 1; color: rgb(217,119,6); }
+        .he-tr th.sort.on .arr { opacity: 1; }
         .he-tr table { width: 100%; border-collapse: collapse; }
         .he-tr th, .he-tr td { padding: .45rem .5rem; text-align: left; vertical-align: top; border-bottom: 1px solid rgba(128,128,128,.15); }
         .he-tr th { font-size: .72rem; text-transform: uppercase; letter-spacing: .03em; opacity: .7; }
@@ -53,6 +64,7 @@
             {{-- Capçalera de l'alumne --}}
             <div style="display: flex; flex-wrap: wrap; gap: .75rem; align-items: center">
                 @unless ($readonly)
+                <strong>Alumne</strong>
                 <button type="button" class="he-btn" wire:click="go(-1)" @disabled(! $this->neighbour(-1)) title="Alumne anterior">←</button>
                 <select wire:model.live="alumne" aria-label="Alumne" style="min-width: 16rem">
                     @foreach ($this->students as $s)
@@ -113,13 +125,15 @@
 
             @if ($this->module)
                 {{-- Filtres --}}
-                <div style="display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; align-content: flex-start; flex: 1 1 22rem">
+                <div class="card on filters" style="flex: 1 1 20rem; max-width: 40rem; min-width: 0">
+                    <span class="lbl">Bloc</span>
                     <select wire:model.live="bloc" aria-label="Bloc">
                         <option value="">Tots els blocs</option>
                         @foreach ($this->blocks as $b)
                             <option value="{{ $b->id }}">Bloc {{ $b->numero }}: {{ $b->titol }}</option>
                         @endforeach
                     </select>
+                    <span class="lbl">Tasca</span>
                     <select wire:model.live="tasca" aria-label="Tasca">
                         <option value="">Totes les tasques</option>
                         @foreach ($this->blocks->when($bloc, fn ($c) => $c->where('id', $bloc)) as $b)
@@ -128,19 +142,22 @@
                             @endforeach
                         @endforeach
                     </select>
+                    <span class="lbl">Estat</span>
                     <select wire:model.live="estat" aria-label="Estat">
                         <option value="">Tots</option>
                         <option value="pendents">Pendents</option>
                         <option value="assolits">Assolits</option>
                         <option value="error">Amb error a la darrera execució</option>
                     </select>
+                    <div class="last">
                     <label style="display: flex; gap: .35rem; align-items: center"><input type="checkbox" wire:model.live="obligatoris" /> Només obligatoris</label>
                     @if ($pending)
                         <span class="sub" style="margin-left: auto" wire:poll.5s="refreshPending">⏳ Verificant… la pàgina es posa al dia sola</span>
                     @endif
                     @unless ($readonly)
-                    <button type="button" class="he-btn" @style(['margin-left: auto' => ! $pending]) wire:click="verify" wire:confirm="Verificar ara tots els checks del mòdul per a aquest alumne?">Verificar tot el mòdul</button>
+                    <button type="button" class="he-btn accent" @style(['margin-left: auto' => ! $pending]) wire:click="verify" wire:confirm="Verificar ara tots els checks del mòdul per a aquest alumne?">▶ Verificar tot el mòdul</button>
                     @endunless
+                    </div>
                 </div>
             @endif
             </div>
@@ -151,8 +168,13 @@
                 @php $blockIds = collect($this->progress)->map(fn ($g) => $g['block']->id)->values(); @endphp
                 <div x-data="{ closed: {}, all(v) { {{ $blockIds->toJson() }}.forEach(id => this.closed[id] = v) } }" wire:key="taula-{{ $modul }}">
                 <div style="display: flex; gap: .5rem; justify-content: flex-end; margin-bottom: .5rem">
-                    <button type="button" class="he-btn" x-on:click="all(true)">Plegar tots els blocs</button>
-                    <button type="button" class="he-btn" x-on:click="all(false)">Desplegar-los</button>
+                    @if ($this->table['flat'])
+                        <span class="sub" style="margin-right: auto; align-self: center">Llista ordenada per {{ ltrim($ordre, '-') === 'punts' ? 'punts' : 'primer assoliment' }}, sense agrupar per bloc.</span>
+                        <button type="button" class="he-btn" wire:click="sortBy(null)">Tornar a l'ordre per posició</button>
+                    @else
+                        <button type="button" class="he-btn" x-on:click="all(true)">Plegar tots els blocs</button>
+                        <button type="button" class="he-btn" x-on:click="all(false)">Desplegar-los</button>
+                    @endif
                 </div>
                 <x-filament::section>
                     @if ($this->progress === [])
@@ -162,19 +184,22 @@
                             <table>
                                 <thead>
                                     <tr>
-                                        <th title="Bloc.tasca.check: l'ordre en què s'han d'anar assolint">Pos.</th>
+                                        @php $arrow = fn ($c) => ltrim((string) $ordre, '-') === $c ? (str_starts_with((string) $ordre, '-') ? '▼' : '▲') : '↕'; @endphp
+                                        <th @class(['sort', 'on' => ! $ordre]) wire:click="sortBy(null)" title="Bloc.tasca.check: l'ordre en què s'han d'anar assolint. Agrupat per bloc i tasca.">Pos. <span class="arr">{{ $ordre ? '↕' : '▲' }}</span></th>
                                         <th>Check</th>
                                         <th>Estat</th>
-                                        <th>Primer assoliment</th>
-                                        <th style="text-align: right">Punts</th>
+                                        <th @class(['sort', 'on' => ltrim((string) $ordre, '-') === 'primer']) wire:click="sortBy('primer')" title="Ordena per la data del primer assoliment (un altre clic inverteix l'ordre)">Primer assoliment <span class="arr">{{ $arrow('primer') }}</span></th>
+                                        <th @class(['sort', 'on' => ltrim((string) $ordre, '-') === 'punts']) style="text-align: right" wire:click="sortBy('punts')" title="Ordena pels punts obtinguts (un altre clic inverteix l'ordre)">Punts <span class="arr">{{ $arrow('punts') }}</span></th>
                                         <th></th>
                                     </tr>
                                 </thead>
-                                @foreach ($this->progress as $group)
+                                @php $flat = $this->table['flat']; @endphp
+                                @foreach ($this->table['groups'] as $group)
                                     @php
-                                        $blockId = $group['block']->id;
+                                        $blockId = $flat ? 0 : $group['block']->id;
                                         $sum = $group['resum'];
                                     @endphp
+                                    @unless ($flat)
                                     <tbody>
                                         <tr class="blk" x-on:click="closed[{{ $blockId }}] = ! closed[{{ $blockId }}]">
                                             <td colspan="6">
@@ -204,7 +229,9 @@
                                             </td>
                                         </tr>
                                     </tbody>
+                                    @endunless
                                     @foreach ($group['tasks'] as $t)
+                                        @unless ($flat)
                                         <tbody x-show="! closed[{{ $blockId }}]">
                                             <tr class="grp">
                                                 <td class="pos">{{ $group['block']->numero }}.{{ $t['task']->posicio }}</td>
@@ -216,6 +243,7 @@
                                                 </td>
                                             </tr>
                                         </tbody>
+                                        @endunless
                                         @foreach ($t['rows'] as $r)
                                             @php
                                                 $check = $r['check'];

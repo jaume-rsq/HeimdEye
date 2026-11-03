@@ -16,6 +16,9 @@ l'alumne, el mòdul i els filtres, i es pot compartir amb un altre professor.
 - El quadre del mòdul resumeix l'alumne en el mòdul triat: punts, posició, percentatge
   d'obligatoris i progrés per bloc. Al costat hi ha els filtres de bloc, tasca i estat.
 - La taula agrupa els checks per bloc i tasca. Clica la línia d'un bloc per plegar-lo.
+- **Ordenar**: clica el títol de **Primer assoliment** o de **Punts** per veure tots els checks en
+  una sola llista ordenada (un altre clic inverteix l'ordre; els que no s'han assolit van al
+  final). **Pos.** torna a l'ordre per bloc i tasca.
 - Clica un check per veure la sortida de la darrera execució i l'historial de canvis d'estat.
 - **Els punts no es perden**: un check assolit continua assolit encara que després falli, doni
   error o la màquina estigui apagada. Si ara no passa, surt l'avís taronja **ara no passa**. Per
