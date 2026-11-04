@@ -81,7 +81,25 @@ class AgentConsolePage extends Page
             return;
         }
 
-        $session = ConsoleSession::create([
+        $this->attachTo(self::openFor($instance));
+    }
+
+    /**
+     * Crea (o reaprofita) una sessió de consola per a una instància. Si ja n'hi ha una d'oberta
+     * (pendent o activa), la retorna en comptes de duplicar-la. La fa servir també la vista
+     * d'instàncies de l'inventari, que hi redirigeix amb ?instancia=<id>.
+     */
+    public static function openFor(AgentInstance $instance): ConsoleSession
+    {
+        $open = ConsoleSession::where('instancia_id', $instance->id)
+            ->where('estat', '!=', 'tancada')
+            ->latest('id')
+            ->first();
+        if ($open !== null) {
+            return $open;
+        }
+
+        return ConsoleSession::create([
             'alumne_id' => $instance->alumne_id,
             'instancia_id' => $instance->id,
             'rol_agent' => $instance->hostname,
@@ -90,7 +108,6 @@ class AgentConsolePage extends Page
             'caduca_a' => now()->addSeconds((int) config('heimdeye.agent.console_pickup_seconds', 120)),
             'darrera_activitat' => now(),
         ]);
-        $this->attachTo($session);
     }
 
     /** Envia una comanda (una línia) al bash de la instància. */

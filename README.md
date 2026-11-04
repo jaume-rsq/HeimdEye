@@ -640,6 +640,10 @@ cal obrir cap port ni conèixer la IP. Tot va per HTTPS i l'alumne s'autentica a
   alumne pot tenir-ne diverses. Cada *long poll* compta com a batec; sense batec durant
   `heimdeye.agent.inactive_after_seconds` (5 min per defecte), `heimdeye:agent-prune` la marca
   inactiva i cancel·la la feina que tingués en curs.
+- **Vista d'instàncies.** A *Inventari → Instàncies* es veuen les instàncies del curs actual amb
+  l'alumne propietari, l'estat (activa/inactiva), la IP i el darrer batec (es refresca sol). Com
+  que són efímeres i es donen de baixa soles, no cal filtrar-les. Des de cada fila el professor pot
+  **obrir la consola** d'aquella instància o **llançar-hi un check d'agent** d'aquell alumne.
 - **Accions d'agent.** Es creen amb l'executor `agent` i codi bash amb `# hosts: <rol>`. En
   llançar-les, la feina queda **pendent** a `execucions_accio` fins que l'agent de la instància la
   recull (*long polling*, resposta quasi immediata). L'agent l'executa en memòria, com a root, i
@@ -655,8 +659,9 @@ cal obrir cap port ni conèixer la IP. Tot va per HTTPS i l'alumne s'autentica a
   **no assolit**, `HEIMDEYE_OMES:` → **omès**, temps màxim → **temps excedit**, i si ningú no el
   recull a temps → **no disponible**. No es poden provar des de l'editor (cal una instància
   connectada): es llancen i es recull el resultat. Recomanat un sol rol per check.
-- **Consola interactiva.** Des de *Accions → Consola d'instàncies* el professor tria una instància
-  activa i obre una consola. És el mateix model pull: HeimdEye deixa la sessió pendent, l'agent la
+- **Consola interactiva.** Des de *Accions → Consola d'instàncies* (o des de *Inventari →
+  Instàncies*, amb el botó «Obrir consola» d'una fila) el professor obre una consola d'una
+  instància activa. És el mateix model pull: HeimdEye deixa la sessió pendent, l'agent la
   recull i obre un **bash persistent** a la instància; l'entrada que s'escriu i la sortida que
   torna viatgen com a missatges pel mateix canal de sortida (`/api/agent/console/*`). El directori i
   les variables es mantenen entre comandes. És una **consola de comandes** (no un terminal PTY: no
