@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Checks\Pages\Concerns;
 
+use App\Enums\Executor;
 use App\Filament\Actions\LaunchCheck;
 use App\Filament\Concerns\QueuesEditorTests;
 use App\Filament\Resources\Checks\Schemas\CheckForm;
@@ -63,7 +64,12 @@ trait TestsDraftCheck
             ->label('Provar')
             ->icon(Heroicon::OutlinedBeaker)
             ->color('info')
-            ->disabled(fn () => $this->draftCheck() === null)
+            // Els checks d'agent s'executen a la instància de l'alumne quan l'agent els recull:
+            // no es poden provar des de l'editor (cal llançar-los des de la tasca o la graella).
+            ->disabled(fn () => $this->draftCheck() === null || $this->draftCheck()?->executor === Executor::Agent)
+            ->tooltip(fn () => $this->draftCheck()?->executor === Executor::Agent
+                ? 'Els checks d\'agent s\'executen a la instància de l\'alumne; prova\'ls llançant-los des de la tasca.'
+                : null)
             // Abans de triar alumnes: si el formulari té errors, no s'obre la finestra.
             ->beforeFormFilled(fn () => $this->validateDraft())
             ->modalHeading('Provar l\'esborrany')

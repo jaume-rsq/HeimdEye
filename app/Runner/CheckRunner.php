@@ -54,6 +54,14 @@ class CheckRunner
             'totals' => ['expected' => $students->count()],
         ]);
 
+        // L'executor agent no connecta amb la instància: deixa la feina pendent perquè l'agent la
+        // reculli (long poll) i l'executi, i en desi el resultat com un CheckRun normal.
+        if ($check->executor === ExecutorType::Agent) {
+            app(AgentDispatcher::class)->enqueueCheck($check, $version, $students, $user, $batch);
+
+            return $batch;
+        }
+
         foreach ($students as $student) {
             $job = new RunCheck($batch, $check, $student, $version);
             if (! $sync) {
@@ -80,7 +88,8 @@ class CheckRunner
     public function prepare(Check $check, CheckVersion $version): void
     {
         Params::values($version->parametres);
-        if (self::executor($check->executor) === null) {
+        // L'agent no té un Executor síncron: s'encua i l'executa l'agent de la instància.
+        if ($check->executor !== ExecutorType::Agent && self::executor($check->executor) === null) {
             throw new InvalidArgumentException("L'executor {$check->executor->value} encara no està implementat");
         }
         $this->validator->validate($check->module, $check->executor, $version->codi);
@@ -92,6 +101,10 @@ class CheckRunner
         $version ??= $check->currentVersion;
         if ($version === null) {
             return CheckResult::error('El check no té codi');
+        }
+
+        if ($check->executor === ExecutorType::Agent) {
+            return CheckResult::error('Els checks d\'agent no es poden provar des de l\'editor: s\'executen a la instància de l\'alumne quan l\'agent els recull. Llança\'ls des de la tasca o el check.');
         }
 
         $executor = self::executor($check->executor);

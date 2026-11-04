@@ -7,6 +7,9 @@ use App\Enums\Executor;
 use App\Models\Action;
 use App\Models\ActionRun;
 use App\Models\ActionVersion;
+use App\Models\AgentTask;
+use App\Models\Check;
+use App\Models\CheckVersion;
 use App\Models\RunBatch;
 use App\Models\Student;
 use App\Models\User;
@@ -22,7 +25,10 @@ use InvalidArgumentException;
  */
 class AgentDispatcher
 {
-    public function __construct(private VariableResolver $resolver) {}
+    public function __construct(
+        private VariableResolver $resolver,
+        private ResultRecorder $recorder,
+    ) {}
 
     /**
      * @param  Collection<int, Student>  $students
@@ -81,6 +87,63 @@ class AgentDispatcher
                 'rol_agent' => $rol,
                 'estat' => ActionStatus::Pendent,
                 'parametres' => $params ?: null,
+                'payload_agent' => $payload,
+                'mascara_agent' => $mask ?: null,
+                'caduca_a' => now()->addSeconds($expiry),
+            ]);
+        }
+    }
+
+    /**
+     * Encua un check d'executor agent (llançat des de HeimdEye): una feina per rol de "# hosts:" i
+     * per alumne a la taula feines_agent. Les feines queden pendents fins que l'agent de la instància
+     * les recull i n'envia el resultat, que es desa com un CheckRun normal.
+     *
+     * @param  Collection<int, Student>  $students
+     */
+    public function enqueueCheck(Check $check, CheckVersion $version, Collection $students, ?User $user, RunBatch $batch): void
+    {
+        $rols = CodeHeaders::parse($version->codi)->hosts;
+        $expiry = (int) config('heimdeye.agent.expiry_seconds', 900);
+
+        foreach ($students as $student) {
+            $this->enqueueCheckForStudent($check, $version, $student, $rols, $expiry, $batch);
+        }
+    }
+
+    /** @param  list<string>  $rols */
+    private function enqueueCheckForStudent(Check $check, CheckVersion $version, Student $student, array $rols, int $expiry, RunBatch $batch): void
+    {
+        $builder = new ContextBuilder($this->resolver);
+        try {
+            $context = $builder->build($check->module, $student, Executor::Agent, $version->codi, $version->temps_max_seg, Params::values($version->parametres));
+        } catch (InvalidArgumentException $e) {
+            // No es pot preparar per a aquest alumne (li falta una variable, un secret...): queda com
+            // una execució amb error al log, sense feina pendent per a l'agent.
+            $this->recorder->record($batch, $check, $student, CheckResult::error($e->getMessage()), $version);
+            $batch->refreshTotals();
+            $builder->cleanup();
+
+            return;
+        }
+
+        $payload = [
+            'code' => $context->code,
+            'env' => $context->env,
+            'timeout' => $version->temps_max_seg,
+        ];
+        $mask = $context->mask;
+        $builder->cleanup();
+
+        foreach ($rols as $rol) {
+            AgentTask::create([
+                'execucio_id' => $batch->id,
+                'check_id' => $check->id,
+                'versio_check_id' => $version->id,
+                'alumne_id' => $student->id,
+                'instancia_id' => null,
+                'rol_agent' => $rol,
+                'estat' => 'pendent',
                 'payload_agent' => $payload,
                 'mascara_agent' => $mask ?: null,
                 'caduca_a' => now()->addSeconds($expiry),
