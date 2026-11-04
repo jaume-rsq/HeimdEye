@@ -6,6 +6,7 @@ use App\Enums\Level;
 use App\Enums\Role;
 use App\Filament\Pages\InventoryOverview;
 use App\Filament\Resources\Students\Pages\EditStudent;
+use App\Filament\Resources\Students\Schemas\StudentForm;
 use App\Models\Module;
 use App\Models\Secret;
 use App\Models\Student;
@@ -122,6 +123,19 @@ class StudentPanelTest extends TestCase
             ->assertSet('mountedActions.0.name', 'student')
             ->assertSet('mountedActions.0.arguments', ['alumne' => $this->student->id])
             ->assertSet('alumne', null);
+    }
+
+    public function test_the_install_command_downloads_the_binary_and_carries_the_token(): void
+    {
+        config(['heimdeye.agent.download_base' => 'https://example.test/releases/latest', 'app.url' => 'https://heimdeye.test']);
+        $token = $this->student->regenerateAgentToken();
+
+        $command = StudentForm::installCommand($this->student);
+
+        $this->assertStringContainsString('ARCH=$(uname -m)', $command);
+        $this->assertStringContainsString('curl -fsSL -o heimdeye-agent https://example.test/releases/latest/heimdeye-agent-linux-$A', $command);
+        $this->assertStringContainsString('chmod +x heimdeye-agent', $command);
+        $this->assertStringContainsString("sudo ./heimdeye-agent install --url https://heimdeye.test --token {$token} --hostname web", $command);
     }
 
     public function test_demo_visitors_see_the_panel_but_cannot_add_exceptions(): void

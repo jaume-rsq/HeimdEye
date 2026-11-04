@@ -64,10 +64,10 @@ class StudentForm
                             ->label('Comanda d\'instal·lació')
                             ->dehydrated(false)
                             ->disabled()
-                            ->rows(2)
-                            ->helperText('Canvia "web" pel nom que vulgui donar a cada instància (web, bd, dns...).')
+                            ->rows(5)
+                            ->helperText('Baixa el binari (segons l\'arquitectura), el fa executable i l\'instal·la com a servei. Canvia "web" pel nom que vulgui donar a cada instància (web, bd, dns...).')
                             ->formatStateUsing(fn (?Student $record) => $record?->token_agent
-                                ? 'sudo ./heimdeye-agent install --url '.rtrim((string) config('app.url'), '/').' --token '.$record->token_agent.' --hostname web'
+                                ? self::installCommand($record)
                                 : 'Encara no té token. Fes servir el botó «Generar token» de dalt.'),
                         Textarea::make('instancies_agent')
                             ->label('Instàncies registrades')
@@ -91,5 +91,22 @@ class StudentForm
                             ->addActionLabel('Afegir variable'),
                     ]),
             ]);
+    }
+
+    /**
+     * Comanda completa que l'alumne enganxa a la instància: detecta l'arquitectura, baixa el
+     * binari de la release, el fa executable i l'instal·la com a servei de systemd amb el seu token.
+     */
+    public static function installCommand(Student $student): string
+    {
+        $base = rtrim((string) config('heimdeye.agent.download_base'), '/');
+        $url = rtrim((string) config('app.url'), '/');
+
+        return implode("\n", [
+            'ARCH=$(uname -m); case "$ARCH" in x86_64) A=amd64;; aarch64|arm64) A=arm64;; *) echo "arquitectura no suportada: $ARCH"; exit 1;; esac',
+            "curl -fsSL -o heimdeye-agent {$base}/heimdeye-agent-linux-\$A",
+            'chmod +x heimdeye-agent',
+            "sudo ./heimdeye-agent install --url {$url} --token {$student->token_agent} --hostname web",
+        ]);
     }
 }

@@ -32,18 +32,25 @@ cd agent
 GOOS=linux GOARCH=amd64 go build -o heimdeye-agent .   # o arm64
 ```
 
-El CI publica els binaris; l'alumne no cal que els compili.
+El workflow `.github/workflows/release-agent.yml` compila l'agent (linux amd64 i arm64) i en
+publica els binaris a la release **`latest`** cada cop que canvia `agent/**` a `main` (o a mà, amb
+*Run workflow*). L'alumne no cal que el compili: se'l baixa d'allà.
 
 ## Fer-lo servir
 
-La comanda exacta, amb l'URL i el token ja posats, surt a la pàgina de l'alumne a HeimdEye.
+La comanda exacta, amb l'URL i el token ja posats, surt a la fitxa de l'alumne a HeimdEye. Baixa el
+binari de la release, el fa executable i l'instal·la com a servei:
 
 ```sh
-# Prova ràpida (en primer pla):
-./heimdeye-agent run --url https://heimdeye.exemple.cat --token XXXX --hostname web
+ARCH=$(uname -m); case "$ARCH" in x86_64) A=amd64;; aarch64|arm64) A=arm64;; esac
+curl -fsSL -o heimdeye-agent https://github.com/jaume-rsq/HeimdEye/releases/download/latest/heimdeye-agent-linux-$A
+chmod +x heimdeye-agent
 
 # Com a servei de systemd (arrenca sol; cal ser root):
 sudo ./heimdeye-agent install --url https://heimdeye.exemple.cat --token XXXX --hostname web
+
+# O una prova ràpida en primer pla, sense instal·lar res:
+./heimdeye-agent run --url https://heimdeye.exemple.cat --token XXXX --hostname web
 ```
 
 Si l'alumne té més d'una instància, cadascuna es registra amb el seu `--hostname` (web, bd, dns...),

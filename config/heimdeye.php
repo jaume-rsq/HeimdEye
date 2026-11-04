@@ -105,8 +105,12 @@ return [
     | - console_pickup_seconds: segons que una sessió espera que l'agent la reculli abans de caducar.
     | - console_idle_seconds: sense activitat (entrada ni sortida), la sessió es tanca sola.
     | - console_hold_seconds: temps que el servidor manté oberta la petició d'entrada (long poll).
+    | - download_base: on es baixen els binaris de l'agent (els publica el workflow Release Agent a
+    |   la release "latest"). La comanda d'instal·lació de la fitxa de l'alumne hi afegeix
+    |   -linux-<arch>. Canvia'l si forkeges el repo.
     */
     'agent' => [
+        'download_base' => env('HEIMDEYE_AGENT_DOWNLOAD_BASE', 'https://github.com/jaume-rsq/HeimdEye/releases/download/latest'),
         'expiry_seconds' => (int) env('HEIMDEYE_AGENT_EXPIRY', 900),
         'inactive_after_seconds' => (int) env('HEIMDEYE_AGENT_INACTIVE_AFTER', 300),
         'poll_hold_seconds' => (int) env('HEIMDEYE_AGENT_POLL_HOLD', 25),
