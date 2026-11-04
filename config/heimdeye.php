@@ -95,6 +95,20 @@ return [
     ],
 
     /*
+    | Agent de les instàncies dels alumnes (App\Http\Controllers\Api\AgentController).
+    | - expiry_seconds: segons per defecte que una feina espera que l'agent la reculli abans de
+    |   caducar (es pot afinar per acció amb accions.caducitat_agent_seg).
+    | - inactive_after_seconds: sense batec (long poll), una instància es marca inactiva i se li
+    |   cancel·len les feines en curs.
+    | - poll_hold_seconds: temps que el servidor manté oberta la petició de long poll esperant feina.
+    */
+    'agent' => [
+        'expiry_seconds' => (int) env('HEIMDEYE_AGENT_EXPIRY', 900),
+        'inactive_after_seconds' => (int) env('HEIMDEYE_AGENT_INACTIVE_AFTER', 300),
+        'poll_hold_seconds' => (int) env('HEIMDEYE_AGENT_POLL_HOLD', 25),
+    ],
+
+    /*
     | Ansible: executable i nom del grup de cada alumne a l'inventari generat.
     */
     'ansible' => [

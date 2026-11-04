@@ -8,6 +8,7 @@ use App\Filament\Resources\Students\StudentResource;
 use App\Models\Student;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
 use Filament\Support\Icons\Heroicon;
 use Livewire\Attributes\Url;
@@ -39,6 +40,32 @@ class EditStudent extends EditRecord
                 ->icon(Heroicon::OutlinedPresentationChartLine)
                 ->color('gray')
                 ->url(fn () => StudentTracking::getUrl(['alumne' => $this->record->id])),
+            Action::make('generarTokenAgent')
+                ->label(fn () => filled($this->record->token_agent) ? 'Regenerar token' : 'Generar token')
+                ->icon(Heroicon::OutlinedKey)
+                ->color('gray')
+                ->tooltip('Token de l\'agent de les instàncies d\'aquest alumne')
+                ->requiresConfirmation()
+                ->modalDescription('Es generarà un token nou per a l\'agent. Si ja n\'hi havia un, deixarà de funcionar i caldrà reinstal·lar l\'agent amb la comanda nova.')
+                ->action(function () {
+                    $this->record->regenerateAgentToken();
+                    Notification::make()->success()->title('Token generat')->body('Ja pots donar la comanda d\'instal·lació a l\'alumne.')->send();
+
+                    return redirect(EditStudent::getUrl(['record' => $this->record, 'modul' => $this->modul]));
+                }),
+            Action::make('revocarTokenAgent')
+                ->label('Revocar token')
+                ->icon(Heroicon::OutlinedNoSymbol)
+                ->color('danger')
+                ->visible(fn () => filled($this->record->token_agent))
+                ->requiresConfirmation()
+                ->modalDescription('L\'agent d\'aquest alumne deixarà de poder connectar. Per tornar-hi, genera un token nou.')
+                ->action(function () {
+                    $this->record->forceFill(['token_agent' => null])->save();
+                    Notification::make()->success()->title('Token revocat')->send();
+
+                    return redirect(EditStudent::getUrl(['record' => $this->record, 'modul' => $this->modul]));
+                }),
             Action::make('conjunt')
                 ->label('Inventari')
                 ->icon(Heroicon::OutlinedSquares2x2)

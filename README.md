@@ -288,6 +288,7 @@ out=$(sudo -n qm list) || { echo "No es pot executar qm list"; exit 1; }
 | `local` | Al servidor HeimdEye, amb `bash -s` (ping, dig, curl, o `ssh` fet pel mateix script). | Els tria el codi amb les variables (`$HE_IP_ROUTER`...). | El del mòdul. Una clau SSH arriba com a `HE_SSH_USER` i `HE_SSH_KEY` (ruta a la clau); un usuari i contrasenya (WinRM, API), com a `HE_CRED_USER` i `HE_CRED_PASSWORD` (emmascarada). Un altre secret, esmentant-lo (`$HE_SECRET_<NOM>_USER`...). |
 | `ssh` | A cada equip de `# hosts:`, per SSH, un rere l'altre. Les variables `HE_*` s'exporten al principi de l'script remot. | Els de l'alumne dels grups de `# hosts:` (i els únics, si el grup ho és). Han de ser equips SSH: un Windows (WinRM) dona `error`. | El del tipus d'equip, o el del mòdul. Port i usuari de les variables de l'equip (`ansible_port`, `ansible_user`) si n'hi ha. |
 | `ansible` | `ansible-playbook` al servidor, un per alumne, amb l'inventari generat a partir dels tipus d'equip. | Els dels grups del `hosts:` dels plays: l'inventari només porta aquests. | El de cada tipus d'equip (o el del mòdul). |
+| `agent` | A la instància de l'alumne, amb `bash`, per l'agent que hi té instal·lat (model pull). Les variables `HE_*` arriben com a entorn. Veg. [«Agent de les instàncies»](#agent-de-les-instàncies). | Les instàncies registrades amb el hostname dels rols de `# hosts:`. | Cap: l'alumne és root a la seva instància. Cap secret no hi pot arribar en clar (com amb `ssh`). |
 
 Amb `ssh` i diversos equips, el resultat és `pass` només si passa a tots; si no, és el del
 primer equip que falla, i el missatge comença pel nom de l'equip (`router01: ...`). La sortida
@@ -621,3 +622,41 @@ Menú Accions → Llista d'accions (`/admin/accions`):
 - Si hi ha feines a la cua que cap worker no processa, el panell ho avisa a dalt de tot.
 - En llançar per a un sol alumne, els paràmetres es mostren calculats amb les seves variables
   (`{{num_taula}}`...) i es poden modificar. Només s'envien els que difereixen del valor per defecte.
+
+## Agent de les instàncies
+
+Per a alumnes amb instàncies efímeres que HeimdEye no pot abastar (p. ex. AWS Learner Lab, on
+les IP canvien i les màquines es recreen), l'alumne instal·la un **agent** que truca a HeimdEye
+i recull la feina pendent. El codi de l'agent és a [`agent/`](agent/) (un sol binari en Go).
+
+Model **pull**: la connexió sempre surt de la instància cap a HeimdEye, mai al revés, així que no
+cal obrir cap port ni conèixer la IP. Tot va per HTTPS i l'alumne s'autentica amb un token.
+
+- **Token.** El genera i el revoca el professor des de la fitxa de l'alumne (botons «Generar» i
+  «Revocar token»). No es mostra sol: la fitxa ensenya la **comanda d'instal·lació** ja feta, a
+  punt per donar a l'alumne. Revocar-lo vol dir regenerar-ne un de nou.
+- **Instàncies.** En arrencar, l'agent es registra amb un `--hostname` que identifica la
+  instància i fa de **rol** per a la capçalera `# hosts:` de les accions (web, bd, dns...). Un
+  alumne pot tenir-ne diverses. Cada *long poll* compta com a batec; sense batec durant
+  `heimdeye.agent.inactive_after_seconds` (5 min per defecte), `heimdeye:agent-prune` la marca
+  inactiva i cancel·la la feina que tingués en curs.
+- **Accions d'agent.** Es creen amb l'executor `agent` i codi bash amb `# hosts: <rol>`. En
+  llançar-les, la feina queda **pendent** a `execucions_accio` fins que l'agent de la instància la
+  recull (*long polling*, resposta quasi immediata). L'agent l'executa en memòria, com a root, i
+  en retorna el codi de sortida i la sortida (convencions `HEIMDEYE_MSG`/`HEIMDEYE_OMES` de sempre).
+  Si ningú no la recull dins la finestra de caducitat (`caducitat_agent_seg` de l'acció, o
+  `heimdeye.agent.expiry_seconds`, 15 min per defecte), queda **caducada**.
+- **Seguretat.** L'alumne és root a la seva instància (ja ho era). Cap secret de HeimdEye no hi
+  pot arribar en clar: les accions d'agent, com les d'`ssh`, no poden fer servir secrets. L'agent
+  és transparent i no esborra cap rastre; la feina queda registrada a HeimdEye.
+
+### API (`routes/api.php`)
+
+Totes amb el token a `Authorization: Bearer`. A Cloudflare Access cal una regla de **Bypass** per
+a `/api/agent/*`, perquè l'agent no passa pel login de Google.
+
+| Mètode i ruta | Fa |
+| --- | --- |
+| `POST /api/agent/register` | Alta o reactivació de la instància (hostname, IP, sistema, versió). |
+| `GET /api/agent/poll` | *Long poll*: retorna la feina pendent del rol, o `null`. Compta com a batec. |
+| `POST /api/agent/result` | Resultat d'una feina: `exit_code` i `output`. |

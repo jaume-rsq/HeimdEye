@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 class Student extends Model
 {
@@ -18,7 +19,11 @@ class Student extends Model
 
     protected $fillable = [
         'usuari_id', 'curs_id', 'cicle_id', 'grup_id', 'usuari', 'nom_complet',
-        'alies', 'num_taula', 'x', 'variables', 'es_actiu',
+        'alies', 'num_taula', 'x', 'variables', 'es_actiu', 'token_agent',
+    ];
+
+    protected $hidden = [
+        'token_agent',
     ];
 
     protected function casts(): array
@@ -84,6 +89,20 @@ class Student extends Model
     public function runs(): HasMany
     {
         return $this->hasMany(CheckRun::class, 'alumne_id');
+    }
+
+    /** Instàncies efímeres que l'alumne ha registrat amb l'agent. */
+    public function agentInstances(): HasMany
+    {
+        return $this->hasMany(AgentInstance::class, 'alumne_id');
+    }
+
+    /** Genera (o regenera, revocant l'anterior) el token de l'agent i el desa. */
+    public function regenerateAgentToken(): string
+    {
+        $this->forceFill(['token_agent' => Str::random(48)])->save();
+
+        return $this->token_agent;
     }
 
     /** Nom que surt al leaderboard públic: l'àlies, o la taula si no en té. */

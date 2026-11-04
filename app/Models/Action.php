@@ -17,13 +17,19 @@ class Action extends Model
 
     protected $table = 'accions';
 
-    protected $fillable = ['modul_id', 'bloc_id', 'nom', 'descripcio', 'executor', 'posicio'];
+    protected $fillable = ['modul_id', 'bloc_id', 'nom', 'descripcio', 'executor', 'posicio', 'caducitat_agent_seg'];
 
     protected function casts(): array
     {
         return [
             'executor' => Executor::class,
         ];
+    }
+
+    /** Segons que la feina d'agent espera que la reculli abans de caducar (config per defecte si null). */
+    public function agentExpirySeconds(): int
+    {
+        return $this->caducitat_agent_seg ?? (int) config('heimdeye.agent.expiry_seconds', 900);
     }
 
     public function module(): BelongsTo

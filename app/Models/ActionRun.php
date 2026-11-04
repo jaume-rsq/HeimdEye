@@ -13,9 +13,9 @@ class ActionRun extends Model
     public $timestamps = false;
 
     protected $fillable = [
-        'execucio_id', 'accio_id', 'versio_accio_id', 'alumne_id', 'llancat_per',
-        'es_simulacio', 'estat', 'ok', 'changed', 'failed', 'parametres', 'sortida',
-        'data_inici', 'data_fi',
+        'execucio_id', 'accio_id', 'versio_accio_id', 'alumne_id', 'instancia_id', 'rol_agent',
+        'llancat_per', 'es_simulacio', 'estat', 'ok', 'changed', 'failed', 'parametres', 'sortida',
+        'data_inici', 'data_fi', 'caduca_a', 'recollit_a', 'payload_agent', 'mascara_agent',
     ];
 
     protected function casts(): array
@@ -24,8 +24,12 @@ class ActionRun extends Model
             'estat' => ActionStatus::class,
             'es_simulacio' => 'boolean',
             'parametres' => 'array',
+            'payload_agent' => 'array',
+            'mascara_agent' => 'array',
             'data_inici' => 'datetime',
             'data_fi' => 'datetime',
+            'caduca_a' => 'datetime',
+            'recollit_a' => 'datetime',
         ];
     }
 
@@ -47,6 +51,11 @@ class ActionRun extends Model
     public function student(): BelongsTo
     {
         return $this->belongsTo(Student::class, 'alumne_id');
+    }
+
+    public function instance(): BelongsTo
+    {
+        return $this->belongsTo(AgentInstance::class, 'instancia_id');
     }
 
     public function triggeredBy(): BelongsTo

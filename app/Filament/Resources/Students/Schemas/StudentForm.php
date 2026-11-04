@@ -8,6 +8,7 @@ use App\Models\Group;
 use App\Models\Student;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
@@ -54,6 +55,29 @@ class StudentForm
                             // Només id i nom: amb moduls.* el "select distinct" falla a Postgres per la columna json.
                             ->relationship('modules', 'nom', fn (Builder $query) => $query->select('moduls.id', 'moduls.nom'))
                             ->multiple()->preload(),
+                    ]),
+                Section::make('Agent')
+                    ->description('L\'alumne instal·la l\'agent a la seva instància amb aquesta comanda. El token el genera i el revoca el professor amb els botons de dalt; no es mostra sol.')
+                    ->visible(fn (?Student $record) => $record !== null)
+                    ->schema([
+                        Textarea::make('comanda_agent')
+                            ->label('Comanda d\'instal·lació')
+                            ->dehydrated(false)
+                            ->disabled()
+                            ->rows(2)
+                            ->helperText('Canvia "web" pel nom que vulgui donar a cada instància (web, bd, dns...).')
+                            ->formatStateUsing(fn (?Student $record) => $record?->token_agent
+                                ? 'sudo ./heimdeye-agent install --url '.rtrim((string) config('app.url'), '/').' --token '.$record->token_agent.' --hostname web'
+                                : 'Encara no té token. Fes servir el botó «Generar token» de dalt.'),
+                        Textarea::make('instancies_agent')
+                            ->label('Instàncies registrades')
+                            ->dehydrated(false)
+                            ->disabled()
+                            ->rows(2)
+                            ->visible(fn (?Student $record) => $record !== null && $record->agentInstances()->exists())
+                            ->formatStateUsing(fn (?Student $record) => $record === null ? '' : $record->agentInstances()->orderBy('hostname')->get()
+                                ->map(fn ($i) => sprintf('%s · %s · %s · batec %s', $i->hostname, $i->estat, $i->ip_publica ?? '?', $i->darrer_batec?->diffForHumans() ?? 'mai'))
+                                ->implode("\n")),
                     ]),
                 Section::make('Variables pròpies')
                     ->description('Tapen les globals i les derivades del mòdul amb el mateix nom. Serveixen per a les excepcions d\'un alumne. Què rep l\'alumne i d\'on surt es veu al botó Inventari.')
