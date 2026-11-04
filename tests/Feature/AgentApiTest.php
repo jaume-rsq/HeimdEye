@@ -297,6 +297,17 @@ class AgentApiTest extends TestCase
         $this->postJson('/api/agent/register', ['hostname' => 'web'], ['Authorization' => 'Bearer dolent'])->assertUnauthorized();
     }
 
+    public function test_the_agent_api_answers_json_even_without_an_accept_header(): void
+    {
+        $student = $this->student();
+        $token = $student->regenerateAgentToken();
+
+        // Sense ?hostname i sense capçalera Accept: abans Laravel redirigia a HTML; ara, com que
+        // el middleware força JSON, l'error de validació torna en JSON (422).
+        $response = $this->get('/api/agent/poll', ['Authorization' => 'Bearer '.$token]);
+        $response->assertStatus(422)->assertJsonValidationErrors('hostname');
+    }
+
     public function test_the_json_keeps_the_accents_unescaped(): void
     {
         $response = $this->getJson('/api/agent/poll', ['Authorization' => 'Bearer dolent'])->assertUnauthorized();
