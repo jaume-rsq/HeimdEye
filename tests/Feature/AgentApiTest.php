@@ -297,6 +297,14 @@ class AgentApiTest extends TestCase
         $this->postJson('/api/agent/register', ['hostname' => 'web'], ['Authorization' => 'Bearer dolent'])->assertUnauthorized();
     }
 
+    public function test_the_json_keeps_the_accents_unescaped(): void
+    {
+        $response = $this->getJson('/api/agent/poll', ['Authorization' => 'Bearer dolent'])->assertUnauthorized();
+        // L'accent surt tal qual (invàlid), no escapat com a "invàlid".
+        $this->assertStringContainsString('invàlid', $response->getContent());
+        $this->assertStringNotContainsString('\\u00e0', $response->getContent());
+    }
+
     public function test_prune_marks_instances_inactive_and_expires_work(): void
     {
         $action = $this->agentAction();
