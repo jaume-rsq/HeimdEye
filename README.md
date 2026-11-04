@@ -655,9 +655,19 @@ cal obrir cap port ni conèixer la IP. Tot va per HTTPS i l'alumne s'autentica a
   **no assolit**, `HEIMDEYE_OMES:` → **omès**, temps màxim → **temps excedit**, i si ningú no el
   recull a temps → **no disponible**. No es poden provar des de l'editor (cal una instància
   connectada): es llancen i es recull el resultat. Recomanat un sol rol per check.
+- **Consola interactiva.** Des de *Accions → Consola d'instàncies* el professor tria una instància
+  activa i obre una consola. És el mateix model pull: HeimdEye deixa la sessió pendent, l'agent la
+  recull i obre un **bash persistent** a la instància; l'entrada que s'escriu i la sortida que
+  torna viatgen com a missatges pel mateix canal de sortida (`/api/agent/console/*`). El directori i
+  les variables es mantenen entre comandes. És una **consola de comandes** (no un terminal PTY: no
+  admet programes a pantalla completa com vim o top). Tot queda registrat (qui obre, quina
+  instància, quan, i l'entrada i la sortida) a `sessions_consola_agent` i `missatges_consola` — eina
+  docent i auditable. La sessió es tanca des de HeimdEye, per inactivitat
+  (`heimdeye.agent.console_idle_seconds`) o si la instància deixa de respondre.
 - **Seguretat.** L'alumne és root a la seva instància (ja ho era). Cap secret de HeimdEye no hi
   pot arribar en clar: les accions i els checks d'agent, com els d'`ssh`, no poden fer servir
-  secrets. L'agent és transparent i no esborra cap rastre; la feina queda registrada a HeimdEye.
+  secrets. L'agent és transparent i no esborra cap rastre; tant la feina com les sessions de consola
+  queden registrades a HeimdEye, no a la màquina de l'alumne.
 
 ### API (`routes/api.php`)
 
@@ -669,3 +679,5 @@ a `/api/agent/*`, perquè l'agent no passa pel login de Google.
 | `POST /api/agent/register` | Alta o reactivació de la instància (hostname, IP, sistema, versió). |
 | `GET /api/agent/poll` | *Long poll*: retorna la feina pendent del rol (acció o check), o `null`. Compta com a batec. Cada feina porta un `id` opac que l'agent torna tal qual. |
 | `POST /api/agent/result` | Resultat d'una feina: `task_id` (el mateix `id`), `exit_code`, `output` i, opcionalment, `duration_ms` i `timed_out`. Segons la forma del `task_id` (enter o `check:<id>`), el servidor l'encamina a l'acció o al check. |
+| `GET /api/agent/console/{sessió}/pull` | Consola: *long poll* de l'entrada que ha escrit el professor; retorna també `closed` quan la sessió es tanca. Una sessió de consola arriba pel `poll` normal amb `id` `console:<id>` i `console: true`. |
+| `POST /api/agent/console/{sessió}/push` | Consola: la sortida que genera el bash de la instància; retorna `closed`. |

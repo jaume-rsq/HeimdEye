@@ -7,6 +7,7 @@ use App\Enums\CheckStatus;
 use App\Models\ActionRun;
 use App\Models\AgentInstance;
 use App\Models\AgentTask;
+use App\Models\ConsoleSession;
 use App\Models\Student;
 use App\Runner\CheckResult;
 use App\Runner\Masker;
@@ -53,8 +54,10 @@ class AgentController
         $deadline = microtime(true) + $hold;
         do {
             $this->expireOverdue();
-            // Les accions (incidències) tenen prioritat sobre els checks (verificacions).
-            $task = $this->nextAction($student, $instance) ?? $this->nextCheck($student, $instance);
+            // Les accions (incidències) tenen prioritat sobre els checks, i tots dos sobre la consola.
+            $task = $this->nextAction($student, $instance)
+                ?? $this->nextCheck($student, $instance)
+                ?? $this->nextConsole($student, $instance);
             if ($task !== null) {
                 return response()->json(['task' => $task]);
             }
@@ -129,6 +132,30 @@ class AgentController
         $feina->update(['estat' => 'enviada', 'recollit_a' => now(), 'instancia_id' => $instance->id]);
 
         return $this->taskPayload('check:'.$feina->id, $feina->payload_agent ?? []);
+    }
+
+    /** Pròxima sessió de consola pendent d'aquest rol; la marca activa i l'obre. */
+    private function nextConsole(Student $student, AgentInstance $instance): ?array
+    {
+        $session = ConsoleSession::query()
+            ->where('alumne_id', $student->id)
+            ->where('rol_agent', $instance->hostname)
+            ->where('estat', 'pendent')
+            ->where(fn ($q) => $q->whereNull('caduca_a')->orWhere('caduca_a', '>', now()))
+            ->orderBy('created_at')
+            ->first();
+        if ($session === null) {
+            return null;
+        }
+
+        $session->update([
+            'estat' => 'activa',
+            'instancia_id' => $instance->id,
+            'data_inici' => now(),
+            'darrera_activitat' => now(),
+        ]);
+
+        return ['id' => 'console:'.$session->id, 'console' => true];
     }
 
     /** @param  array<string, mixed>  $payload */
@@ -262,6 +289,13 @@ class AgentController
             ->where('caduca_a', '<=', now())
             ->get()
             ->each(fn (AgentTask $feina) => $this->expireCheck($feina));
+
+        // Una consola que ningú no ha recollit a temps es tanca.
+        ConsoleSession::query()
+            ->where('estat', 'pendent')
+            ->whereNotNull('caduca_a')
+            ->where('caduca_a', '<=', now())
+            ->update(['estat' => 'tancada', 'data_fi' => now()]);
     }
 
     /** Un check que ningú no ha recollit a temps es desa com a "no disponible" i es tanca. */

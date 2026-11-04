@@ -101,11 +101,18 @@ return [
     | - inactive_after_seconds: sense batec (long poll), una instància es marca inactiva i se li
     |   cancel·len les feines en curs.
     | - poll_hold_seconds: temps que el servidor manté oberta la petició de long poll esperant feina.
+    | Consola interactiva (App\Http\Controllers\Api\AgentConsoleController):
+    | - console_pickup_seconds: segons que una sessió espera que l'agent la reculli abans de caducar.
+    | - console_idle_seconds: sense activitat (entrada ni sortida), la sessió es tanca sola.
+    | - console_hold_seconds: temps que el servidor manté oberta la petició d'entrada (long poll).
     */
     'agent' => [
         'expiry_seconds' => (int) env('HEIMDEYE_AGENT_EXPIRY', 900),
         'inactive_after_seconds' => (int) env('HEIMDEYE_AGENT_INACTIVE_AFTER', 300),
         'poll_hold_seconds' => (int) env('HEIMDEYE_AGENT_POLL_HOLD', 25),
+        'console_pickup_seconds' => (int) env('HEIMDEYE_AGENT_CONSOLE_PICKUP', 120),
+        'console_idle_seconds' => (int) env('HEIMDEYE_AGENT_CONSOLE_IDLE', 600),
+        'console_hold_seconds' => (int) env('HEIMDEYE_AGENT_CONSOLE_HOLD', 20),
     ],
 
     /*

@@ -13,6 +13,8 @@ use App\Models\AgentTask;
 use App\Models\Check;
 use App\Models\CheckRun;
 use App\Models\CheckStudent;
+use App\Models\ConsoleMessage;
+use App\Models\ConsoleSession;
 use App\Models\Module;
 use App\Models\Student;
 use App\Runner\ActionRunner;
@@ -30,8 +32,8 @@ class AgentApiTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
-        // Que el long poll no bloquegi els tests quan no hi ha feina.
-        config(['heimdeye.agent.poll_hold_seconds' => 0]);
+        // Que els long poll no bloquegin els tests quan no hi ha feina ni entrada.
+        config(['heimdeye.agent.poll_hold_seconds' => 0, 'heimdeye.agent.console_hold_seconds' => 0]);
     }
 
     private function agentAction(string $code = "# hosts: web\necho \"pve=\$HE_IP_PVE\"\n"): Action
@@ -212,6 +214,81 @@ class AgentApiTest extends TestCase
 
         $this->assertSame('caducada', AgentTask::where('check_id', $check->id)->sole()->estat);
         $this->assertSame(CheckStatus::Unavailable, CheckRun::where('check_id', $check->id)->sole()->estat);
+    }
+
+    public function test_a_console_session_is_handed_to_the_agent_and_cycles_input_and_output(): void
+    {
+        $student = $this->student();
+        $token = $student->regenerateAgentToken();
+        $headers = ['Authorization' => 'Bearer '.$token];
+        $this->postJson('/api/agent/register', ['hostname' => 'web'], $headers)->assertOk();
+
+        $instance = AgentInstance::where('alumne_id', $student->id)->where('hostname', 'web')->sole();
+        $session = ConsoleSession::create([
+            'alumne_id' => $student->id, 'instancia_id' => $instance->id, 'rol_agent' => 'web',
+            'estat' => 'pendent', 'caduca_a' => now()->addMinutes(2),
+        ]);
+
+        // El poll normal lliura la consola i la marca activa.
+        $poll = $this->getJson('/api/agent/poll?hostname=web', $headers)->assertOk();
+        $this->assertSame('console:'.$session->id, $poll->json('task.id'));
+        $this->assertTrue($poll->json('task.console'));
+        $this->assertSame('activa', $session->fresh()->estat);
+
+        // Sense entrada pendent: ni tancada ni res a escriure.
+        $this->getJson("/api/agent/console/{$session->id}/pull", $headers)
+            ->assertOk()->assertJson(['closed' => false, 'input' => '']);
+
+        // El professor escriu una comanda; l'agent la recull i queda consumida.
+        ConsoleMessage::create(['sessio_id' => $session->id, 'direccio' => 'entrada', 'contingut' => "ls -la\n"]);
+        $this->getJson("/api/agent/console/{$session->id}/pull", $headers)
+            ->assertOk()->assertJson(['closed' => false, 'input' => "ls -la\n"]);
+        $this->assertTrue(ConsoleMessage::where('sessio_id', $session->id)->where('direccio', 'entrada')->sole()->consumit);
+
+        // L'agent torna sortida: queda registrada.
+        $this->postJson("/api/agent/console/{$session->id}/push", ['output' => "total 0\n"], $headers)
+            ->assertOk()->assertJson(['closed' => false]);
+        $this->assertSame("total 0\n", ConsoleMessage::where('sessio_id', $session->id)->where('direccio', 'sortida')->sole()->contingut);
+
+        // En tancar-se la sessió, pull i push ho indiquen perquè l'agent plegui.
+        $session->update(['estat' => 'tancada', 'data_fi' => now()]);
+        $this->getJson("/api/agent/console/{$session->id}/pull", $headers)->assertOk()->assertJson(['closed' => true]);
+        $this->postJson("/api/agent/console/{$session->id}/push", ['output' => 'x'], $headers)->assertOk()->assertJson(['closed' => true]);
+    }
+
+    public function test_a_console_of_another_student_is_rejected(): void
+    {
+        $owner = $this->student('alumne01');
+        $other = $this->student('alumne02');
+        $token = $other->regenerateAgentToken();
+        $session = ConsoleSession::create(['alumne_id' => $owner->id, 'rol_agent' => 'web', 'estat' => 'activa']);
+
+        $this->getJson("/api/agent/console/{$session->id}/pull", ['Authorization' => 'Bearer '.$token])->assertForbidden();
+    }
+
+    public function test_an_unclaimed_console_expires_on_poll(): void
+    {
+        $student = $this->student();
+        $token = $student->regenerateAgentToken();
+        $session = ConsoleSession::create([
+            'alumne_id' => $student->id, 'rol_agent' => 'web', 'estat' => 'pendent', 'caduca_a' => now()->subMinute(),
+        ]);
+
+        $this->getJson('/api/agent/poll?hostname=web', ['Authorization' => 'Bearer '.$token])->assertOk();
+
+        $this->assertSame('tancada', $session->fresh()->estat);
+    }
+
+    public function test_prune_closes_consoles_of_inactive_instances(): void
+    {
+        $student = $this->student();
+        $instance = AgentInstance::create(['alumne_id' => $student->id, 'hostname' => 'web', 'estat' => 'activa', 'darrer_batec' => now()->subHour()]);
+        $session = ConsoleSession::create(['alumne_id' => $student->id, 'instancia_id' => $instance->id, 'rol_agent' => 'web', 'estat' => 'activa', 'darrera_activitat' => now()]);
+
+        Artisan::call('heimdeye:agent-prune');
+
+        $this->assertSame('inactiva', $instance->fresh()->estat);
+        $this->assertSame('tancada', $session->fresh()->estat);
     }
 
     public function test_requests_without_a_valid_token_are_rejected(): void
