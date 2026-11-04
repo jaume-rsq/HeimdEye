@@ -7,6 +7,7 @@ use App\Enums\CheckStatus;
 use App\Models\ActionRun;
 use App\Models\AgentInstance;
 use App\Models\AgentTask;
+use App\Models\ConsoleSession;
 use App\Runner\CheckResult;
 use App\Runner\ResultRecorder;
 use Illuminate\Console\Command;
@@ -46,8 +47,20 @@ class PruneAgents extends Command
                 ->where('estat', 'enviada')
                 ->get()
                 ->each(fn (AgentTask $feina) => $this->closeCheck($recorder, $feina, 'La instància ha deixat de respondre abans de tornar el resultat'));
+            // Les consoles obertes d'una instància que ja no respon es tanquen.
+            ConsoleSession::query()
+                ->where('instancia_id', $instance->id)
+                ->where('estat', '!=', 'tancada')
+                ->update(['estat' => 'tancada', 'data_fi' => now()]);
             $instance->update(['estat' => 'inactiva']);
         }
+
+        // Consoles actives sense activitat des de fa massa estona: es tanquen.
+        $idleLimit = now()->subSeconds((int) config('heimdeye.agent.console_idle_seconds', 600));
+        $idleConsoles = ConsoleSession::query()
+            ->where('estat', 'activa')
+            ->where(fn ($q) => $q->whereNull('darrera_activitat')->orWhere('darrera_activitat', '<', $idleLimit))
+            ->update(['estat' => 'tancada', 'data_fi' => now()]);
 
         $expired = ActionRun::query()
             ->where('estat', ActionStatus::Pendent)
@@ -66,7 +79,7 @@ class PruneAgents extends Command
             $this->closeCheck($recorder, $feina, 'Cap instància no ha recollit el check a temps');
         }
 
-        $this->line("Instàncies inactives: {$stale->count()}. Accions caducades: {$expired}. Checks caducats: {$expiredChecks->count()}.");
+        $this->line("Instàncies inactives: {$stale->count()}. Accions caducades: {$expired}. Checks caducats: {$expiredChecks->count()}. Consoles inactives: {$idleConsoles}.");
 
         return self::SUCCESS;
     }

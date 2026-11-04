@@ -16,6 +16,11 @@ inicia mai cap connexió cap a la instància, de manera que no cal obrir cap por
    sortida i la durada. El resultat queda a HeimdEye. L'agent no distingeix accions de checks: cada
    feina porta un identificador opac que torna tal qual, i és HeimdEye qui l'encamina.
 
+També pot obrir una **consola interactiva**: quan el `poll` retorna una sessió de consola, l'agent
+obre un bash persistent i el connecta amb HeimdEye pel mateix canal de sortida (rep l'entrada que
+escriu el professor i hi envia la sortida). Cap port a la instància; tot surt cap a HeimdEye i queda
+registrat.
+
 Tota la comunicació va per HTTPS. El token autentica l'alumne (capçalera `Authorization: Bearer`).
 
 ## Compilar

@@ -28,7 +28,7 @@ import (
 	"time"
 )
 
-const version = "1.1.0"
+const version = "1.2.0"
 
 type config struct {
 	url      string
@@ -110,6 +110,12 @@ func run(cfg config) error {
 		if task == nil {
 			continue // long poll buit: es torna a preguntar
 		}
+		if task.Console {
+			fmt.Printf("consola %s oberta\n", string(task.ID))
+			runConsole(ctx, client, cfg, task.ID)
+			fmt.Printf("consola %s tancada\n", string(task.ID))
+			continue
+		}
 		exit, output, durationMs, timedOut := execute(ctx, task)
 		if err := postResult(ctx, client, cfg, task.ID, exit, output, durationMs, timedOut); err != nil {
 			fmt.Fprintln(os.Stderr, "result:", err)
@@ -121,12 +127,14 @@ func run(cfg config) error {
 }
 
 // L'identificador el tracta HeimdEye: pot ser un enter (acció) o una cadena "check:<id>" (check).
-// L'agent no l'interpreta; el torna tal qual al resultat (json.RawMessage).
+// L'agent no l'interpreta; el torna tal qual al resultat (json.RawMessage). Si Console és cert, la
+// feina és una sessió de consola interactiva i s'obre un bash persistent (veg. runConsole).
 type task struct {
 	ID      json.RawMessage   `json:"id"`
 	Code    string            `json:"code"`
 	Env     map[string]string `json:"env"`
 	Timeout int               `json:"timeout"`
+	Console bool              `json:"console"`
 }
 
 func register(ctx context.Context, client *http.Client, cfg config) error {
@@ -225,6 +233,121 @@ func postResult(ctx context.Context, client *http.Client, cfg config, id json.Ra
 		return fmt.Errorf("estat %d", resp.StatusCode)
 	}
 	return nil
+}
+
+// runConsole obre un bash persistent per a una sessió de consola i el connecta amb HeimdEye: la
+// sortida del bash es va enviant (push) i l'entrada que escriu el professor es va recollint (pull,
+// long poll). El directori i les variables es mantenen entre comandes. Es tanca quan la sessió es
+// tanca des de HeimdEye o quan el bash acaba. Cap port: tot surt de l'agent cap a HeimdEye.
+func runConsole(parent context.Context, client *http.Client, cfg config, rawID json.RawMessage) {
+	var token string
+	if err := json.Unmarshal(rawID, &token); err != nil {
+		return
+	}
+	id := strings.TrimPrefix(token, "console:")
+
+	ctx, cancel := context.WithCancel(parent)
+	defer cancel()
+
+	cmd := exec.Command("bash")
+	cmd.Env = baseEnv()
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return
+	}
+	pr, pw := io.Pipe()
+	cmd.Stdout, cmd.Stderr = pw, pw
+	if err := cmd.Start(); err != nil {
+		pushConsole(ctx, client, cfg, id, "no s'ha pogut obrir bash: "+err.Error()+"\n")
+		return
+	}
+
+	// Quan el bash acaba, tanquem el pipe (EOF per al lector) i avortem la sessió.
+	go func() {
+		_ = cmd.Wait()
+		_ = pw.Close()
+		cancel()
+	}()
+
+	// Sortida del bash -> HeimdEye.
+	go func() {
+		buf := make([]byte, 4096)
+		for {
+			n, rerr := pr.Read(buf)
+			if n > 0 {
+				if closed := pushConsole(ctx, client, cfg, id, string(buf[:n])); closed {
+					cancel()
+					return
+				}
+			}
+			if rerr != nil {
+				return
+			}
+		}
+	}()
+
+	// Entrada del professor -> bash.
+	for ctx.Err() == nil {
+		closed, input, perr := pullConsole(ctx, client, cfg, id)
+		if perr != nil {
+			if ctx.Err() != nil {
+				break
+			}
+			sleep(ctx, 2*time.Second)
+			continue
+		}
+		if closed {
+			break
+		}
+		if input != "" {
+			if _, werr := io.WriteString(stdin, input); werr != nil {
+				break
+			}
+		}
+	}
+	_ = stdin.Close()
+	cancel()
+}
+
+// pullConsole fa long poll de l'entrada pendent de la sessió; retorna també si s'ha tancat.
+func pullConsole(ctx context.Context, client *http.Client, cfg config, id string) (closed bool, input string, err error) {
+	u := strings.TrimRight(cfg.url, "/") + "/api/agent/console/" + id + "/pull"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return false, "", err
+	}
+	req.Header.Set("Authorization", "Bearer "+cfg.token)
+	req.Header.Set("Accept", "application/json")
+	resp, err := client.Do(req)
+	if err != nil {
+		return false, "", err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false, "", fmt.Errorf("estat %d", resp.StatusCode)
+	}
+	var out struct {
+		Closed bool   `json:"closed"`
+		Input  string `json:"input"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		return false, "", err
+	}
+	return out.Closed, out.Input, nil
+}
+
+// pushConsole envia una part de la sortida del bash; retorna si la sessió ja s'ha tancat.
+func pushConsole(ctx context.Context, client *http.Client, cfg config, id, output string) bool {
+	resp, err := postJSON(ctx, client, cfg, "/api/agent/console/"+id+"/push", map[string]any{"output": output})
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var out struct {
+		Closed bool `json:"closed"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&out)
+	return out.Closed
 }
 
 func postJSON(ctx context.Context, client *http.Client, cfg config, path string, body any) (*http.Response, error) {
