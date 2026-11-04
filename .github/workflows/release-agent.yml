@@ -1,5 +1,10 @@
 name: Release Agent
 
+# Compila l'agent i en publica els binaris a la release "latest" (etiqueta mòbil),
+# perquè l'alumne se'l pugui baixar sense Go. Es dispara en canviar agent/** a main,
+# o a mà (Run workflow). L'agent només fa servir la biblioteca estàndard: no hi ha
+# dependències a cachejar (no hi ha go.sum), per això cache: false.
+
 on:
   push:
     branches:
@@ -24,18 +29,22 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: agent/go.mod
-          cache-dependency-path: agent/go.sum
+          cache: false
 
       - name: Build
         working-directory: agent
         run: |
-          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-          go build -ldflags="-s -w" \
-          -o ../heimdeye-agent-linux-amd64 .
+          for arch in amd64 arm64; do
+            CGO_ENABLED=0 GOOS=linux GOARCH=$arch \
+              go build -ldflags="-s -w" \
+              -o "../heimdeye-agent-linux-$arch" .
+          done
 
       - name: Create or update release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
           name: Latest Build
-          files: heimdeye-agent-linux-amd64
+          files: |
+            heimdeye-agent-linux-amd64
+            heimdeye-agent-linux-arm64
