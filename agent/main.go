@@ -28,7 +28,7 @@ import (
 	"time"
 )
 
-const version = "1.0.0"
+const version = "1.1.0"
 
 type config struct {
 	url      string
@@ -110,18 +110,20 @@ func run(cfg config) error {
 		if task == nil {
 			continue // long poll buit: es torna a preguntar
 		}
-		exit, output := execute(ctx, task)
-		if err := postResult(ctx, client, cfg, task.ID, exit, output); err != nil {
+		exit, output, durationMs, timedOut := execute(ctx, task)
+		if err := postResult(ctx, client, cfg, task.ID, exit, output, durationMs, timedOut); err != nil {
 			fmt.Fprintln(os.Stderr, "result:", err)
 		} else {
-			fmt.Printf("feina %d executada (exit %d)\n", task.ID, exit)
+			fmt.Printf("feina %s executada (exit %d)\n", string(task.ID), exit)
 		}
 	}
 	return nil
 }
 
+// L'identificador el tracta HeimdEye: pot ser un enter (acció) o una cadena "check:<id>" (check).
+// L'agent no l'interpreta; el torna tal qual al resultat (json.RawMessage).
 type task struct {
-	ID      int               `json:"id"`
+	ID      json.RawMessage   `json:"id"`
 	Code    string            `json:"code"`
 	Env     map[string]string `json:"env"`
 	Timeout int               `json:"timeout"`
@@ -174,7 +176,7 @@ func poll(ctx context.Context, client *http.Client, cfg config) (*task, error) {
 
 // execute corre el codi amb bash a la instància, en memòria (per stdin, sense desar-lo al disc),
 // amb les variables d'entorn que envia HeimdEye, i en retorna el codi de sortida i la sortida.
-func execute(parent context.Context, t *task) (int, string) {
+func execute(parent context.Context, t *task) (exit int, output string, durationMs int, timedOut bool) {
 	timeout := t.Timeout
 	if timeout <= 0 {
 		timeout = 60
@@ -190,11 +192,12 @@ func execute(parent context.Context, t *task) (int, string) {
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
 
+	start := time.Now()
 	err := cmd.Run()
+	durationMs = int(time.Since(start).Milliseconds())
 	if ctx.Err() == context.DeadlineExceeded {
-		return 124, buf.String() + "\n(temps màxim superat)"
+		return 124, buf.String() + "\n(temps màxim superat)", durationMs, true
 	}
-	exit := 0
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			exit = ee.ExitCode()
@@ -203,14 +206,16 @@ func execute(parent context.Context, t *task) (int, string) {
 			buf.WriteString("\n" + err.Error())
 		}
 	}
-	return exit, buf.String()
+	return exit, buf.String(), durationMs, false
 }
 
-func postResult(ctx context.Context, client *http.Client, cfg config, id, exit int, output string) error {
+func postResult(ctx context.Context, client *http.Client, cfg config, id json.RawMessage, exit int, output string, durationMs int, timedOut bool) error {
 	resp, err := postJSON(ctx, client, cfg, "/api/agent/result", map[string]any{
-		"task_id":   id,
-		"exit_code": exit,
-		"output":    output,
+		"task_id":     id,
+		"exit_code":   exit,
+		"output":      output,
+		"duration_ms": durationMs,
+		"timed_out":   timedOut,
 	})
 	if err != nil {
 		return err

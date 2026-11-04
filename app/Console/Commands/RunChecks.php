@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\Executor;
 use App\Enums\RunOrigin;
 use App\Jobs\RunCheck;
 use App\Models\AcademicYear;
@@ -111,9 +112,11 @@ class RunChecks extends Command
                 ->where('modul_id', $module->id)
                 ->when($this->option('block'), fn (Builder $q, $number) => $q->where('numero', $number)));
 
+        // Els checks d'agent no entren al escombrat automàtic (ni nocturn): necessiten una
+        // instància efímera connectada i es llancen a mà des de HeimdEye. Amb --check es respecten.
         return $this->option('check')
             ? $query->whereIn('id', $this->option('check'))->get()
-            : $query->activeOn()->get();
+            : $query->where('executor', '!=', Executor::Agent)->activeOn()->get();
     }
 
     /** @return Collection<int, Student> */

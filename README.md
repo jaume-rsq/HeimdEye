@@ -646,9 +646,18 @@ cal obrir cap port ni conèixer la IP. Tot va per HTTPS i l'alumne s'autentica a
   en retorna el codi de sortida i la sortida (convencions `HEIMDEYE_MSG`/`HEIMDEYE_OMES` de sempre).
   Si ningú no la recull dins la finestra de caducitat (`caducitat_agent_seg` de l'acció, o
   `heimdeye.agent.expiry_seconds`, 15 min per defecte), queda **caducada**.
+- **Checks d'agent.** Es creen igual (executor `agent`, `# hosts: <rol>`) i verifiquen la
+  configuració de la instància. Es **llancen des de HeimdEye** (com qualsevol check: des de la
+  tasca o la graella), no amb cap comanda de l'alumne. La feina pendent va a part, a la taula
+  `feines_agent`, perquè l'estat pendent no afecti els càlculs de nota ni el leaderboard; quan
+  arriba el resultat es desa una execució normal a `execucions_check` i s'actualitza l'estat de
+  l'alumne. El resultat segueix les convencions de sempre: `exit 0` → **assolit**, exit ≠ 0 →
+  **no assolit**, `HEIMDEYE_OMES:` → **omès**, temps màxim → **temps excedit**, i si ningú no el
+  recull a temps → **no disponible**. No es poden provar des de l'editor (cal una instància
+  connectada): es llancen i es recull el resultat. Recomanat un sol rol per check.
 - **Seguretat.** L'alumne és root a la seva instància (ja ho era). Cap secret de HeimdEye no hi
-  pot arribar en clar: les accions d'agent, com les d'`ssh`, no poden fer servir secrets. L'agent
-  és transparent i no esborra cap rastre; la feina queda registrada a HeimdEye.
+  pot arribar en clar: les accions i els checks d'agent, com els d'`ssh`, no poden fer servir
+  secrets. L'agent és transparent i no esborra cap rastre; la feina queda registrada a HeimdEye.
 
 ### API (`routes/api.php`)
 
@@ -658,5 +667,5 @@ a `/api/agent/*`, perquè l'agent no passa pel login de Google.
 | Mètode i ruta | Fa |
 | --- | --- |
 | `POST /api/agent/register` | Alta o reactivació de la instància (hostname, IP, sistema, versió). |
-| `GET /api/agent/poll` | *Long poll*: retorna la feina pendent del rol, o `null`. Compta com a batec. |
-| `POST /api/agent/result` | Resultat d'una feina: `exit_code` i `output`. |
+| `GET /api/agent/poll` | *Long poll*: retorna la feina pendent del rol (acció o check), o `null`. Compta com a batec. Cada feina porta un `id` opac que l'agent torna tal qual. |
+| `POST /api/agent/result` | Resultat d'una feina: `task_id` (el mateix `id`), `exit_code`, `output` i, opcionalment, `duration_ms` i `timed_out`. Segons la forma del `task_id` (enter o `check:<id>`), el servidor l'encamina a l'acció o al check. |
