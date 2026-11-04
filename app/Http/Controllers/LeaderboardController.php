@@ -19,7 +19,7 @@ class LeaderboardController
     public function __invoke(Request $request, Leaderboard $leaderboard): View
     {
         $groups = self::groups();
-        $group = $groups->firstWhere('id', (int) $request->query('grup'));
+        $group = $groups->firstWhere('id', (int) $request->query('grup')) ?? $groups->first();
         $modules = self::modules($group?->id);
         $module = $modules->firstWhere('id', (int) $request->query('modul')) ?? $modules->first();
 

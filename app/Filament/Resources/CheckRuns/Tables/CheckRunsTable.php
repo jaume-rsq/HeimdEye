@@ -45,6 +45,16 @@ class CheckRunsTable
                     ->label('Alumne')
                     ->formatStateUsing(fn (CheckRun $record) => sprintf('%02d · %s', $record->student->num_taula, $record->student->nom_complet))
                     ->searchable(['nom_complet', 'usuari']),
+                TextColumn::make('data_execucio')
+                    ->label('Data')
+                    ->dateTime('d/m/y H:i:s')
+                    ->sortable(),
+                TextColumn::make('estat')
+                    ->badge(),
+                TextColumn::make('missatge')
+                    ->label('Missatge')
+                    ->limit(60)
+                    ->placeholder('—'),
                 TextColumn::make('batch.origen')
                     ->label('Origen')
                     ->formatStateUsing(fn (RunOrigin $state) => $state->value)
@@ -53,20 +63,10 @@ class CheckRunsTable
                 TextColumn::make('batch.triggeredBy.nom')
                     ->label('Llançat per')
                     ->placeholder('—'),
-                TextColumn::make('estat')
-                    ->badge(),
-                TextColumn::make('missatge')
-                    ->label('Missatge')
-                    ->limit(60)
-                    ->placeholder('—'),
                 TextColumn::make('durada_ms')
                     ->label('Durada')
                     ->formatStateUsing(fn (?int $state) => $state === null ? null : round($state / 1000, 1).' s')
                     ->placeholder('—'),
-                TextColumn::make('data_execucio')
-                    ->label('Data')
-                    ->dateTime('d/m/y H:i:s')
-                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('check_id')

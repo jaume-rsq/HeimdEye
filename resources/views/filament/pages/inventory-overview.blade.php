@@ -16,20 +16,6 @@
 
     <div class="he-inv" x-data="{ search: '' }" @if ($provesPendents) wire:poll.2s="refreshConnection" @endif>
         <div class="he-inv-bar">
-            <select wire:model.live="modul" aria-label="Mòdul">
-                @foreach ($this->modules as $id => $name)
-                    <option value="{{ $id }}">{{ $name }}</option>
-                @endforeach
-                <option value="0">Només comuns (global i curs)</option>
-            </select>
-            <div class="he-inv-tabs">
-                <button type="button" wire:click="$set('pestanya', 'alumnes')" @class(['on' => $pestanya === 'alumnes'])>Alumnes</button>
-                <button type="button" wire:click="$set('pestanya', 'equips')" @class(['on' => $pestanya === 'equips'])>Equips</button>
-                <button type="button" wire:click="$set('pestanya', 'variables')" @class(['on' => $pestanya === 'variables'])>Variables</button>
-                @if ($this->canSeeSecrets())
-                    <button type="button" wire:click="$set('pestanya', 'secrets')" @class(['on' => $pestanya === 'secrets'])>Secrets</button>
-                @endif
-            </div>
             @if ($pestanya === 'alumnes')
                 <div class="he-inv-tabs">
                     <button type="button" wire:click="$set('vista', 'equips')" @class(['on' => $vista === 'equips'])>Equips</button>

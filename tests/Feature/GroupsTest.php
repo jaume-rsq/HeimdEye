@@ -107,7 +107,33 @@ class GroupsTest extends TestCase
             ->assertSee($this->module->label())
             ->assertDontSee('Sense alumnes del grup');
 
-        $this->get('/leaderboard')->assertOk()->assertSee('Sense alumnes del grup');
+        $this->get('/leaderboard?grup='.$this->smix2->id)->assertOk()->assertSee('Sense alumnes del grup');
+
+        // Sense «Tots els grups»: sense grup a l'enllaç, el primer (SMIX1).
+        $this->get('/leaderboard')->assertOk()
+            ->assertDontSee('Tots els grups')
+            ->assertDontSee('Sense alumnes del grup');
+    }
+
+    public function test_there_is_always_a_group_picked(): void
+    {
+        Livewire::test(LeaderboardPage::class)
+            ->assertSet('grup', $this->other->id)
+            ->assertDontSee('Tots els grups')
+            ->set('grup', null)
+            ->assertSet('grup', $this->other->id);
+
+        Livewire::test(StudentTracking::class)
+            ->assertSet('grup', $this->other->id)
+            ->assertSet('alumne', $this->moved->id)
+            ->assertDontSee('Tots els grups');
+    }
+
+    public function test_the_tracking_position_is_within_the_group(): void
+    {
+        // L'alumne és l'únic del grup SMIX1: és el 1r d'1, no d'entre tota la classe.
+        $html = Livewire::test(StudentTracking::class, ['grup' => $this->other->id])->html();
+        $this->assertMatchesRegularExpression('/<strong>1a<\/strong>\s+de 1\b/', $html);
     }
 
     public function test_tracking_picks_group_then_module_then_student(): void
@@ -120,11 +146,13 @@ class GroupsTest extends TestCase
         $first = $this->smix2->students()->orderBy('num_taula')->firstOrFail();
         Livewire::test(StudentTracking::class, ['grup' => $this->other->id])
             ->set('grup', $this->smix2->id)
-            ->assertSet('alumne', $first->id);
+            ->assertSet('alumne', $first->id)
+            // El desplegable d'alumne marca el mateix que es mostra (no la posició de l'opció d'abans).
+            ->assertSeeHtml('<option value="'.$first->id.'" selected');
 
-        // Un alumne a l'enllaç mana sobre un grup que no és el seu.
+        // Un alumne a l'enllaç mana sobre un grup que no és el seu: es tria el seu.
         Livewire::test(StudentTracking::class, ['grup' => $this->smix2->id, 'alumne' => $this->moved->id])
-            ->assertSet('grup', null)
+            ->assertSet('grup', $this->other->id)
             ->assertSet('alumne', $this->moved->id);
     }
 

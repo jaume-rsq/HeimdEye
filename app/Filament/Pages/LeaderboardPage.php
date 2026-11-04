@@ -41,16 +41,23 @@ class LeaderboardPage extends Page
 
     public function mount(): void
     {
-        if ($this->grup !== null && ! $this->groups()->contains('id', $this->grup)) {
-            $this->grup = null;
-        }
+        $this->ensureGroup();
         $this->ensureModule();
     }
 
     public function updatedGrup(): void
     {
+        $this->ensureGroup();
         unset($this->modules);
         $this->ensureModule();
+    }
+
+    /** Sempre hi ha un grup triat (no hi ha «Tots els grups»): si no és vàlid, el primer. */
+    private function ensureGroup(): void
+    {
+        if ($this->grup === null || ! $this->groups()->contains('id', $this->grup)) {
+            $this->grup = $this->groups()->first()?->id;
+        }
     }
 
     /** El mòdul ha de ser un dels del grup; si no, el primer. */

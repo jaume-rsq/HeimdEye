@@ -83,14 +83,12 @@ class StudentTracking extends Page
 
     public function mount(): void
     {
-        if ($this->grup !== null && ! $this->groups()->contains('id', $this->grup)) {
-            $this->grup = null;
-        }
         // Un alumne a la URL (des del leaderboard, la fitxa...) porta el seu grup i un dels seus mòduls.
         $linked = $this->alumne ? Student::find($this->alumne) : null;
-        if ($linked && $this->grup !== null && $linked->grup_id !== $this->grup) {
-            $this->grup = null;
+        if ($linked && $linked->grup_id !== null && $this->groups()->contains('id', $linked->grup_id)) {
+            $this->grup = $linked->grup_id;
         }
+        $this->ensureGroup();
         $modules = $this->modules();
         if ($this->modul !== null && ! $modules->contains('id', $this->modul)) {
             $this->modul = null;
@@ -108,6 +106,7 @@ class StudentTracking extends Page
 
     public function updatedGrup(): void
     {
+        $this->ensureGroup();
         unset($this->modules);
         $this->ensureModule();
     }
@@ -127,6 +126,18 @@ class StudentTracking extends Page
     public function updatedBloc(): void
     {
         $this->tasca = null;
+    }
+
+    /**
+     * Sempre hi ha un grup triat (no hi ha «Tots els grups»): el de la URL si és vàlid; si no, el
+     * primer. Només sense cap grup (o a la vista de l'alumne) es queda buit i es veuen tots.
+     */
+    private function ensureGroup(): void
+    {
+        $groups = $this->readonly() ? collect() : $this->groups();
+        if ($this->grup === null || ! $groups->contains('id', $this->grup)) {
+            $this->grup = $groups->first()?->id;
+        }
     }
 
     /**
@@ -242,7 +253,9 @@ class StudentTracking extends Page
     public function cards(): array
     {
         return $this->studentModules()->where('id', $this->modul)->map(function (Module $module) {
-            $board = app(Leaderboard::class)->build($module);
+            // La posició, respecte al grup-classe triat (a la vista de l'alumne, el seu).
+            $group = $this->readonly() ? $this->student()?->grup_id : $this->grup;
+            $board = app(Leaderboard::class)->build($module, groupId: $group);
             $row = collect($board['rows'])->firstWhere('student.id', $this->alumne);
             $last = $this->student()->runs()
                 ->whereIn('check_id', Check::whereIn('tasca_id', $module->tasks()->select('tasques.id'))->select('id'))

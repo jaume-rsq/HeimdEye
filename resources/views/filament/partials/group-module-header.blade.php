@@ -12,7 +12,6 @@
         @if ($groups->isNotEmpty())
             <label style="{{ $label }}">Grup
             <select wire:model.live="grup" style="{{ $style }}; min-width: 10rem">
-                <option value="">Tots els grups</option>
                 @foreach ($groups as $g)
                     <option value="{{ $g->id }}">{{ $g->label() }}</option>
                 @endforeach

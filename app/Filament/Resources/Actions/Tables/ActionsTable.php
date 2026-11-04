@@ -48,6 +48,9 @@ class ActionsTable
                     ->collapsible(),
             ])
             ->defaultGroup('bloc_id')
+            // En lloc del desplegable d'agrupar: una casella i el botó d'ordre a la capçalera de les accions.
+            ->groupingSettingsHidden()
+            ->recordActionsColumnLabel(fn () => view('filament.partials.group-toggle', ['group' => 'bloc_id']))
             ->columns([
                 TextColumn::make('posicio')
                     ->label('Posició')

@@ -18,6 +18,7 @@ use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
+use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -57,6 +58,9 @@ class InventoryOverview extends Page
     protected Width|string|null $maxContentWidth = Width::Full;
 
     #[Url]
+    public ?int $curs = null;
+
+    #[Url]
     public ?int $modul = null;
 
     /** alumnes, equips, variables o secrets */
@@ -81,7 +85,17 @@ class InventoryOverview extends Page
 
     public function mount(): void
     {
-        $this->modul ??= $this->modules()->keys()->first();
+        // Un mòdul a la URL porta el seu curs; si no, el curs actual (o el més recent).
+        $linked = $this->modul ? Module::find($this->modul) : null;
+        if ($linked) {
+            $this->curs = $linked->curs_id;
+        }
+        if ($this->curs === null || ! $this->courses()->has($this->curs)) {
+            $this->curs = AcademicYear::where('es_actual', true)->value('id') ?? $this->courses()->keys()->first();
+        }
+        if ($this->modul !== 0 && ($this->modul === null || ! $this->modules()->has($this->modul))) {
+            $this->modul = $this->modules()->keys()->first();
+        }
         if ($this->pestanya === 'secrets' && ! $this->canSeeSecrets()) {
             $this->pestanya = 'variables';
         }
@@ -99,14 +113,32 @@ class InventoryOverview extends Page
         unset($this->module, $this->course, $this->grid);
     }
 
-    /** Mòduls del curs actual (o de tots, si no n'hi ha cap marcat com a actual). */
+    /** Capçalera: el títol amb les pestanyes al costat i, a la dreta, el curs i el mòdul. */
+    public function getHeader(): ?View
+    {
+        return view('filament.partials.inventory-header', ['title' => static::$title]);
+    }
+
+    public function updatedCurs(): void
+    {
+        unset($this->modules);
+        $this->modul = $this->modules()->keys()->first() ?? 0;
+        $this->updatedModul();
+    }
+
+    /** @return Collection<int, string> cursos, el més recent primer */
+    #[Computed]
+    public function courses(): Collection
+    {
+        return AcademicYear::orderByDesc('data_inici')->pluck('nom', 'id');
+    }
+
+    /** Mòduls del curs triat. */
     #[Computed]
     public function modules(): Collection
     {
-        $year = AcademicYear::where('es_actual', true)->first();
-
         return Module::query()
-            ->when($year, fn ($q) => $q->where('curs_id', $year->id))
+            ->when($this->curs, fn ($q) => $q->where('curs_id', $this->curs))
             ->orderBy('codi')
             ->get()
             ->mapWithKeys(fn (Module $m) => [$m->id => trim("{$m->codi} {$m->nom}")]);

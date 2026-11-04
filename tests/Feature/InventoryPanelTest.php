@@ -8,6 +8,7 @@ use App\Filament\Pages\InventoryOverview;
 use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
+use App\Models\AcademicYear;
 use App\Models\Module;
 use App\Models\Student;
 use App\Models\User;
@@ -138,5 +139,24 @@ class InventoryPanelTest extends TestCase
             ->fillForm(['usuari' => 'altra', 'nom_complet' => 'Altra', 'usuari_id' => $user->id, 'curs_id' => $this->student->curs_id, 'cicle_id' => $this->student->cicle_id])
             ->call('create')
             ->assertHasFormErrors(['usuari_id' => 'unique']);
+    }
+
+    public function test_the_course_picks_its_modules_and_the_tabs_are_in_the_header(): void
+    {
+        $old = AcademicYear::create(['nom' => '2025/26', 'data_inici' => '2025-09-01', 'data_fi' => '2026-08-31', 'es_actual' => false]);
+        $oldModule = Module::create(['curs_id' => $old->id, 'cicle_id' => $this->module->cicle_id, 'codi' => '0001', 'nom' => 'Mòdul antic', 'tipus' => $this->module->tipus]);
+
+        Livewire::test(InventoryOverview::class)
+            ->assertSet('curs', $this->module->curs_id)
+            ->assertSet('modul', $this->module->id)
+            ->assertDontSee('Mòdul antic')
+            ->assertSee('Secrets', false)
+            ->set('curs', $old->id)
+            ->assertSet('modul', $oldModule->id)
+            ->assertSee('Mòdul antic');
+
+        // Un mòdul a l'enllaç porta el seu curs.
+        Livewire::test(InventoryOverview::class, ['modul' => $oldModule->id])
+            ->assertSet('curs', $old->id);
     }
 }
