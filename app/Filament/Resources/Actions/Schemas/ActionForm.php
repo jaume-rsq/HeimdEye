@@ -15,6 +15,7 @@ use Filament\Forms\Components\Repeater\TableColumn;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\View;
@@ -67,6 +68,10 @@ class ActionForm
                             ->placeholder('Per defecte (900)')
                             ->helperText('Segons que la feina espera que l\'agent la reculli abans de caducar. Buit = valor per defecte.')
                             ->visible(fn (Get $get) => $get('executor') === Executor::Agent->value),
+                        Toggle::make('es_incidencia')
+                            ->label('Acció d\'avaria (incidències)')
+                            ->helperText('Trenca alguna cosa a propòsit: es fa servir des d\'Incidències i, executada sola, demana confirmació.')
+                            ->columnSpanFull(),
                     ]),
                 Section::make(fn (string $operation) => $operation === 'edit' ? 'Darrera versió' : 'Primera versió')
                     ->description(fn (string $operation) => $operation === 'edit'

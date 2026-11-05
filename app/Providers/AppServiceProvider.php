@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\AcademicYear;
 use App\Models\Action;
+use App\Models\ActionRun;
 use App\Models\Block;
 use App\Models\Cycle;
 use App\Models\HostType;
@@ -16,6 +17,7 @@ use App\Models\Variable;
 use App\Policies\ActionPolicy;
 use App\Policies\DemoHiddenPolicy;
 use App\Policies\DemoReadOnlyPolicy;
+use App\Runner\Incidents\IncidentTracker;
 use Filament\Tables\Table;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Gate;
@@ -48,6 +50,9 @@ class AppServiceProvider extends ServiceProvider
             Gate::policy($model, DemoHiddenPolicy::class);
         }
         Gate::policy(Action::class, ActionPolicy::class);
+
+        // Quan acaba l'acció d'una avaria (job, agent...), la incidència passa a verificar-se.
+        ActionRun::saved(fn (ActionRun $run) => app(IncidentTracker::class)->actionRunSaved($run));
 
         // Totes les llistes recorden els filtres, la cerca i l'ordre en tornar-hi (p. ex. des de l'historial d'un check).
         Table::configureUsing(fn (Table $table) => $table

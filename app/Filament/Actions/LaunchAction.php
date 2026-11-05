@@ -52,9 +52,11 @@ class LaunchAction
             })
             ->disabled(fn (ActionModel $record) => $record->currentVersion === null)
             ->modalHeading(fn (ActionModel $record) => ($simulate ? 'Simular ' : 'Executar ').$record->nom)
-            ->modalDescription($simulate
-                ? 'Ansible s\'executa amb --check --diff: no es canvia res als equips.'
-                : 'Es canviaran els equips dels alumnes triats.')
+            ->modalDescription(fn (ActionModel $record) => match (true) {
+                $simulate => 'Ansible s\'executa amb --check --diff: no es canvia res als equips.',
+                $record->es_incidencia => 'Atenció: és una acció d\'avaria. Trencarà els equips dels alumnes triats i no quedarà com a incidència. Per deixar-ne constància, llança-la des d\'Incidències.',
+                default => 'Es canviaran els equips dels alumnes triats.',
+            })
             ->modalSubmitActionLabel($simulate ? 'Simular' : 'Executar')
             ->modalWidth('4xl')
             ->schema(fn (ActionModel $record) => self::schema($record, $record->currentVersion?->parametres ?? [], $record->currentVersion?->codi ?? ''))

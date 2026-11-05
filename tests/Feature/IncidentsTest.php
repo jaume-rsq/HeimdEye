@@ -1,0 +1,317 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\ActionStatus;
+use App\Enums\CheckKind;
+use App\Enums\CheckStatus;
+use App\Enums\Executor;
+use App\Enums\IncidentStatus;
+use App\Enums\Role;
+use App\Filament\Resources\Incidents\Pages\EditIncident;
+use App\Filament\Resources\Incidents\Pages\ListIncidents;
+use App\Filament\Resources\Incidents\Pages\ManageIncidentAssignments;
+use App\Models\Action;
+use App\Models\ActionRun;
+use App\Models\AgentTask;
+use App\Models\Check;
+use App\Models\Incident;
+use App\Models\IncidentStudent;
+use App\Models\Module;
+use App\Models\RunBatch;
+use App\Models\Student;
+use App\Models\User;
+use App\Runner\CheckResult;
+use App\Runner\Incidents\IncidentLauncher;
+use App\Runner\ResultRecorder;
+use Database\Seeders\IncidenciaTecnoServeisSeeder;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+/** Incidències: sorteig, injecció amb l'acció, seguiment amb el check i pantalles. */
+class IncidentsTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected bool $seed = true;
+
+    private Module $module;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->module = Module::where('codi', '9991')->sole();
+    }
+
+    private function agentAction(string $name, bool $fault = true): Action
+    {
+        $action = $this->module->actions()->create(['nom' => $name, 'executor' => Executor::Agent, 'es_incidencia' => $fault]);
+        $action->versions()->create([
+            'versio' => 1,
+            'codi' => "# hosts: web\necho \"avaria \$HE_PARAM_N\"\n",
+            'parametres' => [['name' => 'N', 'label' => 'Avaria', 'default' => '0']],
+            'temps_max_seg' => 30,
+        ]);
+
+        return $action->fresh();
+    }
+
+    private function agentCheck(string $name): Check
+    {
+        $block = $this->module->blocks()->firstOrCreate(['numero' => 90], ['titol' => 'Incidències', 'posicio' => 90]);
+        $task = $block->tasks()->firstOrCreate(['titol' => 'Resolució'], ['posicio' => 1]);
+        $check = $task->checks()->create([
+            'nom' => $name, 'executor' => Executor::Agent, 'tipus' => CheckKind::Optional,
+            'punts' => 0, 'bonus_puntualitat_pct' => 0, 'es_actiu' => false, 'posicio' => 1,
+        ]);
+        $check->versions()->create(['versio' => 1, 'codi' => "# hosts: web\ntrue\n", 'temps_max_seg' => 30]);
+
+        return $check->fresh();
+    }
+
+    /** Incidència amb $n opcions: totes amb la mateixa acció (paràmetre N) i un check propi. */
+    private function incident(int $n = 3): Incident
+    {
+        $inject = $this->agentAction('Injectar');
+        $repair = $this->agentAction('Desfer', fault: false);
+        $incident = Incident::create(['modul_id' => $this->module->id, 'nom' => 'Web caiguda', 'equip' => 'web', 'simptoma' => 'La web no carrega']);
+        for ($i = 0; $i < $n; $i++) {
+            $incident->options()->create([
+                'nom' => "Avaria {$i}",
+                'accio_id' => $inject->id,
+                'parametres' => ['N' => (string) $i],
+                'check_id' => $this->agentCheck("Check {$i}")->id,
+                'accio_reparacio_id' => $repair->id,
+                'posicio' => $i,
+            ]);
+        }
+
+        return $incident->fresh();
+    }
+
+    private function students(int $n = 2)
+    {
+        return $this->module->students()->orderBy('num_taula')->limit($n)->get();
+    }
+
+    /** Simula que l'agent torna el resultat de totes les execucions pendents de l'acció. */
+    private function finishActions(ActionStatus $status = ActionStatus::Ok): void
+    {
+        ActionRun::where('estat', ActionStatus::Pendent)->get()
+            ->each(fn (ActionRun $run) => $run->update(['estat' => $status, 'recollit_a' => now(), 'data_fi' => now()]));
+    }
+
+    private function recordCheck(Check $check, Student $student, CheckStatus $status): void
+    {
+        $batch = RunBatch::create(['modul_id' => $this->module->id, 'origen' => 'manual', 'data_inici' => now()]);
+        $this->travel(1)->seconds();
+        app(ResultRecorder::class)->record($batch, $check, $student, new CheckResult($status, 'prova'));
+    }
+
+    public function test_random_proposal_gives_distinct_options_and_avoids_repeats(): void
+    {
+        $incident = $this->incident(3);
+        $student = $this->students(1)->first();
+        $launcher = app(IncidentLauncher::class);
+        $ids = $incident->options->modelKeys();
+
+        $plan = $launcher->propose($incident, collect([$student]), 'aleatori', 2, random: fn (int $max) => 0)['plan'];
+        $this->assertSame([$ids[0], $ids[1]], $plan[$student->id]);
+
+        // Ja ha tingut les dues primeres (tancades): ara li toca la tercera.
+        $launch = $incident->launches()->create(['mode' => 'aleatori', 'quantitat' => 2]);
+        foreach ([0, 1] as $i) {
+            IncidentStudent::create(['incidencia_id' => $incident->id, 'llancament_id' => $launch->id, 'opcio_id' => $ids[$i], 'nom_opcio' => 'x', 'alumne_id' => $student->id, 'estat' => IncidentStatus::Tancada]);
+        }
+        $plan = $launcher->propose($incident, collect([$student]), 'aleatori', 1, random: fn (int $max) => 0)['plan'];
+        $this->assertSame([$ids[2]], $plan[$student->id]);
+    }
+
+    public function test_students_with_an_active_one_are_skipped_and_same_mode_gives_the_chosen_option(): void
+    {
+        $incident = $this->incident(2);
+        [$a, $b] = $this->students(2)->all();
+        $option = $incident->options->last();
+        $launch = $incident->launches()->create(['mode' => 'igual', 'quantitat' => 1]);
+        IncidentStudent::create(['incidencia_id' => $incident->id, 'llancament_id' => $launch->id, 'opcio_id' => $option->id, 'nom_opcio' => 'x', 'alumne_id' => $a->id, 'estat' => IncidentStatus::Oberta]);
+
+        $result = app(IncidentLauncher::class)->propose($incident, collect([$a, $b]), 'igual', 1, $option->id);
+
+        $this->assertSame([$b->id => [$option->id]], $result['plan']);
+        $this->assertSame([$a->id], $result['skipped']);
+    }
+
+    public function test_full_cycle_inject_verify_open_and_resolve(): void
+    {
+        $incident = $this->incident(2);
+        $student = $this->students(1)->first();
+        $option = $incident->options->first();
+
+        app(IncidentLauncher::class)->launch($incident, [$student->id => [$option->id]], 'aleatori', 1, null, null);
+
+        $row = IncidentStudent::sole();
+        $this->assertSame(IncidentStatus::Pendent, $row->estat);
+        $run = ActionRun::sole();
+        $this->assertSame('0', $run->payload_agent['env']['HE_PARAM_N']);
+        $this->assertSame($row->execucio_id, $run->execucio_id);
+
+        // L'agent torna l'acció: es verifica amb el check (una feina d'agent pendent).
+        $this->finishActions();
+        $this->assertSame(IncidentStatus::Verificant, $row->fresh()->estat);
+        $this->assertNotNull($row->fresh()->data_injeccio);
+        $this->assertSame($option->check_id, AgentTask::sole()->check_id);
+
+        // El check falla: l'avaria és oberta. Després passa: resolta.
+        $this->recordCheck($option->check, $student, CheckStatus::Fail);
+        $this->assertSame(IncidentStatus::Oberta, $row->fresh()->estat);
+        $this->recordCheck($option->check, $student, CheckStatus::Pass);
+        $row->refresh();
+        $this->assertSame(IncidentStatus::Resolta, $row->estat);
+        $this->assertNotNull($row->data_resolucio);
+        $this->assertNotNull($row->execucio_check_id);
+        $this->assertGreaterThan(0, $row->resolutionSeconds());
+    }
+
+    public function test_a_check_that_already_passes_marks_it_not_effective(): void
+    {
+        $incident = $this->incident(1);
+        $student = $this->students(1)->first();
+        $option = $incident->options->first();
+        app(IncidentLauncher::class)->launch($incident, [$student->id => [$option->id]], 'igual', 1, null, null);
+        $this->finishActions();
+
+        // Un altre check de l'alumne no hi fa res.
+        $this->recordCheck($this->agentCheck('Un altre'), $student, CheckStatus::Pass);
+        $this->assertSame(IncidentStatus::Verificant, IncidentStudent::sole()->estat);
+
+        $this->recordCheck($option->check, $student, CheckStatus::Pass);
+        $this->assertSame(IncidentStatus::NoEfectiva, IncidentStudent::sole()->estat);
+    }
+
+    public function test_failed_or_expired_actions_end_in_error_or_expired(): void
+    {
+        $incident = $this->incident(2);
+        [$a, $b] = $this->students(2)->all();
+        [$o1, $o2] = $incident->options->all();
+        app(IncidentLauncher::class)->launch($incident, [$a->id => [$o1->id], $b->id => [$o2->id]], 'manual', 1, null, null);
+
+        ActionRun::where('alumne_id', $a->id)->sole()->update(['estat' => ActionStatus::Failed, 'data_fi' => now()]);
+        // Caducada amb una actualització massiva (com PruneAgents): la recull la tasca de cada minut.
+        ActionRun::where('alumne_id', $b->id)->update(['estat' => ActionStatus::Caducada, 'data_fi' => now()]);
+        Artisan::call('heimdeye:agent-prune');
+
+        $this->assertSame(IncidentStatus::Error, IncidentStudent::where('alumne_id', $a->id)->sole()->estat);
+        $this->assertSame(IncidentStatus::Caducada, IncidentStudent::where('alumne_id', $b->id)->sole()->estat);
+        $this->assertSame(0, AgentTask::count());
+    }
+
+    public function test_several_options_per_student_each_one_is_tracked(): void
+    {
+        $incident = $this->incident(3);
+        $student = $this->students(1)->first();
+        $ids = $incident->options->modelKeys();
+
+        app(IncidentLauncher::class)->launch($incident, [$student->id => $ids], 'aleatori', 3, null, null);
+
+        $this->assertSame(3, IncidentStudent::where('alumne_id', $student->id)->count());
+        $this->assertSame(3, RunBatch::count());
+        $this->assertSame(['0', '1', '2'], ActionRun::orderBy('id')->get()->map(fn (ActionRun $r) => $r->payload_agent['env']['HE_PARAM_N'])->all());
+    }
+
+    public function test_repair_launches_the_repair_action_with_the_option_params(): void
+    {
+        $incident = $this->incident(2);
+        $student = $this->students(1)->first();
+        $option = $incident->options->last();
+        app(IncidentLauncher::class)->launch($incident, [$student->id => [$option->id]], 'igual', 1, null, null);
+        $this->finishActions();
+        $row = IncidentStudent::sole();
+
+        app(IncidentLauncher::class)->repair($row, null);
+
+        $this->assertSame(IncidentStatus::Reparada, $row->fresh()->estat);
+        $repairRun = ActionRun::where('accio_id', $option->accio_reparacio_id)->sole();
+        $this->assertSame('1', $repairRun->payload_agent['env']['HE_PARAM_N']);
+    }
+
+    public function test_an_option_that_cannot_launch_leaves_its_students_in_error(): void
+    {
+        $incident = $this->incident(1);
+        $student = $this->students(1)->first();
+        $option = $incident->options->first();
+        $option->action->versions()->create(['versio' => 2, 'codi' => "echo sense hosts\n", 'temps_max_seg' => 30]);
+
+        app(IncidentLauncher::class)->launch($incident, [$student->id => [$option->id]], 'igual', 1, null, null);
+
+        $row = IncidentStudent::sole();
+        $this->assertSame(IncidentStatus::Error, $row->estat);
+        $this->assertNotEmpty($row->missatge);
+    }
+
+    public function test_tecnoserveis_seeder_creates_six_options_that_launch(): void
+    {
+        $this->seed(IncidenciaTecnoServeisSeeder::class);
+        $this->seed(IncidenciaTecnoServeisSeeder::class); // idempotent
+
+        $incident = Incident::where('nom', 'La web de TecnoServeis no respon')->sole();
+        $this->assertCount(6, $incident->options);
+        $this->assertTrue($incident->options->every(fn ($o) => $o->check_id && $o->accio_reparacio_id));
+        $this->assertTrue(Action::where('nom', 'TecnoServeis: injectar avaria')->sole()->es_incidencia);
+
+        $student = $this->students(1)->first();
+        app(IncidentLauncher::class)->launch($incident, [$student->id => $incident->options->take(3)->modelKeys()], 'aleatori', 3, null, null);
+
+        $this->assertSame(3, IncidentStudent::where('estat', IncidentStatus::Pendent)->count());
+        $this->assertSame(['aws'], ActionRun::pluck('rol_agent')->unique()->values()->all());
+    }
+
+    public function test_panel_pages_render_and_close_works(): void
+    {
+        $teacher = User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]);
+        $this->actingAs($teacher);
+        $incident = $this->incident(2);
+        $student = $this->students(1)->first();
+        app(IncidentLauncher::class)->launch($incident, [$student->id => [$incident->options->first()->id]], 'igual', 1, null, null);
+        $this->finishActions();
+        $row = IncidentStudent::sole();
+
+        Livewire::test(ListIncidents::class)->assertOk()->assertSee('Web caiguda');
+        Livewire::test(EditIncident::class, ['record' => $incident->id])->assertOk()->assertSee('Avaria 1');
+        Livewire::test(ManageIncidentAssignments::class, ['record' => $incident->id])
+            ->assertOk()
+            ->assertSee('Avaria 0')
+            ->callTableAction('tancar', $row)
+            ->assertHasNoTableActionErrors();
+
+        $this->assertSame(IncidentStatus::Tancada, $row->fresh()->estat);
+        $this->assertSame($teacher->id, $row->fresh()->tancat_per);
+    }
+
+    public function test_launch_wizard_injects_the_previewed_plan(): void
+    {
+        $teacher = User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]);
+        $this->actingAs($teacher);
+        $incident = $this->incident(2);
+        $student = $this->students(1)->first();
+        $option = $incident->options->last();
+
+        Livewire::test(EditIncident::class, ['record' => $incident->id])
+            ->mountAction('llancar')
+            ->setActionData([
+                'alumnes' => [(string) $student->id],
+                'mode' => 'igual',
+                'opcio' => $option->id,
+                'proposta' => json_encode([$student->id => [$option->id]]),
+                'pla' => [['alumne_id' => $student->id, 'opcions' => [(string) $option->id]]],
+            ])
+            ->callMountedAction()
+            ->assertHasNoActionErrors();
+
+        $row = IncidentStudent::sole();
+        $this->assertSame($option->id, $row->opcio_id);
+        $this->assertSame('igual', $row->launch->mode);
+        $this->assertSame($teacher->id, $row->launch->llancat_per);
+    }
+}

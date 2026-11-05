@@ -17,12 +17,13 @@ class Action extends Model
 
     protected $table = 'accions';
 
-    protected $fillable = ['modul_id', 'bloc_id', 'nom', 'descripcio', 'executor', 'posicio', 'caducitat_agent_seg'];
+    protected $fillable = ['modul_id', 'bloc_id', 'nom', 'descripcio', 'executor', 'posicio', 'caducitat_agent_seg', 'es_incidencia'];
 
     protected function casts(): array
     {
         return [
             'executor' => Executor::class,
+            'es_incidencia' => 'boolean',
         ];
     }
 
