@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Student\Pages\MyAgent;
 use App\Filament\Student\Pages\MyProgress;
 use App\Filament\Student\Pages\StudentHelp;
 use App\Http\Middleware\AuthenticateWithCloudflareAccess;
@@ -40,6 +41,7 @@ class StudentPanelProvider extends PanelProvider
             ->topNavigation()
             ->pages([
                 MyProgress::class,
+                MyAgent::class,
                 StudentHelp::class,
             ])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.partials.native-controls'))
