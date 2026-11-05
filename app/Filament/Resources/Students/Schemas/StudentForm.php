@@ -65,7 +65,7 @@ class StudentForm
                             ->dehydrated(false)
                             ->disabled()
                             ->rows(5)
-                            ->helperText('Baixa el binari (segons l\'arquitectura), el fa executable i l\'instal·la com a servei. Canvia "web" pel nom que vulgui donar a cada instància (web, bd, dns...).')
+                            ->helperText('Baixa el binari (segons l\'arquitectura), el fa executable i l\'instal·la com a servei. Canvia "web" pel nom que vulgui donar a cada instància (web, bd, dns...). El servei corre amb l\'usuari que llança el sudo (així hereta les credencials, p. ex. l\'AWS CLI d\'una WSL); afegeix "--user root" a l\'última línia si el vols com a root.')
                             ->formatStateUsing(fn (?Student $record) => $record?->token_agent
                                 ? self::installCommand($record)
                                 : 'Encara no té token. Fes servir el botó «Generar token» de dalt.'),

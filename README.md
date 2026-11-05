@@ -678,6 +678,14 @@ cal obrir cap port ni conèixer la IP. Tot va per HTTPS i l'alumne s'autentica a
   pot arribar en clar: les accions i els checks d'agent, com els d'`ssh`, no poden fer servir
   secrets. L'agent és transparent i no esborra cap rastre; tant la feina com les sessions de consola
   queden registrades a HeimdEye, no a la màquina de l'alumne.
+- **Altres entorns (WSL, AWS).** L'agent és un binari Linux portable, així que també corre dins una
+  **WSL** de Windows. Per defecte el servei corre sota l'usuari que llança el `sudo` (el del
+  `whoami`) i n'hereta l'entorn i les credencials; `--user <usuari>` en força un altre i `--user
+  root` el força a root. Així, si l'alumne hi té l'**AWS CLI** configurat, el codi pot cridar
+  `aws ...` amb les seves credencials (que no passen mai per HeimdEye) per inspeccionar o alterar els
+  seus recursos — p. ex. injectar una incidència al seu AWS i verificar-ne la reparació. El codi es
+  personalitza amb les variables de l'alumne (`HE_USUARI`, `HE_NOM_COMPLET`, `HE_NUM_TAULA`...),
+  útils per filtrar recursos per etiqueta.
 
 ### API (`routes/api.php`)
 
