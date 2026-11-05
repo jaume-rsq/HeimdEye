@@ -41,7 +41,12 @@ class StudentAgentPageTest extends TestCase
         Livewire::test(MyAgent::class)
             ->assertOk()
             ->assertSee('curl -fsSL -o heimdeye-agent https://example.test/latest/heimdeye-agent-linux-$A', escape: false)
-            ->assertSee("--token {$token} --hostname web", escape: false);
+            ->assertSee("--token {$token} --hostname web", escape: false)
+            // Explica la funcionalitat i els dos paràmetres que l'alumne pot canviar.
+            ->assertSee('Els dos paràmetres que pots canviar')
+            ->assertSee('--hostname', escape: false)
+            ->assertSee('--user root', escape: false)
+            ->assertSee('ssm-user');
 
         $this->assertTrue(MyAgent::shouldRegisterNavigation());
     }

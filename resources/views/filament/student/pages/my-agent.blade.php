@@ -18,9 +18,14 @@
     <div class="he-agent-prose">
         <p>
             L'agent és un programa que instal·les a la teva instància (p. ex. una VM d'AWS Learner Lab
-            o una WSL) perquè el professor hi pugui executar comprovacions i accions encara que la
-            màquina canviï d'adreça. Copia aquesta comanda i enganxa-la a la terminal de la teva
-            instància:
+            o una WSL de Windows) perquè HeimdEye hi pugui comprovar la teva feina i executar-hi
+            accions, encara que la màquina sigui efímera i canviï d'adreça.
+        </p>
+        <p>
+            Funciona «cap enfora»: és l'agent qui pregunta a HeimdEye si té alguna comprovació o acció
+            a fer i l'executa a la teva instància; HeimdEye no es connecta mai cap a tu, així que no has
+            d'obrir cap port ni donar cap contrasenya. S'instal·la com a servei, o sigui que es torna a
+            engegar sol. Copia aquesta comanda i enganxa-la a la terminal de la teva instància:
         </p>
     </div>
 
@@ -48,11 +53,23 @@
         </div>
 
         <div class="he-agent-note">
-            <p>
-                Canvia <code>web</code> pel nom que vulguis donar a la instància (web, bd, dns…); si en
-                tens més d'una, posa un nom diferent a cadascuna. El servei corre amb el teu usuari
-                (el del <code>whoami</code>), així que si hi tens configurat l'AWS CLI el pot fer servir.
-            </p>
+            <p style="font-weight: 600; opacity: 1;">Els dos paràmetres que pots canviar:</p>
+            <ul style="margin: .2rem 0 .6rem 1.1rem; padding: 0;">
+                <li>
+                    <code>--hostname</code>: el nom que identifica aquesta instància (per defecte
+                    <code>web</code>). Posa-hi el que vulguis (web, bd, dns…); si tens més d'una
+                    instància, dona-li un nom diferent a cadascuna.
+                </li>
+                <li>
+                    <code>--user</code>: sota quin usuari corre el servei. <strong>Si no el poses</strong>,
+                    corre amb l'usuari que llança el <code>sudo</code> (el del <code>whoami</code>), que
+                    és el que té configurat l'AWS CLI en una WSL. Casos en què l'has de posar:
+                    <ul style="margin: .2rem 0 0 1.1rem;">
+                        <li>A una EC2 per <strong>AWS SSM</strong> hi entres com a <code>ssm-user</code>, que no té les credencials (venen del rol de la instància, accessible des de root): posa <code>--user root</code>.</li>
+                        <li>Per fer-lo córrer amb un altre usuari del sistema: <code>--user NOM</code>.</li>
+                    </ul>
+                </li>
+            </ul>
             <p>
                 El token identifica el teu usuari: no el comparteixis. El genera i el revoca el
                 professor; si deixa de funcionar, demana-li que te'n generi un de nou.
