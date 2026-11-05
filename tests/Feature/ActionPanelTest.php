@@ -7,6 +7,7 @@ use App\Enums\ActionStatus;
 use App\Enums\Executor;
 use App\Enums\Role;
 use App\Enums\RunOrigin;
+use App\Filament\Actions\LaunchAction;
 use App\Filament\Resources\Actions\Pages\CreateAction;
 use App\Filament\Resources\Actions\Pages\EditAction;
 use App\Filament\Resources\Actions\Pages\ListActions;
@@ -277,6 +278,29 @@ class ActionPanelTest extends TestCase
             && $job->params === ['usuari_pve' => $expected]
             && ! $job->checkMode
             && $job->user->is($this->teacher));
+    }
+
+    public function test_the_host_type_picker_only_shows_for_ssh_and_ansible_with_several_types(): void
+    {
+        $picker = function (Executor $executor, string $code): array {
+            $action = $this->module->actions()->create(['nom' => "Prova {$executor->value} ".uniqid(), 'executor' => $executor]);
+            $fields = collect(LaunchAction::schema($action, [], $code))->keyBy(fn ($c) => method_exists($c, 'getName') ? $c->getName() : $c::class);
+
+            return [$fields['equips']->isHidden() ? null : array_keys($fields['equips']->getRows()), $fields['alumnes']->getHeaders()];
+        };
+
+        // Local i agent: el selector no filtra res. Amb l'agent, columna d'instància activa.
+        [$types, $headers] = $picker(Executor::Local, 'echo hola');
+        $this->assertNull($types);
+        $this->assertNotContains('Instància activa', $headers);
+
+        [$types, $headers] = $picker(Executor::Agent, "# hosts: web\necho hola");
+        $this->assertNull($types);
+        $this->assertContains('Instància activa', $headers);
+
+        // Ssh amb un sol tipus d'equip: no hi ha res a triar. Amb dos, només aquells dos.
+        $this->assertNull($picker(Executor::Ssh, "# hosts: pve\ntrue")[0]);
+        $this->assertEqualsCanonicalizing(['pve', 'dns'], $picker(Executor::Ssh, "# hosts: pve:vm_dns_bind\ntrue")[0]);
     }
 
     public function test_students_with_an_older_version_are_shown_and_can_be_updated(): void
