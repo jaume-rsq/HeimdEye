@@ -10,6 +10,7 @@ use App\Models\CheckVersion;
 use App\Models\Module;
 use App\Models\Student;
 use App\Runner\ActionRunner;
+use App\Runner\AgentEditorTests;
 use App\Runner\CheckRunner;
 use App\Runner\CommandPreview;
 use App\Runner\ContextBuilder;
@@ -23,7 +24,8 @@ use Throwable;
 
 /**
  * Prova de l'editor per a un alumne: l'esborrany d'una acció (simulat o executat), l'esborrany
- * d'un check ($check) o un check desat, amb la seva versió vigent ($checkId). Va per la cua perquè la petició web no es talli (Cloudflare talla als 100 s);
+ * d'un check ($check) o un check desat, amb la seva versió vigent ($checkId). Amb l'executor agent
+ * no s'executa aquí: queda pendent perquè la reculli la instància (AgentEditorTests). Va per la cua perquè la petició web no es talli (Cloudflare talla als 100 s);
  * el resultat es deixa a la memòria cau amb la clau $key i la pàgina el recull. No es desa enlloc.
  */
 class RunEditorTest implements ShouldQueue
@@ -69,11 +71,15 @@ class RunEditorTest implements ShouldQueue
     {
         $student = Student::findOrFail($this->studentId);
 
-        $this->put(match (true) {
+        $result = match (true) {
             $this->checkId !== null => $this->runCheck(Check::findOrFail($this->checkId), $student),
             $this->check !== [] => $this->runCheck($this->draftCheck(), $student, new CheckVersion($this->version)),
             default => $this->runDraft($student),
-        });
+        };
+        // Amb l'agent, la prova queda pendent i el resultat el deixa AgentEditorTests quan torna.
+        if ($result !== null) {
+            $this->put($result);
+        }
     }
 
     public function failed(?Throwable $e): void
@@ -88,11 +94,14 @@ class RunEditorTest implements ShouldQueue
         ]);
     }
 
-    /** @return array<string, ?string> */
-    private function runDraft(Student $student): array
+    /** @return array<string, ?string>|null null si ha quedat pendent per a l'agent */
+    private function runDraft(Student $student): ?array
     {
         $action = (new Action)->forceFill($this->action);
         $action->exists = $this->action['id'] !== null;
+        if ($action->executor === Executor::Agent) {
+            return app(AgentEditorTests::class)->enqueue($this->key, 'accio', $action->module, $student, $this->version['codi'] ?? '', (int) ($this->version['temps_max_seg'] ?? 60), $this->params);
+        }
         $run = app(ActionRunner::class)->runFor($action, new ActionVersion($this->version), $student, $this->hostTypes, $this->params, $this->checkMode);
 
         return [
@@ -114,11 +123,21 @@ class RunEditorTest implements ShouldQueue
         return $check;
     }
 
-    /** @return array<string, ?string> */
-    private function runCheck(Check $check, Student $student, ?CheckVersion $version = null): array
+    /** @return array<string, ?string>|null null si ha quedat pendent per a l'agent */
+    private function runCheck(Check $check, Student $student, ?CheckVersion $version = null): ?array
     {
-        $result = app(CheckRunner::class)->run($check, $student, $version);
         $version ??= $check->currentVersion;
+        if ($check->executor === Executor::Agent && $version !== null) {
+            try {
+                $params = Params::values($version->parametres);
+            } catch (InvalidArgumentException $e) {
+                return ['estat' => 'error', 'color' => self::hex('danger'), 'resum' => $e->getMessage(), 'parametres' => null, 'comanda' => null, 'sortida' => null];
+            }
+
+            return app(AgentEditorTests::class)->enqueue($this->key, 'check', $check->module, $student, $version->codi, (int) $version->temps_max_seg, $params);
+        }
+
+        $result = app(CheckRunner::class)->run($check, $student, $version);
         try {
             $params = Params::values($version?->parametres);
         } catch (InvalidArgumentException) {

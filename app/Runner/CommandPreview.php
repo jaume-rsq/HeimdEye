@@ -16,6 +16,7 @@ final class CommandPreview
         $text = match ($executor) {
             Executor::Ansible => self::ansible($context),
             Executor::Ssh => self::ssh($context),
+            Executor::Agent => '# bash a la instància ('.implode(', ', CodeHeaders::parse($context->code)->hosts).") per l'agent\n".self::bash($context->code, $context->env),
             default => "# bash al servidor HeimdEye\n".self::bash($context->code, [
                 ...$context->env,
                 'HE_SSH_USER' => $context->sshUser ?? '',

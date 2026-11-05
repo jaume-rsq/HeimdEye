@@ -605,7 +605,7 @@ Menú Accions → Llista d'accions (`/admin/accions`):
   la versió vigent, verd clar amb el número de versió si va bé amb una d'anterior, taronja o
   vermell si ha fallat, gris si no s'ha executat mai. Només si hi ha alumnes amb una versió
   anterior surt el botó «Executar amb la vN», amb aquests alumnes ja marcats.
-- Botons Versions, Historial, Editar darrera versió i Llançar (Simular, només Ansible, i Executar).
+- Botons Versions, Historial, Editar darrera versió, Simular (només Ansible) i Executar.
 - Editar no modifica mai una versió: si canvia el codi, els paràmetres, el temps màxim o els
   checks de verificació, es crea la versió següent, amb un comentari opcional del canvi.
   L'executor i el mòdul no es poden canviar.
@@ -657,8 +657,13 @@ cal obrir cap port ni conèixer la IP. Tot va per HTTPS i l'alumne s'autentica a
   arriba el resultat es desa una execució normal a `execucions_check` i s'actualitza l'estat de
   l'alumne. El resultat segueix les convencions de sempre: `exit 0` → **assolit**, exit ≠ 0 →
   **no assolit**, `HEIMDEYE_OMES:` → **omès**, temps màxim → **temps excedit**, i si ningú no el
-  recull a temps → **no disponible**. No es poden provar des de l'editor (cal una instància
-  connectada): es llancen i es recull el resultat. Recomanat un sol rol per check.
+  recull a temps → **no disponible**. Recomanat un sol rol per check.
+- **Provar des de l'editor.** El botó «Provar» de les accions i els checks d'agent deixa l'esborrany
+  pendent a `proves_agent` perquè el reculli la instància activa de cada alumne triat; el resultat
+  surt a la secció Proves de la pàgina, com qualsevol altra prova, i no es desa enlloc. Si l'alumne
+  no té cap instància activa amb el rol del codi, la prova falla de seguida i ho diu. Si ningú no la
+  recull en `heimdeye.agent.test_expiry_seconds` (2 min), caduca. En llançar una acció o un check
+  d'agent, HeimdEye avisa dels alumnes que ara no tenen la instància activa.
 - **Consola interactiva.** Des de *Accions → Consola d'instàncies* (o des de *Inventari →
   Instàncies*, amb el botó «Obrir consola» d'una fila) el professor obre una consola d'una
   instància activa. És el mateix model pull: HeimdEye deixa la sessió pendent, l'agent la

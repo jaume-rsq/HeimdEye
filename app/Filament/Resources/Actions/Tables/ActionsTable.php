@@ -12,7 +12,6 @@ use App\Models\Action as ActionModel;
 use App\Models\Module;
 use App\Support\ActionSummary;
 use Filament\Actions\Action;
-use Filament\Actions\ActionGroup;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
@@ -156,14 +155,9 @@ class ActionsTable
                     ->iconButton()
                     ->tooltip('Editar darrera versió')
                     ->visible(fn (ActionModel $record) => ActionResource::canEdit($record)),
-                ActionGroup::make([
-                    LaunchAction::make(simulate: true),
-                    LaunchAction::make(),
-                ])
-                    ->label('Llançar')
-                    ->icon(Heroicon::OutlinedPlay)
-                    ->button()
-                    ->color('warning'),
+                // Simular només surt a les d'Ansible: a la resta, Executar va sol, sense menú.
+                LaunchAction::make(simulate: true)->button(),
+                LaunchAction::make()->button(),
             ]);
     }
 

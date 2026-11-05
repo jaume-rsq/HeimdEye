@@ -8,6 +8,7 @@ use App\Models\ActionRun;
 use App\Models\AgentInstance;
 use App\Models\AgentTask;
 use App\Models\ConsoleSession;
+use App\Runner\AgentEditorTests;
 use App\Runner\CheckResult;
 use App\Runner\ResultRecorder;
 use Illuminate\Console\Command;
@@ -27,7 +28,7 @@ class PruneAgents extends Command
 
     protected $description = 'Marca inactives les instàncies sense batec i caduca la feina pendent';
 
-    public function handle(ResultRecorder $recorder): int
+    public function handle(ResultRecorder $recorder, AgentEditorTests $editorTests): int
     {
         $limit = now()->subSeconds((int) config('heimdeye.agent.inactive_after_seconds', 300));
 
@@ -47,6 +48,7 @@ class PruneAgents extends Command
                 ->where('estat', 'enviada')
                 ->get()
                 ->each(fn (AgentTask $feina) => $this->closeCheck($recorder, $feina, 'La instància ha deixat de respondre abans de tornar el resultat'));
+            $editorTests->expire($instance->id);
             // Les consoles obertes d'una instància que ja no respon es tanquen.
             ConsoleSession::query()
                 ->where('instancia_id', $instance->id)
@@ -79,7 +81,9 @@ class PruneAgents extends Command
             $this->closeCheck($recorder, $feina, 'Cap instància no ha recollit el check a temps');
         }
 
-        $this->line("Instàncies inactives: {$stale->count()}. Accions caducades: {$expired}. Checks caducats: {$expiredChecks->count()}. Consoles inactives: {$idleConsoles}.");
+        $expiredTests = $editorTests->expire();
+
+        $this->line("Instàncies inactives: {$stale->count()}. Accions caducades: {$expired}. Checks caducats: {$expiredChecks->count()}. Proves caducades: {$expiredTests}. Consoles inactives: {$idleConsoles}.");
 
         return self::SUCCESS;
     }

@@ -3,6 +3,7 @@
 namespace App\Filament\Actions;
 
 use App\Enums\CheckStatus;
+use App\Enums\Executor;
 use App\Filament\Forms\RowPicker;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Models\Check;
@@ -69,6 +70,10 @@ class LaunchCheck
                     ->title('Verificació a la cua per a '.$students->count().' alumnes')
                     ->body("Versió {$version->versio}. El resultat apareix a l'historial quan acaba.")
                     ->send();
+
+                if ($record->executor === Executor::Agent) {
+                    LaunchAction::warnMissingInstances($students, $version->codi, (int) config('heimdeye.agent.expiry_seconds', 900));
+                }
 
                 $action->redirect(CheckResource::getUrl('runs', ['record' => $record]));
             });
