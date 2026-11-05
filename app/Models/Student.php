@@ -110,4 +110,26 @@ class Student extends Model
     {
         return $this->alies ?? sprintf('Taula %02d', $this->num_taula);
     }
+
+    /**
+     * Comanda completa que l'alumne enganxa a la instància per instal·lar l'agent: detecta
+     * l'arquitectura, baixa el binari de la release, el fa executable i l'instal·la com a servei
+     * (sota l'usuari que llança el sudo). null si encara no té token (el genera el professor).
+     */
+    public function agentInstallCommand(): ?string
+    {
+        if (empty($this->token_agent)) {
+            return null;
+        }
+
+        $base = rtrim((string) config('heimdeye.agent.download_base'), '/');
+        $url = rtrim((string) config('app.url'), '/');
+
+        return implode("\n", [
+            'ARCH=$(uname -m); case "$ARCH" in x86_64) A=amd64;; aarch64|arm64) A=arm64;; *) echo "arquitectura no suportada: $ARCH"; exit 1;; esac',
+            "curl -fsSL -o heimdeye-agent {$base}/heimdeye-agent-linux-\$A",
+            'chmod +x heimdeye-agent',
+            "sudo ./heimdeye-agent install --url {$url} --token {$this->token_agent} --hostname web",
+        ]);
+    }
 }
