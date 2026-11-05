@@ -92,7 +92,7 @@ trait TestsDraftVersion
             })
             ->modalSubmitActionLabel($simulate ? 'Simular' : 'Executar')
             ->modalWidth('4xl')
-            ->schema(fn () => LaunchAction::schema($this->draftAction(), $this->draftVersion()->parametres ?? []))
+            ->schema(fn () => LaunchAction::schema($this->draftAction(), $this->draftVersion()->parametres ?? [], $this->draftVersion()->codi ?? ''))
             ->fillForm(fn () => LaunchAction::fill($this->draftVersion()->parametres ?? []))
             ->action(function (array $data, Action $action) use ($simulate) {
                 $draft = $this->draftAction();

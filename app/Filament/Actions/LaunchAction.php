@@ -11,6 +11,7 @@ use App\Models\HostType;
 use App\Models\Student;
 use App\Runner\ActionRunner;
 use App\Runner\AgentEditorTests;
+use App\Runner\CodeValidator;
 use App\Support\ActionSummary;
 use App\Support\VariableResolver;
 use Filament\Actions\Action;
@@ -56,7 +57,7 @@ class LaunchAction
                 : 'Es canviaran els equips dels alumnes triats.')
             ->modalSubmitActionLabel($simulate ? 'Simular' : 'Executar')
             ->modalWidth('4xl')
-            ->schema(fn (ActionModel $record) => self::schema($record, $record->currentVersion?->parametres ?? []))
+            ->schema(fn (ActionModel $record) => self::schema($record, $record->currentVersion?->parametres ?? [], $record->currentVersion?->codi ?? ''))
             ->fillForm(fn (ActionModel $record) => [
                 ...self::fill($record->currentVersion?->parametres ?? []),
                 ...($outdated ? ['alumnes' => array_map('strval', ActionSummary::outdatedStudentIds($record))] : []),
@@ -112,16 +113,19 @@ class LaunchAction
     }
 
     /**
-     * Camps per triar alumnes, equips i valors dels paràmetres declarats.
+     * Camps per triar alumnes, equips i valors dels paràmetres declarats. El selector d'equips
+     * només surt amb ssh i Ansible (amb l'agent i en local no filtra res) i només amb els tipus
+     * d'equip que fa servir el codi, si n'hi ha més d'un.
      *
      * @param  list<array<string, mixed>>  $declared
      */
-    public static function schema(ActionModel $record, array $declared): array
+    public static function schema(ActionModel $record, array $declared, string $code = ''): array
     {
         $students = $record->module->students()->where('es_actiu', true)->orderBy('num_taula')->get();
+        $hostTypes = self::codeHostTypes($record, $code);
 
         return [
-            self::studentPicker($students, $record)
+            self::studentPicker($students, $record, $code)
                 ->required()
                 ->live()
                 ->hintAction(
@@ -135,10 +139,10 @@ class LaunchAction
                 ->label('Tipus d\'equip')
                 ->helperText('Cap marcat = tots els que fa servir el codi.')
                 ->headers(['Tipus', 'Grup Ansible', 'Únic', 'Nom de host', 'Adreça', 'Accés'])
-                ->rows($record->module->visibleHostTypes()->mapWithKeys(fn (HostType $t) => [$t->nom => [
+                ->rows($hostTypes->mapWithKeys(fn (HostType $t) => [$t->nom => [
                     $t->nom, $t->grup_ansible, $t->isUnique() ? 'sí' : 'no', $t->nom_host, $t->adreca, $t->access?->clau ?? '—',
                 ]])->all())
-                ->visible($record->module->visibleHostTypes()->isNotEmpty()),
+                ->visible($hostTypes->count() > 1),
             Fieldset::make('Paràmetres')
                 ->visible($declared !== [])
                 ->schema(array_map(fn (array $p) => TextInput::make("parametres.{$p['name']}")
@@ -146,6 +150,25 @@ class LaunchAction
                     ->helperText(filled($p['default'] ?? null) ? "Per defecte: {$p['default']}" : 'Sense valor per defecte')
                     ->required(blank($p['default'] ?? null)), $declared)),
         ];
+    }
+
+    /**
+     * Tipus d'equip on pot anar el codi (els del "# hosts:" o dels plays): només amb ssh i Ansible.
+     * Buit si el codi encara no és vàlid (ho dirà en llançar-lo).
+     *
+     * @return Collection<string, HostType>
+     */
+    private static function codeHostTypes(ActionModel $record, string $code): Collection
+    {
+        if (! in_array($record->executor, [Executor::Ssh, Executor::Ansible], true)) {
+            return collect();
+        }
+
+        try {
+            return app(CodeValidator::class)->hostTypes($record->module, $record->executor, $code) ?? collect();
+        } catch (InvalidArgumentException) {
+            return collect();
+        }
     }
 
     /** @param  list<array<string, mixed>>  $declared */
@@ -201,8 +224,10 @@ class LaunchAction
      *
      * @param  Collection<int, Student>  $students
      */
-    public static function studentPicker(Collection $students, ?ActionModel $record = null): RowPicker
+    public static function studentPicker(Collection $students, ?ActionModel $record = null, string $code = ''): RowPicker
     {
+        // Amb l'agent, si l'alumne té ara la instància activa amb els rols del codi.
+        $agent = $record?->executor === Executor::Agent && $code !== '';
         $last = [];
         if ($record?->exists) {
             $latest = DB::table('execucions_accio')
@@ -217,12 +242,13 @@ class LaunchAction
 
         return RowPicker::make('alumnes')
             ->label('Alumnes')
-            ->headers(['Taula', 'Usuari', 'Nom', 'X', ...($record?->exists ? ['Darrera execució'] : [])])
+            ->headers(['Taula', 'Usuari', 'Nom', 'X', ...($agent ? ['Instància activa'] : []), ...($record?->exists ? ['Darrera execució'] : [])])
             ->rows($students->mapWithKeys(fn (Student $s) => [$s->id => [
                 sprintf('%02d', $s->num_taula),
                 $s->usuari,
                 $s->nom_complet,
                 (string) $s->x,
+                ...($agent ? [($missing = AgentEditorTests::missingRoles($s, $code)) ? 'no ('.implode(', ', $missing).')' : 'sí'] : []),
                 ...($record?->exists ? [$last[$s->id] ?? 'mai'] : []),
             ]])->all());
     }
