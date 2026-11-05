@@ -85,9 +85,11 @@ trait TestsDraftVersion
             // Abans de triar alumnes: si el formulari té errors, no s'obre la finestra.
             ->beforeFormFilled(fn () => $this->validateDraft())
             ->modalHeading($simulate ? 'Simular l\'esborrany' : 'Executar l\'esborrany')
-            ->modalDescription($simulate
-                ? 'Es prova el codi del formulari, sense desar, amb --check --diff. El resultat només es mostra en aquesta pàgina.'
-                : 'Es prova el codi del formulari, sense desar. ATENCIÓ: s\'executa de veritat als equips triats. El resultat només es mostra en aquesta pàgina.')
+            ->modalDescription(fn () => match (true) {
+                $simulate => 'Es prova el codi del formulari, sense desar, amb --check --diff. El resultat només es mostra en aquesta pàgina.',
+                $this->draftAction()?->executor === Executor::Agent => 'Es prova el codi del formulari, sense desar. ATENCIÓ: s\'executa de veritat a la instància activa de cada alumne triat, quan l\'agent el recull (en pocs segons). El resultat només es mostra en aquesta pàgina.',
+                default => 'Es prova el codi del formulari, sense desar. ATENCIÓ: s\'executa de veritat als equips triats. El resultat només es mostra en aquesta pàgina.',
+            })
             ->modalSubmitActionLabel($simulate ? 'Simular' : 'Executar')
             ->modalWidth('4xl')
             ->schema(fn () => LaunchAction::schema($this->draftAction(), $this->draftVersion()->parametres ?? []))

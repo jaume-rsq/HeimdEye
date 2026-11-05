@@ -64,16 +64,12 @@ trait TestsDraftCheck
             ->label('Provar')
             ->icon(Heroicon::OutlinedBeaker)
             ->color('info')
-            // Els checks d'agent s'executen a la instància de l'alumne quan l'agent els recull:
-            // no es poden provar des de l'editor (cal llançar-los des de la tasca o la graella).
-            ->disabled(fn () => $this->draftCheck() === null || $this->draftCheck()?->executor === Executor::Agent)
-            ->tooltip(fn () => $this->draftCheck()?->executor === Executor::Agent
-                ? 'Els checks d\'agent s\'executen a la instància de l\'alumne; prova\'ls llançant-los des de la tasca.'
-                : null)
+            ->disabled(fn () => $this->draftCheck() === null)
             // Abans de triar alumnes: si el formulari té errors, no s'obre la finestra.
             ->beforeFormFilled(fn () => $this->validateDraft())
             ->modalHeading('Provar l\'esborrany')
-            ->modalDescription('Es prova el codi del formulari, sense desar, per als alumnes triats. El resultat només es mostra en aquesta pàgina i no compta per als alumnes.')
+            ->modalDescription(fn () => 'Es prova el codi del formulari, sense desar, per als alumnes triats. El resultat només es mostra en aquesta pàgina i no compta per als alumnes.'
+                .($this->draftCheck()?->executor === Executor::Agent ? ' Amb l\'agent, la prova la recull la instància activa de l\'alumne (en pocs segons).' : ''))
             ->modalSubmitActionLabel('Provar')
             ->modalWidth('4xl')
             ->schema(function () {

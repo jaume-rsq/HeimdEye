@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Enums\ActionStatus;
 use App\Enums\CheckStatus;
 use App\Models\ActionRun;
+use App\Models\AgentEditorTest;
 use App\Models\AgentInstance;
 use App\Models\AgentTask;
 use App\Models\ConsoleSession;
 use App\Models\Student;
+use App\Runner\AgentEditorTests;
+use App\Runner\AgentResult;
 use App\Runner\CheckResult;
-use App\Runner\Masker;
 use App\Runner\ResultRecorder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,14 +23,17 @@ use Illuminate\Http\Request;
  * L'alumne s'autentica amb el seu token (middleware AuthenticateAgent). El hostname identifica
  * la instància i fa de rol per a la capçalera "# hosts:".
  *
- * El mateix long poll serveix dues cues: les accions (incidències injectades, taula execucions_accio)
+ * El mateix long poll serveix les proves de l'editor (taula proves_agent) i dues cues més: les accions (incidències injectades, taula execucions_accio)
  * i els checks (verificacions llançades des de HeimdEye, taula feines_agent). L'agent no distingeix:
  * cada feina porta un identificador opac (`id`) que torna tal qual al resultat, i és el servidor qui,
  * segons la forma de l'identificador, encamina el resultat a una cua o l'altra.
  */
 class AgentController
 {
-    public function __construct(private ResultRecorder $recorder) {}
+    public function __construct(
+        private ResultRecorder $recorder,
+        private AgentEditorTests $editorTests,
+    ) {}
 
     /** Alta o reactivació de la instància en arrencar l'agent. */
     public function register(Request $request): JsonResponse
@@ -54,8 +59,10 @@ class AgentController
         $deadline = microtime(true) + $hold;
         do {
             $this->expireOverdue();
-            // Les accions (incidències) tenen prioritat sobre els checks, i tots dos sobre la consola.
-            $task = $this->nextAction($student, $instance)
+            // Les proves de l'editor van primer (el professor les espera a la pàgina); després les
+            // accions (incidències), els checks i la consola.
+            $task = $this->nextEditorTest($student, $instance)
+                ?? $this->nextAction($student, $instance)
                 ?? $this->nextCheck($student, $instance)
                 ?? $this->nextConsole($student, $instance);
             if ($task !== null) {
@@ -83,15 +90,38 @@ class AgentController
             'timed_out' => ['nullable', 'boolean'],
         ]);
 
-        // L'identificador d'un check és "check:<id>"; el d'una acció és el seu id enter.
+        // L'identificador d'un check és "check:<id>"; el d'una prova de l'editor, "prova:<id>"; el
+        // d'una acció és el seu id enter.
         if (preg_match('/^check:(\d+)$/', (string) $validated['task_id'], $m)) {
             return $this->recordCheckResult($student, (int) $m[1], $validated);
+        }
+        if (preg_match('/^prova:(\d+)$/', (string) $validated['task_id'], $m)) {
+            return $this->recordEditorTestResult($student, (int) $m[1], $validated);
         }
         if (! ctype_digit((string) $validated['task_id'])) {
             return response()->json(['error' => 'Identificador de feina no vàlid'], 422);
         }
 
         return $this->recordActionResult($student, (int) $validated['task_id'], $validated);
+    }
+
+    /** Pròxima prova de l'editor pendent d'aquest rol; la marca enviada i la lliga a la instància. */
+    private function nextEditorTest(Student $student, AgentInstance $instance): ?array
+    {
+        $test = AgentEditorTest::query()
+            ->where('alumne_id', $student->id)
+            ->where('rol_agent', $instance->hostname)
+            ->where('estat', 'pendent')
+            ->where(fn ($q) => $q->whereNull('caduca_a')->orWhere('caduca_a', '>', now()))
+            ->orderBy('id')
+            ->first();
+        if ($test === null) {
+            return null;
+        }
+
+        $test->update(['estat' => 'enviada', 'recollit_a' => now(), 'instancia_id' => $instance->id]);
+
+        return $this->taskPayload('prova:'.$test->id, $test->payload_agent ?? []);
     }
 
     /** Pròxima acció pendent d'aquest rol; la marca recollida i la lliga a la instància. */
@@ -185,12 +215,35 @@ class AgentController
         $exit = (int) $data['exit_code'];
         $output = (string) ($data['output'] ?? '');
         $run->update([
-            'estat' => $this->actionStatusFor($exit, $output, (bool) ($data['timed_out'] ?? false)),
+            'estat' => AgentResult::action($exit, $output, (bool) ($data['timed_out'] ?? false)),
             'ok' => $exit === 0 ? 1 : 0,
             'failed' => $exit === 0 ? 0 : 1,
-            'sortida' => $this->maskedOutput($output, $run->mascara_agent ?? []),
+            'sortida' => AgentResult::maskedOutput($output, $run->mascara_agent ?? []),
             'data_fi' => now(),
         ]);
+
+        return response()->json(['ok' => true]);
+    }
+
+    /** @param  array<string, mixed>  $data */
+    private function recordEditorTestResult(Student $student, int $testId, array $data): JsonResponse
+    {
+        $test = AgentEditorTest::query()
+            ->where('id', $testId)
+            ->where('alumne_id', $student->id)
+            ->where('estat', 'enviada')
+            ->first();
+        if ($test === null) {
+            return response()->json(['error' => 'La feina no existeix o ja no espera resultat'], 409);
+        }
+
+        $this->editorTests->record(
+            $test,
+            (int) $data['exit_code'],
+            (string) ($data['output'] ?? ''),
+            (bool) ($data['timed_out'] ?? false),
+            (int) ($data['duration_ms'] ?? 0),
+        );
 
         return response()->json(['ok' => true]);
     }
@@ -208,7 +261,7 @@ class AgentController
             return response()->json(['error' => 'La feina no existeix o ja no espera resultat'], 409);
         }
 
-        $result = $this->checkResultFrom(
+        $result = AgentResult::check(
             (int) $data['exit_code'],
             (string) ($data['output'] ?? ''),
             (bool) ($data['timed_out'] ?? false),
@@ -220,22 +273,6 @@ class AgentController
         $feina->batch->refreshTotals();
 
         return response()->json(['ok' => true]);
-    }
-
-    /**
-     * Converteix la sortida de l'agent en un CheckResult amb els mateixos criteris que una execució
-     * local: temps màxim → Timeout; línia HEIMDEYE_OMES → Skipped; exit 0 → Pass; si no → Fail.
-     */
-    private function checkResultFrom(int $exit, string $output, bool $timedOut, int $durationMs): CheckResult
-    {
-        $output = trim($output);
-        if ($timedOut) {
-            return new CheckResult(CheckStatus::Timeout, 'Ha superat el temps màxim', $this->limit($output), null, $durationMs);
-        }
-
-        $status = $exit === 0 ? CheckStatus::Pass : CheckStatus::Fail;
-
-        return (new CheckResult($status, $this->message($output), $this->limit($output), $exit, $durationMs))->skippedIfAsked();
     }
 
     /** @return array<string, string|null> */
@@ -272,7 +309,7 @@ class AgentController
         return $instance;
     }
 
-    /** Marca caducades les feines (accions i checks) que ningú no ha recollit a temps. */
+    /** Marca caducades les feines (accions, checks i proves) que ningú no ha recollit a temps. */
     private function expireOverdue(): void
     {
         ActionRun::query()
@@ -289,6 +326,8 @@ class AgentController
             ->where('caduca_a', '<=', now())
             ->get()
             ->each(fn (AgentTask $feina) => $this->expireCheck($feina));
+
+        $this->editorTests->expire();
 
         // Una consola que ningú no ha recollit a temps es tanca.
         ConsoleSession::query()
@@ -310,52 +349,6 @@ class AgentController
         );
         $feina->update(['estat' => 'caducada']);
         $feina->batch->refreshTotals();
-    }
-
-    /** Una línia HEIMDEYE_OMES fa que l'acció sigui "no disponible"; si no, el temps o l'exit code manen. */
-    private function actionStatusFor(int $exit, string $output, bool $timedOut): ActionStatus
-    {
-        if ($timedOut) {
-            return ActionStatus::Timeout;
-        }
-        if (preg_match('/^HEIMDEYE_OMES:/m', $output)) {
-            return ActionStatus::Unavailable;
-        }
-
-        return $exit === 0 ? ActionStatus::Ok : ActionStatus::Failed;
-    }
-
-    /**
-     * Missatge de la feina: la línia HEIMDEYE_MSG:, o si no n'hi ha, la primera línia no buida.
-     */
-    private function message(string $output): ?string
-    {
-        if (preg_match('/^HEIMDEYE_MSG:\s*(.+)$/m', $output, $m)) {
-            return mb_substr(trim($m[1]), 0, 255);
-        }
-        foreach (preg_split('/\R/', $output) as $line) {
-            if (trim($line) !== '') {
-                return mb_substr(trim($line), 0, 255);
-            }
-        }
-
-        return null;
-    }
-
-    /** @param  list<string>  $mask */
-    private function maskedOutput(string $output, array $mask): ?string
-    {
-        return $this->limit(Masker::mask(trim($output), $mask) ?? '');
-    }
-
-    private function limit(string $output): ?string
-    {
-        $output = trim($output);
-        if ($output === '') {
-            return null;
-        }
-
-        return mb_strcut($output, 0, (int) config('heimdeye.runner.output_limit', 8192));
     }
 
     private function student(Request $request): Student

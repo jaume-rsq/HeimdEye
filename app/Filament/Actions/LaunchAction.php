@@ -10,6 +10,7 @@ use App\Models\Action as ActionModel;
 use App\Models\HostType;
 use App\Models\Student;
 use App\Runner\ActionRunner;
+use App\Runner\AgentEditorTests;
 use App\Support\ActionSummary;
 use App\Support\VariableResolver;
 use Filament\Actions\Action;
@@ -81,8 +82,33 @@ class LaunchAction
                         : "Versió {$version->versio}. El resultat apareix a l'historial quan acaba.")
                     ->send();
 
+                if ($record->executor === Executor::Agent) {
+                    self::warnMissingInstances($students, $version->codi, $record->agentExpirySeconds());
+                }
+
                 $action->redirect(ActionResource::getUrl('runs', ['record' => $record, ...($simulate ? ['simulacio' => 1] : [])]));
             });
+    }
+
+    /**
+     * Amb l'agent, avisa dels alumnes que ara no tenen cap instància activa amb els rols del codi:
+     * la feina els queda pendent i caduca si l'agent no la recull a temps.
+     *
+     * @param  Collection<int, Student>  $students
+     */
+    public static function warnMissingInstances(Collection $students, string $code, int $expirySeconds): void
+    {
+        $missing = AgentEditorTests::studentsWithoutInstance($students, $code);
+        if ($missing->isEmpty()) {
+            return;
+        }
+
+        Notification::make()
+            ->warning()
+            ->title($missing->count().' alumnes no tenen cap instància activa')
+            ->body($missing->implode("\n")."\n\nLa feina els espera ".intdiv($expirySeconds, 60).' min; si l\'agent no la recull, caduca.')
+            ->persistent()
+            ->send();
     }
 
     /**

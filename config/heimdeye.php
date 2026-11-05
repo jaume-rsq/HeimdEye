@@ -98,6 +98,7 @@ return [
     | Agent de les instàncies dels alumnes (App\Http\Controllers\Api\AgentController).
     | - expiry_seconds: segons per defecte que una feina espera que l'agent la reculli abans de
     |   caducar (es pot afinar per acció amb accions.caducitat_agent_seg).
+    | - test_expiry_seconds: el mateix per a les proves de l'editor (botó Provar), que el professor espera.
     | - inactive_after_seconds: sense batec (long poll), una instància es marca inactiva i se li
     |   cancel·len les feines en curs.
     | - poll_hold_seconds: temps que el servidor manté oberta la petició de long poll esperant feina.
@@ -112,6 +113,7 @@ return [
     'agent' => [
         'download_base' => env('HEIMDEYE_AGENT_DOWNLOAD_BASE', 'https://github.com/jaume-rsq/HeimdEye/releases/download/latest'),
         'expiry_seconds' => (int) env('HEIMDEYE_AGENT_EXPIRY', 900),
+        'test_expiry_seconds' => (int) env('HEIMDEYE_AGENT_TEST_EXPIRY', 120),
         'inactive_after_seconds' => (int) env('HEIMDEYE_AGENT_INACTIVE_AFTER', 300),
         'poll_hold_seconds' => (int) env('HEIMDEYE_AGENT_POLL_HOLD', 25),
         'console_pickup_seconds' => (int) env('HEIMDEYE_AGENT_CONSOLE_PICKUP', 120),
