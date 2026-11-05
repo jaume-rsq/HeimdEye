@@ -1,14 +1,15 @@
 // Comando heimdeye-agent: l'agent que l'alumne instal·la a la seva instància.
 //
 // Model pull: l'agent es registra a HeimdEye i, amb long polling, recull la feina pendent,
-// l'executa en local (bash, com a root) i en retorna el codi de sortida i la sortida. No obre
-// cap port: tota la comunicació surt de la instància cap a HeimdEye, xifrada per HTTPS.
+// l'executa en local (bash, com l'usuari que corre l'agent: root per defecte, o el de --user al
+// servei) i en retorna el codi de sortida i la sortida. No obre cap port: tota la comunicació surt
+// de la instància cap a HeimdEye, xifrada per HTTPS.
 //
 // Un sol binari estàtic, sense dependències (només la biblioteca estàndard de Go). De moment
 // Linux; es pot compilar per a altres sistemes sense canvis.
 //
 //	heimdeye-agent run     --url https://heimdeye... --token XXX --hostname web
-//	heimdeye-agent install --url https://heimdeye... --token XXX --hostname web
+//	heimdeye-agent install --url https://heimdeye... --token XXX --hostname web [--user alumne]
 package main
 
 import (
@@ -23,17 +24,19 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"strings"
 	"syscall"
 	"time"
 )
 
-const version = "1.2.0"
+const version = "1.3.0"
 
 type config struct {
 	url      string
 	token    string
 	hostname string
+	user     string
 }
 
 func main() {
@@ -47,6 +50,7 @@ func main() {
 	fs.StringVar(&cfg.url, "url", "", "URL base de HeimdEye (p. ex. https://heimdeye.exemple.cat)")
 	fs.StringVar(&cfg.token, "token", "", "token de l'alumne")
 	fs.StringVar(&cfg.hostname, "hostname", "", "nom per identificar aquesta instància (fa de rol: web, bd...)")
+	fs.StringVar(&cfg.user, "user", "", "(install) usuari del sistema sota el qual corre el servei; per heretar el seu entorn i credencials (p. ex. l'AWS CLI d'una WSL). Per defecte, root")
 	_ = fs.Parse(os.Args[2:])
 
 	switch cmd {
@@ -75,7 +79,7 @@ func usage() {
 
 Ús:
   heimdeye-agent run     --url URL --token TOKEN --hostname NOM
-  heimdeye-agent install --url URL --token TOKEN --hostname NOM
+  heimdeye-agent install --url URL --token TOKEN --hostname NOM [--user USUARI]
   heimdeye-agent version`)
 }
 
@@ -365,7 +369,9 @@ func postJSON(ctx context.Context, client *http.Client, cfg config, path string,
 	return client.Do(req)
 }
 
-// install deixa l'agent com a servei de systemd que arrenca sol. Cal ser root.
+// install deixa l'agent com a servei de systemd que arrenca sol. Cal ser root. Amb --user, el
+// servei corre sota aquell usuari del sistema (hereta el seu entorn i credencials, p. ex. l'AWS
+// CLI configurat a la seva WSL) en comptes de root.
 func install(cfg config) error {
 	self, err := os.Executable()
 	if err != nil {
@@ -377,19 +383,18 @@ func install(cfg config) error {
 			return fmt.Errorf("no s'ha pogut copiar el binari a %s: %w", dest, err)
 		}
 	}
-	unit := fmt.Sprintf(`[Unit]
-Description=HeimdEye agent (%s)
-After=network-online.target
-Wants=network-online.target
 
-[Service]
-ExecStart=%s run --url %s --token %s --hostname %s
-Restart=always
-RestartSec=5
+	// Perquè l'agent trobi la configuració de l'usuari (p. ex. ~/.aws), es fixa User i HOME.
+	var runAs string
+	if cfg.user != "" {
+		u, err := user.Lookup(cfg.user)
+		if err != nil {
+			return fmt.Errorf("l'usuari %q no existeix: %w", cfg.user, err)
+		}
+		runAs = fmt.Sprintf("User=%s\nEnvironment=HOME=%s\n", u.Username, u.HomeDir)
+	}
 
-[Install]
-WantedBy=multi-user.target
-`, cfg.hostname, dest, cfg.url, cfg.token, cfg.hostname)
+	unit := serviceUnit(cfg, dest, runAs)
 
 	path := "/etc/systemd/system/heimdeye-agent.service"
 	if err := os.WriteFile(path, []byte(unit), 0o600); err != nil {
@@ -404,6 +409,24 @@ WantedBy=multi-user.target
 	}
 	fmt.Println("servei heimdeye-agent instal·lat i engegat.")
 	return nil
+}
+
+// serviceUnit construeix el fitxer de servei de systemd. runAs és buit (corre com a root) o les
+// línies "User=.../Environment=HOME=..." quan s'ha demanat --user.
+func serviceUnit(cfg config, dest, runAs string) string {
+	return fmt.Sprintf(`[Unit]
+Description=HeimdEye agent (%s)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+%sExecStart=%s run --url %s --token %s --hostname %s
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+`, cfg.hostname, runAs, dest, cfg.url, cfg.token, cfg.hostname)
 }
 
 func copyFile(src, dst string, mode os.FileMode) error {

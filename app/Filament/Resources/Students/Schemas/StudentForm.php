@@ -65,7 +65,7 @@ class StudentForm
                             ->dehydrated(false)
                             ->disabled()
                             ->rows(5)
-                            ->helperText('Baixa el binari (segons l\'arquitectura), el fa executable i l\'instal·la com a servei. Canvia "web" pel nom que vulgui donar a cada instància (web, bd, dns...).')
+                            ->helperText('Baixa el binari (segons l\'arquitectura), el fa executable i l\'instal·la com a servei. Canvia "web" pel nom que vulgui donar a cada instància (web, bd, dns...). Per a una WSL amb l\'AWS CLI configurat, afegeix "--user EL_TEU_USUARI" a l\'última línia perquè el servei corri amb el teu usuari i les teves credencials.')
                             ->formatStateUsing(fn (?Student $record) => $record?->token_agent
                                 ? self::installCommand($record)
                                 : 'Encara no té token. Fes servir el botó «Generar token» de dalt.'),

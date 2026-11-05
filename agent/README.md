@@ -56,9 +56,34 @@ sudo ./heimdeye-agent install --url https://heimdeye.exemple.cat --token XXXX --
 Si l'alumne té més d'una instància, cadascuna es registra amb el seu `--hostname` (web, bd, dns...),
 que es correspon amb el rol de `# hosts:` de les accions.
 
+### Executar com un usuari concret (WSL + AWS CLI)
+
+Per defecte el servei corre com a **root**. Amb `--user <usuari>`, corre sota aquell usuari del
+sistema i n'hereta l'entorn i les credencials. Això és útil, per exemple, en una **WSL** on l'alumne
+té configurat l'**AWS CLI**: el codi que enviem pot cridar `aws ec2 ...`, `aws s3 ...`, etc. amb les
+seves pròpies credencials (perfil del Learner Lab), sense que cap credencial d'AWS passi per HeimdEye.
+
+```sh
+sudo ./heimdeye-agent install --url https://heimdeye.exemple.cat --token XXXX --hostname aws --user alumne
+```
+
+Les credencials del Learner Lab són temporals: l'agent ha de treballar mentre la sessió d'AWS és
+activa; si han caducat, les crides `aws` fallen.
+
+### Variables de l'alumne al codi
+
+El codi (acció o check) rep les variables de l'alumne com a variables d'entorn `HE_*`: entre altres,
+`HE_USUARI`, `HE_NOM_COMPLET`, `HE_NUM_TAULA` (dos dígits) i `HE_X`, a més de les variables de mòdul.
+Serveixen per personalitzar l'script, p. ex. filtrar els recursos d'AWS per una etiqueta de taula:
+
+```sh
+aws ec2 describe-instances --filters "Name=tag:taula,Values=$HE_NUM_TAULA"
+```
+
 ## Notes
 
 - De moment només Linux. El codi és portable; es pot compilar per a altres sistemes sense canvis.
+  WSL2 és Linux de debò, així que l'agent hi corre igual.
 - L'agent és transparent: no amaga res ni esborra rastre. La feina que executa queda registrada a
   HeimdEye.
 - Cap secret de HeimdEye no arriba mai a la instància: les accions i els checks d'agent no poden
