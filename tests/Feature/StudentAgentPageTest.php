@@ -42,7 +42,8 @@ class StudentAgentPageTest extends TestCase
             ->assertOk()
             ->assertSee('curl -fsSL -o heimdeye-agent https://example.test/latest/heimdeye-agent-linux-$A', escape: false)
             ->assertSee("--token {$token} --hostname web", escape: false)
-            // Explica la funcionalitat i els dos paràmetres que l'alumne pot canviar.
+            // L'ajuda desplegable i els dos paràmetres que l'alumne pot canviar.
+            ->assertSee('Què és el meu agent?')
             ->assertSee('Els dos paràmetres que pots canviar')
             ->assertSee('--hostname', escape: false)
             ->assertSee('--user root', escape: false)
@@ -69,7 +70,8 @@ class StudentAgentPageTest extends TestCase
         $this->student->agentInstances()->create(['hostname' => 'aws', 'estat' => 'activa', 'ip_publica' => '203.0.113.7', 'darrer_batec' => now()]);
 
         Livewire::test(MyAgent::class)
-            ->assertSee('Les teves instàncies')
+            ->assertSee('Les instàncies de '.$this->student->nom_complet)
+            ->assertSee('Actualitza')
             ->assertSee('aws')
             ->assertSee('203.0.113.7');
     }
