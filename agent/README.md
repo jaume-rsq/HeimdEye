@@ -56,16 +56,16 @@ sudo ./heimdeye-agent install --url https://heimdeye.exemple.cat --token XXXX --
 Si l'alumne té més d'una instància, cadascuna es registra amb el seu `--hostname` (web, bd, dns...),
 que es correspon amb el rol de `# hosts:` de les accions.
 
-### Executar com un usuari concret (WSL + AWS CLI)
+### Sota quin usuari corre (WSL + AWS CLI)
 
-Per defecte el servei corre com a **root**. Amb `--user <usuari>`, corre sota aquell usuari del
-sistema i n'hereta l'entorn i les credencials. Això és útil, per exemple, en una **WSL** on l'alumne
-té configurat l'**AWS CLI**: el codi que enviem pot cridar `aws ec2 ...`, `aws s3 ...`, etc. amb les
+Per defecte el servei corre sota **l'usuari que ha llançat el `sudo`** (el del `whoami`), de manera
+que n'hereta l'entorn i les credencials. Això és útil, per exemple, en una **WSL** on l'alumne té
+configurat l'**AWS CLI**: el codi que enviem pot cridar `aws ec2 ...`, `aws s3 ...`, etc. amb les
 seves pròpies credencials (perfil del Learner Lab), sense que cap credencial d'AWS passi per HeimdEye.
+Així la comanda copiada de la fitxa no s'ha d'editar.
 
-```sh
-sudo ./heimdeye-agent install --url https://heimdeye.exemple.cat --token XXXX --hostname aws --user alumne
-```
+- `--user <usuari>`: força un altre usuari del sistema.
+- `--user root`: força que corri com a root (p. ex. en una instància on cal root per a les accions).
 
 Les credencials del Learner Lab són temporals: l'agent ha de treballar mentre la sessió d'AWS és
 activa; si han caducat, les crides `aws` fallen.

@@ -50,7 +50,7 @@ func main() {
 	fs.StringVar(&cfg.url, "url", "", "URL base de HeimdEye (p. ex. https://heimdeye.exemple.cat)")
 	fs.StringVar(&cfg.token, "token", "", "token de l'alumne")
 	fs.StringVar(&cfg.hostname, "hostname", "", "nom per identificar aquesta instància (fa de rol: web, bd...)")
-	fs.StringVar(&cfg.user, "user", "", "(install) usuari del sistema sota el qual corre el servei; per heretar el seu entorn i credencials (p. ex. l'AWS CLI d'una WSL). Per defecte, root")
+	fs.StringVar(&cfg.user, "user", "", "(install) usuari del sistema sota el qual corre el servei, per heretar el seu entorn i credencials (p. ex. l'AWS CLI d'una WSL). Per defecte, l'usuari que ha llançat sudo; --user root el força a root")
 	_ = fs.Parse(os.Args[2:])
 
 	switch cmd {
@@ -386,12 +386,13 @@ func install(cfg config) error {
 
 	// Perquè l'agent trobi la configuració de l'usuari (p. ex. ~/.aws), es fixa User i HOME.
 	var runAs string
-	if cfg.user != "" {
-		u, err := user.Lookup(cfg.user)
+	if target := resolveUser(cfg, os.Getenv("SUDO_USER")); target != "" {
+		u, err := user.Lookup(target)
 		if err != nil {
-			return fmt.Errorf("l'usuari %q no existeix: %w", cfg.user, err)
+			return fmt.Errorf("l'usuari %q no existeix: %w", target, err)
 		}
 		runAs = fmt.Sprintf("User=%s\nEnvironment=HOME=%s\n", u.Username, u.HomeDir)
+		fmt.Printf("el servei correrà com a %s\n", u.Username)
 	}
 
 	unit := serviceUnit(cfg, dest, runAs)
@@ -411,8 +412,27 @@ func install(cfg config) error {
 	return nil
 }
 
+// resolveUser decideix sota quin usuari del sistema ha de córrer el servei ("" vol dir root, sense
+// línia User=). Si s'ha donat --user, mana (amb "root" explícit = root). Si no, per defecte
+// l'usuari que ha llançat el sudo (SUDO_USER), que és qui té configurat l'entorn (p. ex. l'AWS CLI
+// d'una WSL), de manera que la comanda copiada no s'ha d'editar. Si no hi ha SUDO_USER, root.
+func resolveUser(cfg config, sudoUser string) string {
+	if cfg.user != "" {
+		if cfg.user == "root" {
+			return ""
+		}
+
+		return cfg.user
+	}
+	if sudoUser != "" && sudoUser != "root" {
+		return sudoUser
+	}
+
+	return ""
+}
+
 // serviceUnit construeix el fitxer de servei de systemd. runAs és buit (corre com a root) o les
-// línies "User=.../Environment=HOME=..." quan s'ha demanat --user.
+// línies "User=.../Environment=HOME=..." quan el servei ha de córrer sota un usuari concret.
 func serviceUnit(cfg config, dest, runAs string) string {
 	return fmt.Sprintf(`[Unit]
 Description=HeimdEye agent (%s)

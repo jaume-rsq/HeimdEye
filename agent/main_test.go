@@ -32,3 +32,25 @@ func TestServiceUnitRunsAsUserWhenRequested(t *testing.T) {
 		t.Errorf("User= ha d'anar abans d'ExecStart=:\n%s", unit)
 	}
 }
+
+func TestResolveUser(t *testing.T) {
+	cases := []struct {
+		name     string
+		flagUser string
+		sudoUser string
+		want     string
+	}{
+		{"default to sudo user", "", "jaume", "jaume"},
+		{"no sudo user -> root", "", "", ""},
+		{"sudo user root -> root", "", "root", ""},
+		{"explicit flag wins over sudo", "altre", "jaume", "altre"},
+		{"explicit root forces root", "root", "jaume", ""},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := resolveUser(config{user: c.flagUser}, c.sudoUser); got != c.want {
+				t.Errorf("resolveUser(user=%q, sudo=%q) = %q, vol %q", c.flagUser, c.sudoUser, got, c.want)
+			}
+		})
+	}
+}
