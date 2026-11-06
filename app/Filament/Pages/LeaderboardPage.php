@@ -2,6 +2,7 @@
 
 namespace App\Filament\Pages;
 
+use App\Filament\Pages\Concerns\RemembersScope;
 use App\Http\Controllers\LeaderboardController;
 use App\Models\AcademicYear;
 use App\Models\Module;
@@ -22,6 +23,8 @@ use Livewire\Attributes\Url;
  */
 class LeaderboardPage extends Page
 {
+    use RemembersScope;
+
     protected static ?string $slug = 'leaderboard';
 
     protected static ?string $title = 'Leaderboard';
@@ -45,6 +48,7 @@ class LeaderboardPage extends Page
 
     public function mount(): void
     {
+        $this->restoreScope();
         $this->ensureYear();
         $this->ensureGroup();
         $this->ensureModule();

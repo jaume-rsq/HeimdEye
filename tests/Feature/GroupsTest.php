@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\ModuleKind;
 use App\Enums\Role;
+use App\Filament\Pages\InventoryOverview;
 use App\Filament\Pages\LeaderboardPage;
 use App\Filament\Pages\StudentTracking;
 use App\Filament\Resources\Groups\Pages\ManageGroups;
@@ -162,5 +163,30 @@ class GroupsTest extends TestCase
         Group::create(['curs_id' => $old->id, 'codi' => 'VELL']);
 
         $this->get('/leaderboard')->assertOk()->assertDontSee('VELL');
+    }
+
+    public function test_the_picked_group_and_student_are_remembered_between_screens(): void
+    {
+        $first = $this->smix2->students()->orderBy('num_taula')->firstOrFail();
+        $second = $this->smix2->students()->orderBy('num_taula')->skip(1)->firstOrFail();
+
+        Livewire::test(LeaderboardPage::class)
+            ->assertSet('grup', $this->other->id)
+            ->set('grup', $this->smix2->id);
+
+        // En canviar de pantalla (sense res a la URL), es recupera el grup triat.
+        Livewire::test(StudentTracking::class)
+            ->assertSet('grup', $this->smix2->id)
+            ->assertSet('alumne', $first->id)
+            ->set('alumne', $second->id);
+
+        Livewire::test(StudentTracking::class)->assertSet('alumne', $second->id);
+        Livewire::test(InventoryOverview::class)->assertSet('grup', $this->smix2->id);
+        Livewire::test(LeaderboardPage::class)->assertSet('grup', $this->smix2->id);
+
+        // Un enllaç amb un alumne mana sobre el que hi havia recordat.
+        Livewire::test(StudentTracking::class, ['alumne' => $this->moved->id])
+            ->assertSet('grup', $this->other->id)
+            ->assertSet('alumne', $this->moved->id);
     }
 }

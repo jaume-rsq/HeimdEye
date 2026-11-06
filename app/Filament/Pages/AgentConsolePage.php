@@ -31,6 +31,9 @@ class AgentConsolePage extends Page
 
     protected static ?int $navigationSort = 4;
 
+    /** Fora del menú: s'obre des d'Inventari → Instàncies («Obrir consola» de cada instància). */
+    protected static bool $shouldRegisterNavigation = false;
+
     protected string $view = 'filament.pages.agent-console';
 
     #[Url]

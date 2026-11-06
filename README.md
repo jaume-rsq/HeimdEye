@@ -731,9 +731,9 @@ cal obrir cap port ni conèixer la IP. Tot va per HTTPS i l'alumne s'autentica a
   no té cap instància activa amb el rol del codi, la prova falla de seguida i ho diu. Si ningú no la
   recull en `heimdeye.agent.test_expiry_seconds` (2 min), caduca. En llançar una acció o un check
   d'agent, HeimdEye avisa dels alumnes que ara no tenen la instància activa.
-- **Consola interactiva.** Des de *Accions → Consola d'instàncies* (o des de *Inventari →
-  Instàncies*, amb el botó «Obrir consola» d'una fila) el professor obre una consola d'una
-  instància activa. És el mateix model pull: HeimdEye deixa la sessió pendent, l'agent la
+- **Consola interactiva.** Des de *Inventari → Instàncies*, amb el botó «Obrir consola» d'una
+  fila, el professor obre una consola d'una instància activa (la pàgina de la consola ja no surt
+  al menú). És el mateix model pull: HeimdEye deixa la sessió pendent, l'agent la
   recull i obre un **bash persistent** a la instància; l'entrada que s'escriu i la sortida que
   torna viatgen com a missatges pel mateix canal de sortida (`/api/agent/console/*`). El directori i
   les variables es mantenen entre comandes. És una **consola de comandes** (no un terminal PTY: no
