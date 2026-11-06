@@ -187,7 +187,7 @@ class StudentTracking extends Page
         /** @var User $user */
         $user = Auth::user();
         $current = AcademicYear::where('es_actual', true)->value('id');
-        $query = $user->isAdmin() ? Module::query() : $user->modules();
+        $query = ($user->isAdmin() ? Module::query() : $user->modules())->regular();
 
         return $query->with('academicYear')->get()
             ->sortBy(fn (Module $m) => [$m->curs_id === $current ? 0 : 1, $m->codi, $m->nom])

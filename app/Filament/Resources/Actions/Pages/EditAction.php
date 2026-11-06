@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Actions\Pages;
 
+use App\Filament\Actions\CopyFromLibrary;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Actions\Pages\Concerns\TestsDraftVersion;
 use App\Filament\Resources\Actions\Schemas\ActionForm;
@@ -59,6 +60,7 @@ class EditAction extends EditRecord
     {
         return [
             $this->testActionGroup(),
+            CopyFromLibrary::action()->record($this->record),
             PageAction::make('versions')
                 ->label('Versions')
                 ->icon(Heroicon::OutlinedRectangleStack)

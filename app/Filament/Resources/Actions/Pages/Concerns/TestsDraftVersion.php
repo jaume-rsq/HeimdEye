@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Actions\Pages\Concerns;
 
 use App\Enums\Executor;
 use App\Filament\Actions\LaunchAction;
+use App\Filament\Actions\LibraryTest;
 use App\Filament\Concerns\QueuesEditorTests;
 use App\Filament\Resources\Actions\Schemas\ActionForm;
 use App\Jobs\RunEditorTest;
@@ -92,12 +93,23 @@ trait TestsDraftVersion
             })
             ->modalSubmitActionLabel($simulate ? 'Simular' : 'Executar')
             ->modalWidth('4xl')
-            ->schema(fn () => LaunchAction::schema($this->draftAction(), $this->draftVersion()->parametres ?? [], $this->draftVersion()->codi ?? ''))
-            ->fillForm(fn () => LaunchAction::fill($this->draftVersion()->parametres ?? []))
+            ->schema(fn () => $this->inLibrary()
+                ? LibraryTest::schema($this->draftAction()->executor, $this->draftVersion()->parametres ?? [])
+                : LaunchAction::schema($this->draftAction(), $this->draftVersion()->parametres ?? [], $this->draftVersion()->codi ?? ''))
+            ->fillForm(fn () => $this->inLibrary()
+                ? LibraryTest::fill($this->draftVersion()->parametres ?? [])
+                : LaunchAction::fill($this->draftVersion()->parametres ?? []))
             ->action(function (array $data, Action $action) use ($simulate) {
                 $draft = $this->draftAction();
                 $version = $this->draftVersion();
                 $hostTypes = $data['equips'] ?? [];
+                // A la biblioteca es prova amb els alumnes i els equips d'un mòdul real, i amb els
+                // equips triats en lloc dels del codi.
+                if ($this->inLibrary()) {
+                    $draft = (clone $draft)->forceFill(['modul_id' => LibraryTest::contextModule($data)->id])->unsetRelation('module');
+                    $version = new ActionVersion([...$version->only(ActionForm::VERSION_FIELDS), 'codi' => LibraryTest::code($draft->executor, $version->codi ?? '', $data)]);
+                    $hostTypes = [];
+                }
 
                 try {
                     $params = app(ActionRunner::class)->prepare($draft, $version, $hostTypes, LaunchAction::givenParams($version->parametres ?? [], $data), $simulate);
@@ -120,9 +132,16 @@ trait TestsDraftVersion
             });
     }
 
+    /** L'acció és de la biblioteca de checks i accions (es prova amb un mòdul de context). */
+    protected function inLibrary(): bool
+    {
+        return (bool) $this->draftAction()?->module?->isLibrary();
+    }
+
     private function draftCheckAction(): Action
     {
         return Action::make('provarCheck')
+            ->hidden(fn () => $this->inLibrary())
             ->label('Verificar amb un check')
             ->icon(Heroicon::OutlinedCheckCircle)
             ->disabled(fn () => $this->draftAction() === null)

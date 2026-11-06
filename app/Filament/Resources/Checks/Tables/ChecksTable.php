@@ -236,7 +236,7 @@ class ChecksTable
         if ($user === null) {
             return null;
         }
-        $modules = $user->isAdmin() ? Module::query()->select('id') : $user->modules()->select('moduls.id');
+        $modules = ($user->isAdmin() ? Module::query()->select('id') : $user->modules()->select('moduls.id'))->regular();
 
         return Block::with('module')
             ->whereIn('modul_id', $modules)

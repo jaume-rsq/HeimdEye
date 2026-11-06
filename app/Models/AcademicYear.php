@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -9,7 +10,7 @@ class AcademicYear extends Model
 {
     protected $table = 'cursos';
 
-    protected $fillable = ['nom', 'data_inici', 'data_fi', 'es_actual'];
+    protected $fillable = ['nom', 'data_inici', 'data_fi', 'es_actual', 'es_biblioteca'];
 
     protected function casts(): array
     {
@@ -17,7 +18,14 @@ class AcademicYear extends Model
             'data_inici' => 'date',
             'data_fi' => 'date',
             'es_actual' => 'boolean',
+            'es_biblioteca' => 'boolean',
         ];
+    }
+
+    /** Cursos de veritat: tots menys el de la biblioteca de checks i accions. */
+    public function scopeRegular(Builder $query): Builder
+    {
+        return $query->where('es_biblioteca', false);
     }
 
     public function modules(): HasMany
