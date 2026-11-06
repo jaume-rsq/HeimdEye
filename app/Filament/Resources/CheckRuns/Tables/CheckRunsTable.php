@@ -4,6 +4,7 @@ namespace App\Filament\Resources\CheckRuns\Tables;
 
 use App\Enums\CheckStatus;
 use App\Enums\RunOrigin;
+use App\Filament\Support\ScopeFilters;
 use App\Models\Check;
 use App\Models\CheckRun;
 use App\Models\RunBatch;
@@ -68,6 +69,15 @@ class CheckRunsTable
                     ->placeholder('—'),
             ])
             ->filters([
+                // Curs, grup i mòdul primer, com a totes les llistes (a l'historial d'un check, només el grup).
+                ScopeFilters::course('curs',
+                    fn (Builder $q, int $id) => $q->whereHas('check.task.block.module', fn (Builder $m) => $m->where('curs_id', $id)),
+                    children: ['grup', 'modul'])
+                    ->visible($check === null),
+                ScopeFilters::group('grup', 'curs', fn (Builder $q, int $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id))),
+                ScopeFilters::module('modul', 'curs',
+                    fn (Builder $q, int $id) => $q->whereHas('check.task.block', fn (Builder $b) => $b->where('modul_id', $id)))
+                    ->visible($check === null),
                 SelectFilter::make('check_id')
                     ->label('Check')
                     ->relationship('check', 'nom')

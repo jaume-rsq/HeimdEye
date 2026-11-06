@@ -9,8 +9,10 @@ use App\Filament\Pages\Concerns\ManagesStudentPanel;
 use App\Filament\Pages\Concerns\ManagesVariables;
 use App\Jobs\TestConnection;
 use App\Models\AcademicYear;
+use App\Models\Group;
 use App\Models\HostType;
 use App\Models\Module;
+use App\Models\Student;
 use App\Support\ConnectionTester;
 use App\Support\InventoryGrid;
 use BackedEnum;
@@ -60,6 +62,10 @@ class InventoryOverview extends Page
     #[Url]
     public ?int $curs = null;
 
+    /** Grup-classe: limita els mòduls i els alumnes. Sempre n'hi ha un (si el curs en té). */
+    #[Url]
+    public ?int $grup = null;
+
     #[Url]
     public ?int $modul = null;
 
@@ -93,6 +99,12 @@ class InventoryOverview extends Page
         if ($this->curs === null || ! $this->courses()->has($this->curs)) {
             $this->curs = AcademicYear::where('es_actual', true)->value('id') ?? $this->courses()->keys()->first();
         }
+        // Un alumne a l'enllaç porta el seu grup.
+        $linkedStudent = $this->alumne ? Student::find($this->alumne) : null;
+        if ($linkedStudent?->grup_id && $this->groups()->has($linkedStudent->grup_id)) {
+            $this->grup = $linkedStudent->grup_id;
+        }
+        $this->ensureGroup();
         if ($this->modul !== 0 && ($this->modul === null || ! $this->modules()->has($this->modul))) {
             $this->modul = $this->modules()->keys()->first();
         }
@@ -121,9 +133,38 @@ class InventoryOverview extends Page
 
     public function updatedCurs(): void
     {
+        unset($this->groups);
+        $this->grup = null;
+        $this->ensureGroup();
         unset($this->modules);
         $this->modul = $this->modules()->keys()->first() ?? 0;
         $this->updatedModul();
+    }
+
+    public function updatedGrup(): void
+    {
+        $this->ensureGroup();
+        unset($this->modules);
+        if ($this->modul !== 0 && ! $this->modules()->has($this->modul)) {
+            $this->modul = $this->modules()->keys()->first() ?? 0;
+        }
+        $this->updatedModul();
+    }
+
+    /** Com al leaderboard i al seguiment, sempre hi ha un grup triat: si no és vàlid, el primer. */
+    private function ensureGroup(): void
+    {
+        if ($this->grup === null || ! $this->groups()->has($this->grup)) {
+            $this->grup = $this->groups()->keys()->first();
+        }
+    }
+
+    /** @return Collection<int, string> grups del curs triat */
+    #[Computed]
+    public function groups(): Collection
+    {
+        return Group::where('curs_id', $this->curs)->orderBy('codi')->get()
+            ->mapWithKeys(fn (Group $g) => [$g->id => $g->label()]);
     }
 
     /** @return Collection<int, string> cursos, el més recent primer */
@@ -133,12 +174,13 @@ class InventoryOverview extends Page
         return AcademicYear::regular()->orderByDesc('data_inici')->pluck('nom', 'id');
     }
 
-    /** Mòduls del curs triat. */
+    /** Mòduls del curs triat (amb un grup, els que hi tenen algun alumne). */
     #[Computed]
     public function modules(): Collection
     {
         return Module::query()
             ->when($this->curs, fn ($q) => $q->where('curs_id', $this->curs))
+            ->withGroup($this->grup)
             ->orderBy('codi')
             ->get()
             ->mapWithKeys(fn (Module $m) => [$m->id => trim("{$m->codi} {$m->nom}")]);
@@ -147,7 +189,12 @@ class InventoryOverview extends Page
     #[Computed]
     public function grid(): ?array
     {
-        return $this->module ? app(InventoryGrid::class)->build($this->module) : null;
+        $grid = $this->module ? app(InventoryGrid::class)->build($this->module) : null;
+        if ($grid && $this->grup) {
+            $grid['rows'] = array_values(array_filter($grid['rows'], fn (array $row) => $row['student']->grup_id === $this->grup));
+        }
+
+        return $grid;
     }
 
     /**
@@ -165,6 +212,7 @@ class InventoryOverview extends Page
             ->when($typeId, fn ($types) => $types->where('id', $typeId), fn ($types) => $types->reject->isUnique())
             ->values();
         $students = $module->students()->where('es_actiu', true)
+            ->when($this->grup, fn ($q) => $q->where('grup_id', $this->grup))
             ->when($studentId, fn ($q) => $q->whereKey($studentId))
             ->orderBy('num_taula')
             ->get();

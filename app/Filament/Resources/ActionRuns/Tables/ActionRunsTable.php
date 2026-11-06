@@ -4,6 +4,7 @@ namespace App\Filament\Resources\ActionRuns\Tables;
 
 use App\Enums\ActionStatus;
 use App\Enums\RunOrigin;
+use App\Filament\Support\ScopeFilters;
 use App\Models\Action as ActionModel;
 use App\Models\ActionRun;
 use App\Models\RunBatch;
@@ -77,6 +78,15 @@ class ActionRunsTable
                         : null),
             ])
             ->filters([
+                // Curs, grup i mòdul primer, com a totes les llistes (a l'historial d'una acció, només el grup).
+                ScopeFilters::course('curs',
+                    fn (Builder $q, int $id) => $q->whereHas('action.module', fn (Builder $m) => $m->where('curs_id', $id)),
+                    children: ['grup', 'modul'])
+                    ->visible($action === null),
+                ScopeFilters::group('grup', 'curs', fn (Builder $q, int $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id))),
+                ScopeFilters::module('modul', 'curs',
+                    fn (Builder $q, int $id) => $q->whereHas('action', fn (Builder $a) => $a->where('modul_id', $id)))
+                    ->visible($action === null),
                 SelectFilter::make('accio_id')
                     ->label('Acció')
                     ->relationship('action', 'nom')

@@ -6,6 +6,7 @@ use App\Enums\Role;
 use App\Models\AcademicYear;
 use App\Models\Group;
 use App\Models\Student;
+use Filament\Actions\Action;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -14,7 +15,9 @@ use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
+use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Js;
 
 class StudentForm
 {
@@ -67,7 +70,14 @@ class StudentForm
                             ->rows(5)
                             ->helperText('Baixa el binari (segons l\'arquitectura), el fa executable i l\'instal·la com a servei. Canvia "web" pel nom que vulgui donar a cada instància (web, bd, dns...). El servei corre amb l\'usuari que llança el sudo (així hereta les credencials, p. ex. l\'AWS CLI d\'una WSL); afegeix "--user root" a l\'última línia si el vols com a root.')
                             ->formatStateUsing(fn (?Student $record) => $record?->agentInstallCommand()
-                                ?? 'Encara no té token. Fes servir el botó «Generar token» de dalt.'),
+                                ?? 'Encara no té token. Fes servir el botó «Generar token» de dalt.')
+                            // Copia la comanda sencera (totes les línies, amb el token) al porta-retalls.
+                            ->hintAction(Action::make('copiarComanda')
+                                ->label('Copiar')
+                                ->icon(Heroicon::OutlinedClipboardDocument)
+                                ->visible(fn (?Student $record) => filled($record?->token_agent))
+                                ->alpineClickHandler(fn (?Student $record) => 'window.navigator.clipboard.writeText('.Js::from((string) $record?->agentInstallCommand()).'); '
+                                    .'$tooltip('.Js::from('Comanda copiada').', { theme: $store.theme, timeout: 2000 })')),
                         Textarea::make('instancies_agent')
                             ->label('Instàncies registrades')
                             ->dehydrated(false)

@@ -7,6 +7,8 @@ use App\Filament\Pages\AgentConsolePage;
 use App\Models\AcademicYear;
 use App\Models\AgentInstance;
 use App\Models\Check;
+use App\Models\Group;
+use App\Models\Module;
 use App\Models\Student;
 use App\Runner\CheckRunner;
 use Filament\Actions\Action;
@@ -14,6 +16,7 @@ use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -36,6 +39,19 @@ class AgentInstancesTable
                 ->when($currentYear, fn (Builder $q) => $q
                     ->whereHas('student', fn (Builder $s) => $s->where('curs_id', $currentYear))))
             ->defaultSort('darrer_batec', 'desc')
+            // Curs actual fix; el grup i el mòdul, com a les altres llistes.
+            ->filters([
+                SelectFilter::make('grup')
+                    ->label('Grup')
+                    ->options(fn () => Group::where('curs_id', $currentYear)->orderBy('codi')->get()->mapWithKeys(fn (Group $g) => [$g->id => $g->label()]))
+                    ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null,
+                        fn (Builder $q, $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id)))),
+                SelectFilter::make('modul')
+                    ->label('Mòdul')
+                    ->options(fn () => Module::where('curs_id', $currentYear)->orderBy('codi')->get()->mapWithKeys(fn (Module $m) => [$m->id => $m->label()]))
+                    ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null,
+                        fn (Builder $q, $id) => $q->whereHas('student.modules', fn (Builder $m) => $m->whereKey($id)))),
+            ])
             ->poll('10s')
             ->emptyStateHeading('Cap instància registrada')
             ->emptyStateDescription('Les instàncies apareixen aquí quan un alumne hi instal·la i engega l\'agent.')

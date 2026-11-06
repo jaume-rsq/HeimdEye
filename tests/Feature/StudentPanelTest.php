@@ -154,4 +154,15 @@ class StudentPanelTest extends TestCase
             ->assertActionHidden($this->editOwn());
         $this->assertNotNull(Livewire::actingAs($visitor)->test(InventoryOverview::class, ['modul' => $this->module->id])->instance()->studentPanel($this->student->id));
     }
+
+    public function test_the_agent_install_command_can_be_copied(): void
+    {
+        Livewire::test(EditStudent::class, ['record' => $this->student->id])
+            ->assertDontSee('Comanda copiada');
+
+        $this->student->forceFill(['token_agent' => 'tok-de-prova'])->save();
+        Livewire::test(EditStudent::class, ['record' => $this->student->id])
+            ->assertSee('Comanda copiada')
+            ->assertSee('tok-de-prova');
+    }
 }

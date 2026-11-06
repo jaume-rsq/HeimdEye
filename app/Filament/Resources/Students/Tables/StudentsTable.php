@@ -45,12 +45,12 @@ class StudentsTable
                 IconColumn::make('es_actiu')->label('Actiu')->boolean(),
             ])
             ->filters([
-                TernaryFilter::make('es_actiu')->label('Actiu')->default(true),
                 // Sense relationship(): Filament hi fa un "select distinct moduls.*" i Postgres no
                 // sap comparar la columna json "combina".
-                ScopeFilters::course('curs_id', fn (Builder $q, int $id) => $q->where('curs_id', $id), children: ['modul', 'grup_id'], default: fn () => null),
-                ScopeFilters::module('modul', 'curs_id', fn (Builder $q, int $id) => $q->whereHas('modules', fn (Builder $m) => $m->whereKey($id))),
+                ScopeFilters::course('curs_id', fn (Builder $q, int $id) => $q->where('curs_id', $id), children: ['grup_id', 'modul']),
                 ScopeFilters::group('grup_id', 'curs_id', fn (Builder $q, int $id) => $q->where('grup_id', $id)),
+                ScopeFilters::module('modul', 'curs_id', fn (Builder $q, int $id) => $q->whereHas('modules', fn (Builder $m) => $m->whereKey($id))),
+                TernaryFilter::make('es_actiu')->label('Actiu')->default(true),
             ])
             ->recordActions([
                 EditAction::make()->label('Fitxa'),

@@ -6,7 +6,9 @@ use App\Enums\ModuleKind;
 use App\Enums\Role;
 use App\Filament\Pages\LeaderboardPage;
 use App\Filament\Pages\StudentTracking;
+use App\Filament\Resources\ActionRuns\Pages\ListActionRuns;
 use App\Filament\Resources\Actions\Pages\ListActions;
+use App\Filament\Resources\CheckRuns\Pages\ListCheckRuns;
 use App\Filament\Resources\Checks\Pages\ListChecks;
 use App\Filament\Resources\Students\Pages\ListStudents;
 use App\Models\AcademicYear;
@@ -73,8 +75,10 @@ class ScopeFiltersTest extends TestCase
 
     public function test_students_course_limits_modules_and_groups(): void
     {
-        $page = Livewire::test(ListStudents::class);
-        $this->assertArrayHasKey($this->other->id, $this->filterOptions($page, 'modul'));
+        // Per defecte, el curs actual (com a totes les llistes): no s'hi ofereixen mòduls d'altres cursos.
+        $page = Livewire::test(ListStudents::class)
+            ->assertSet('tableDeferredFilters.curs_id.value', $this->module->curs_id);
+        $this->assertArrayNotHasKey($this->other->id, $this->filterOptions($page, 'modul'));
 
         $page->set('tableDeferredFilters.modul.value', $this->module->id)
             ->set('tableDeferredFilters.curs_id.value', $this->other->curs_id)
@@ -106,5 +110,16 @@ class ScopeFiltersTest extends TestCase
         Livewire::test(StudentTracking::class, ['alumne' => $student->id])
             ->assertSet('curs', $this->other->curs_id)
             ->assertSet('modul', $this->other->id);
+    }
+
+    public function test_histories_start_with_course_group_and_module(): void
+    {
+        foreach ([ListCheckRuns::class, ListActionRuns::class] as $page) {
+            $filters = array_keys(Livewire::test($page)->instance()->getTable()->getFilters());
+            $this->assertSame(['curs', 'grup', 'modul'], array_slice($filters, 0, 3), $page);
+        }
+
+        $students = array_keys(Livewire::test(ListStudents::class)->instance()->getTable()->getFilters());
+        $this->assertSame(['curs_id', 'grup_id', 'modul'], array_slice($students, 0, 3));
     }
 }
