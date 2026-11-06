@@ -8,6 +8,7 @@ use App\Enums\Executor;
 use App\Filament\Actions\ExtendChecks;
 use App\Filament\Actions\LaunchCheck;
 use App\Filament\Resources\Checks\CheckResource;
+use App\Filament\Support\ScopeFilters;
 use App\Models\AcademicYear;
 use App\Models\Block;
 use App\Models\Check;
@@ -101,31 +102,17 @@ class ChecksTable
                     ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('curs')
-                    ->label('Curs')
-                    ->options(fn () => AcademicYear::orderByDesc('data_inici')->pluck('nom', 'id'))
-                    ->default(fn () => self::latestBlock()?->module->curs_id ?? AcademicYear::where('es_actual', true)->value('id'))
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['value'] ?? null,
-                        fn (Builder $q, $id) => $q->whereHas('task.block.module', fn (Builder $m) => $m->where('curs_id', $id)),
-                    )),
-                SelectFilter::make('modul')
-                    ->label('Mòdul')
-                    ->options(fn () => Module::orderBy('codi')->get()->mapWithKeys(fn (Module $m) => [$m->id => $m->label()]))
-                    ->default(fn () => self::latestBlock()?->modul_id)
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['value'] ?? null,
-                        fn (Builder $q, $id) => $q->whereHas('task.block', fn (Builder $b) => $b->where('modul_id', $id)),
-                    )),
-                SelectFilter::make('bloc')
-                    ->label('Bloc')
-                    ->options(fn () => Block::with('module')->orderBy('modul_id')->orderBy('numero')->get()
-                        ->mapWithKeys(fn (Block $b) => [$b->id => "{$b->module->nom} · Bloc {$b->numero}: {$b->titol}"]))
-                    ->default(fn () => self::latestBlock()?->id)
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['value'] ?? null,
-                        fn (Builder $q, $id) => $q->whereHas('task', fn (Builder $t) => $t->where('bloc_id', $id)),
-                    )),
+                ScopeFilters::course('curs',
+                    fn (Builder $q, int $id) => $q->whereHas('task.block.module', fn (Builder $m) => $m->where('curs_id', $id)),
+                    children: ['modul', 'bloc'],
+                    default: fn () => self::latestBlock()?->module->curs_id ?? AcademicYear::where('es_actual', true)->value('id')),
+                ScopeFilters::module('modul', 'curs',
+                    fn (Builder $q, int $id) => $q->whereHas('task.block', fn (Builder $b) => $b->where('modul_id', $id)),
+                    children: ['bloc'])
+                    ->default(fn () => self::latestBlock()?->modul_id),
+                ScopeFilters::block('bloc', 'curs', 'modul',
+                    fn (Builder $q, int $id) => $q->whereHas('task', fn (Builder $t) => $t->where('bloc_id', $id)))
+                    ->default(fn () => self::latestBlock()?->id),
                 SelectFilter::make('executor')
                     ->options(collect(Executor::cases())->mapWithKeys(fn (Executor $e) => [$e->value => $e->value])),
                 TernaryFilter::make('actiu')

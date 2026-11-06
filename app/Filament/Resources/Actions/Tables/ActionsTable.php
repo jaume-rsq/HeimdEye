@@ -7,9 +7,8 @@ use App\Enums\ActionStatus;
 use App\Enums\Executor;
 use App\Filament\Actions\LaunchAction;
 use App\Filament\Resources\Actions\ActionResource;
-use App\Models\AcademicYear;
+use App\Filament\Support\ScopeFilters;
 use App\Models\Action as ActionModel;
-use App\Models\Module;
 use App\Support\ActionSummary;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
@@ -91,19 +90,12 @@ class ActionsTable
                     ->sortable(),
             ])
             ->filters([
-                SelectFilter::make('curs')
-                    ->label('Curs')
-                    ->options(fn () => AcademicYear::orderByDesc('data_inici')->pluck('nom', 'id'))
-                    ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['value'] ?? null,
-                        fn (Builder $q, $id) => $q->whereHas('module', fn (Builder $m) => $m->where('curs_id', $id)),
-                    )),
-                SelectFilter::make('modul_id')
-                    ->label('Mòdul')
-                    ->relationship('module', 'nom', fn (Builder $query) => $query->orderBy('codi'))
-                    ->getOptionLabelFromRecordUsing(fn (Module $m) => trim("{$m->codi} {$m->nom}"))
+                ScopeFilters::course('curs',
+                    fn (Builder $q, int $id) => $q->whereHas('module', fn (Builder $m) => $m->where('curs_id', $id)),
+                    children: ['modul_id', 'bloc']),
+                ScopeFilters::module('modul_id', 'curs', fn (Builder $q, int $id) => $q->where('modul_id', $id), children: ['bloc'])
                     ->columnSpan(2),
+                ScopeFilters::block('bloc', 'curs', 'modul_id', fn (Builder $q, int $id) => $q->where('bloc_id', $id)),
                 SelectFilter::make('executor')
                     ->options(collect(Executor::cases())->mapWithKeys(fn (Executor $e) => [$e->value => $e->value])),
                 Filter::make('execucions')

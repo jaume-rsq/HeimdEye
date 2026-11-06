@@ -2,13 +2,20 @@
 titol: Novetats
 ordre: 0
 per: [professors]
-actualitzat: 2026-11-02
+actualitzat: 2026-11-06
 ---
 
 # Novetats
 
 Darrers canvis de HeimdEye, el més nou primer. Les pàgines d'ajuda que han
 canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esquerra.
+
+## 06/11/2026
+
+- **Filtres encadenats** a les llistes de checks, d'accions i d'alumnes: en triar un curs, el
+  desplegable de mòduls només mostra els d'aquell curs (i el de grups, els seus grups); en triar
+  un mòdul, el de blocs només mostra els del mòdul. Si canvies el de dalt, els de sota es buiden.
+  La llista d'accions també es pot filtrar per bloc.
 
 ## 02/11/2026
 

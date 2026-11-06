@@ -18,6 +18,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 
@@ -43,6 +44,7 @@ class ActionForm
                             ->options(fn () => Module::with('academicYear')->get()->mapWithKeys(fn (Module $m) => [$m->id => trim("{$m->codi} {$m->nom}")." ({$m->academicYear->nom})"]))
                             ->required()
                             ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('bloc_id', null))
                             ->disabledOn('edit'),
                         Textarea::make('descripcio')->label('Descripció')->rows(2)->columnSpanFull(),
                         Select::make('executor')
