@@ -41,7 +41,7 @@ class IncidentsTable
             ->filters([
                 SelectFilter::make('curs')
                     ->label('Curs')
-                    ->options(fn () => AcademicYear::orderByDesc('data_inici')->pluck('nom', 'id'))
+                    ->options(fn () => AcademicYear::regular()->orderByDesc('data_inici')->pluck('nom', 'id'))
                     ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
                     ->query(fn (Builder $query, array $data) => $query->when(
                         $data['value'] ?? null,

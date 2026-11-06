@@ -62,6 +62,11 @@ class CodeValidator
         if (in_array('all', $groups, true)) {
             throw new InvalidArgumentException('No es pot fer servir "all": cal dir els grups d\'equips concrets');
         }
+        // La biblioteca no té equips propis: els grups es validen en provar el codi (contra el mòdul
+        // de context) i en copiar-lo a una tasca real.
+        if ($module->isLibrary()) {
+            return null;
+        }
 
         $matches = fn (HostType $type, string $group) => $type->grup_ansible === $group || $type->nom === $group;
         $visible = $module->visibleHostTypes();

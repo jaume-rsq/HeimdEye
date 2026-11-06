@@ -33,6 +33,18 @@ class Module extends Model
         return $this->belongsTo(AcademicYear::class, 'curs_id');
     }
 
+    /** És el mòdul de la biblioteca de checks i accions (sense alumnes, no compta per a res). */
+    public function isLibrary(): bool
+    {
+        return (bool) $this->academicYear?->es_biblioteca;
+    }
+
+    /** Mòduls de veritat: tots menys el de la biblioteca. */
+    public function scopeRegular(Builder $query): Builder
+    {
+        return $query->whereHas('academicYear', fn (Builder $q) => $q->where('es_biblioteca', false));
+    }
+
     public function cycle(): BelongsTo
     {
         return $this->belongsTo(Cycle::class, 'cicle_id');

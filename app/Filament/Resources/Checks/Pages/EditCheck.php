@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Checks\Pages;
 
+use App\Filament\Actions\CopyFromLibrary;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Filament\Resources\Checks\Pages\Concerns\TestsDraftCheck;
 use App\Filament\Resources\Checks\Schemas\CheckForm;
@@ -69,6 +70,7 @@ class EditCheck extends EditRecord
                 ->icon(Heroicon::OutlinedClock)
                 ->color('gray')
                 ->url(fn () => CheckResource::getUrl('runs', ['record' => $this->record])),
+            CopyFromLibrary::check()->record($this->record),
             PageAction::make('duplicar')
                 ->label('Duplicar')
                 ->icon(Heroicon::OutlinedDocumentDuplicate)

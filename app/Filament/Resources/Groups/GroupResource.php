@@ -52,7 +52,7 @@ class GroupResource extends Resource
             ->components([
                 Select::make('curs_id')
                     ->label('Curs')
-                    ->options(fn () => AcademicYear::orderByDesc('data_inici')->pluck('nom', 'id'))
+                    ->options(fn () => AcademicYear::regular()->orderByDesc('data_inici')->pluck('nom', 'id'))
                     ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
                     ->required(),
                 Select::make('cicle_id')
@@ -83,7 +83,7 @@ class GroupResource extends Resource
             ->filters([
                 SelectFilter::make('curs_id')
                     ->label('Curs')
-                    ->options(fn () => AcademicYear::orderByDesc('data_inici')->pluck('nom', 'id'))
+                    ->options(fn () => AcademicYear::regular()->orderByDesc('data_inici')->pluck('nom', 'id'))
                     ->default(fn () => AcademicYear::where('es_actual', true)->value('id')),
             ])
             ->recordActions([

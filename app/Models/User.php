@@ -81,11 +81,15 @@ class User extends Authenticatable implements FilamentUser, HasName
         return in_array($this->rol, [Role::Admin, Role::Teacher], true);
     }
 
-    /** Pot editar un check: un administrador, o un professor del mòdul del check (a la demo, només si l'ha creat ell). */
+    /**
+     * Pot editar un check: un administrador, o un professor del mòdul del check (a la demo, només si
+     * l'ha creat ell). La biblioteca de checks i accions és de tots els professors.
+     */
     public function canEditCheck(Check $check): bool
     {
         return $this->es_actiu && ($this->isAdmin()
-            || ($this->rol === Role::Teacher && $this->modules()->whereKey($check->task?->block?->modul_id)->exists()
+            || ($this->rol === Role::Teacher
+                && ($check->module?->isLibrary() || $this->modules()->whereKey($check->task?->block?->modul_id)->exists())
                 && Demo::ownsCheck($this, $check)));
     }
 

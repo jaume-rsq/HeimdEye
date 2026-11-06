@@ -403,6 +403,26 @@ les accions (vegeu [Accions](#accions)), amb aquestes diferències:
   alumnes i assoliments. L'avís diu quant es perd i quines accions el fan servir per verificar.
   Esborrar una acció també avisa de les versions i execucions que es perden.
 
+### Biblioteca de checks i accions (mòdul 0000)
+
+Per escriure i provar checks i accions genèrics sense crear-los en una tasca real. És el mòdul
+`0000` «Biblioteca de checks i accions» d'un curs propi, «Biblioteca» (`cursos.es_biblioteca`),
+que no surt al seguiment, al leaderboard ni als selectors de l'inventari. Porta un bloc i una
+tasca «General» on es creen els checks; les accions es creen al mòdul com sempre. Hi pot
+treballar qualsevol professor, encara que no l'imparteixi (`App\Support\Library`).
+
+- **Validació.** A la biblioteca no es comprova que els grups de `# hosts:` (o els `hosts:`
+  d'Ansible) existeixin, perquè no té equips: es comproven en provar i en copiar. `all` continua
+  prohibit.
+- **Provar.** Es tria un *mòdul de context* (els seus alumnes, variables, secrets i equips) i, si
+  cal, els equips on s'executa, que substitueixen els del codi (`App\Runner\HostsRewriter`:
+  la línia `# hosts:` per a ssh i agent, els `hosts:` de cada play per a Ansible; local no en
+  porta). Cap resultat es desa.
+- **Copiar a….** Des de l'edició d'un check o d'una acció de la biblioteca: es tria el mòdul, la
+  tasca (checks), els equips i el nom. Es crea una còpia independent (versió 1, check inactiu,
+  amb el codi reescrit i validat per al mòdul de destinació). No queda cap enllaç: canviar
+  l'original no canvia les còpies.
+
 ## Equips, inventari Ansible i secrets
 
 Els **tipus d'equip** (`tipus_equip`) tenen grup Ansible, nom del host i adreça (plantilles amb

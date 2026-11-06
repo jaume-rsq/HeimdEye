@@ -15,6 +15,7 @@ use App\Runner\CheckRunner;
 use App\Runner\CommandPreview;
 use App\Runner\ContextBuilder;
 use App\Runner\Params;
+use App\Support\Library;
 use App\Support\VariableResolver;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -44,6 +45,7 @@ class RunEditorTest implements ShouldQueue
      * @param  list<string>  $hostTypes
      * @param  array<string, string>  $params
      * @param  array{tasca_id: int, nom: string, executor: string, id: ?int}|array{}  $check  el check del formulari (pot no estar desat)
+     * @param  ?int  $contextModuleId  a la biblioteca, el mòdul real on es prova el check
      */
     public function __construct(
         public string $key,
@@ -56,6 +58,7 @@ class RunEditorTest implements ShouldQueue
         public bool $checkMode = false,
         public ?int $checkId = null,
         public array $check = [],
+        public ?int $contextModuleId = null,
     ) {
         $this->onQueue(config('heimdeye.runner.queue'));
         $this->timeout = (int) ($version['temps_max_seg'] ?? 60) + 60;
@@ -114,13 +117,13 @@ class RunEditorTest implements ShouldQueue
         ];
     }
 
-    /** El check del formulari (pot no estar desat). */
+    /** El check del formulari (pot no estar desat); a la biblioteca, en el mòdul de context. */
     private function draftCheck(): Check
     {
         $check = (new Check)->forceFill($this->check);
         $check->exists = $this->check['id'] !== null;
 
-        return $check;
+        return $this->contextModuleId === null ? $check : Library::inContext($check, Module::findOrFail($this->contextModuleId));
     }
 
     /** @return array<string, ?string>|null null si ha quedat pendent per a l'agent */

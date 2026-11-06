@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Checks\Pages\Concerns;
 
 use App\Enums\Executor;
 use App\Filament\Actions\LaunchCheck;
+use App\Filament\Actions\LibraryTest;
 use App\Filament\Concerns\QueuesEditorTests;
 use App\Filament\Resources\Checks\Schemas\CheckForm;
 use App\Jobs\RunEditorTest;
@@ -11,6 +12,7 @@ use App\Models\Check;
 use App\Models\CheckVersion;
 use App\Runner\CheckRunner;
 use App\Runner\CodeValidator;
+use App\Support\Library;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -74,12 +76,24 @@ trait TestsDraftCheck
             ->modalWidth('4xl')
             ->schema(function () {
                 $check = $this->draftCheck();
+                if ($check->module?->isLibrary()) {
+                    return LibraryTest::schema($check->executor);
+                }
 
                 return [LaunchCheck::studentPicker(LaunchCheck::students($check), $check)->required()];
             })
+            ->fillForm(fn () => $this->draftCheck()?->module?->isLibrary() ? LibraryTest::fill() : [])
             ->action(function (array $data, Action $action) {
                 $check = $this->draftCheck();
                 $version = $this->draftVersion();
+                // A la biblioteca es prova amb els alumnes i els equips d'un mòdul real, i amb els
+                // equips triats en lloc dels del codi.
+                $context = null;
+                if ($check->module?->isLibrary()) {
+                    $context = LibraryTest::contextModule($data);
+                    $check = Library::inContext($check, $context);
+                    $version = new CheckVersion([...$version->only(CheckForm::VERSION_FIELDS), 'codi' => LibraryTest::code($check->executor, $version->codi ?? '', $data)]);
+                }
 
                 try {
                     app(CheckRunner::class)->prepare($check, $version);
@@ -95,6 +109,7 @@ trait TestsDraftCheck
                     $studentId,
                     version: $version->only(CheckForm::VERSION_FIELDS),
                     check: ['id' => $check->id, 'tasca_id' => $check->tasca_id, 'nom' => $check->nom, 'executor' => $check->executor->value],
+                    contextModuleId: $context?->id,
                 ));
             });
     }

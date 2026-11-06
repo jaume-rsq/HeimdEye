@@ -130,7 +130,7 @@ class InventoryOverview extends Page
     #[Computed]
     public function courses(): Collection
     {
-        return AcademicYear::orderByDesc('data_inici')->pluck('nom', 'id');
+        return AcademicYear::regular()->orderByDesc('data_inici')->pluck('nom', 'id');
     }
 
     /** Mòduls del curs triat. */
