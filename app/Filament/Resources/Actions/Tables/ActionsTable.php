@@ -66,7 +66,8 @@ class ActionsTable
                 TextColumn::make('nom')
                     ->searchable()
                     ->sortable()
-                    ->weight('bold'),
+                    ->weight('bold')
+                    ->description(fn (ActionModel $record) => $record->es_incidencia ? 'avaria (incidències)' : null),
                 TextColumn::make('descripcio')
                     ->label('Descripció')
                     ->wrap()

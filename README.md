@@ -623,6 +623,40 @@ Menú Accions → Llista d'accions (`/admin/accions`):
 - En llançar per a un sol alumne, els paràmetres es mostren calculats amb les seves variables
   (`{{num_taula}}`...) i es poden modificar. Només s'envien els que difereixen del valor per defecte.
 
+## Incidències
+
+Una incidència és una avaria intencionada que el professor injecta als equips dels alumnes
+perquè la resolguin. Fa servir les accions per trencar i els checks per saber si ja està
+arreglada; HeimdEye en deixa constància per alumne.
+
+- **Definició** (menú Accions → Incidències, `/admin/incidencies`): nom, mòdul, bloc, equip,
+  el **símptoma** que llegirà l'alumne i les notes del professor. Cada **opció** és una acció
+  (millor marcada com a «acció d'avaria», `accions.es_incidencia`) amb valors per als seus
+  paràmetres, el **check de resolució**, una acció de **reparació** opcional (rep els mateixos
+  paràmetres) i un **pes** per al sorteig. Una mateixa acció amb un paràmetre diferent pot fer
+  diverses opcions (p. ex. `AVARIA=0..5`).
+- **Equip**: amb ssh i Ansible limita on s'executen les accions; amb l'agent és informatiu
+  (mana el `# hosts:` de cada acció).
+- **Llançar**: es trien alumnes, el mode (a l'atzar per pes, sense repetir opcions que
+  l'alumne ja ha tingut; o la mateixa per a tothom), quantes avaries per alumne i un termini
+  opcional. El segon pas mostra qui rep què i es pot canviar (queda com a mode `manual`). Els
+  alumnes que ja en tenen una d'activa d'aquesta incidència no la reben. Cada opció es llança
+  com una execució normal de la seva acció (un lot per opció).
+- **Seguiment** (`incidencies_alumne`, `App\Runner\Incidents\IncidentTracker`):
+  `pendent` mentre s'executa l'acció → `verificant` quan acaba bé (es llança el check, que
+  ha de fallar) → `oberta` → `resolta` quan qualsevol execució del check passa després de la
+  injecció (la de l'alumne, la del professor o la nocturna), amb el temps que ha trigat.
+  Desviacions: `error` (l'acció ha fallat o no es pot llançar), `no_efectiva` (el check ja
+  passava), `caducada` (l'agent no l'ha recollida), `tancada` i `reparada` (professor).
+- A la pàgina de seguiment (es refresca sola): Comprovar (llança el check), Reparar (acció de
+  reparació), Tancar (sense reparar res), i l'historial de l'acció amb la sortida.
+- No donen punts. Si el check de resolució és d'un bloc normal, l'avaria no treu punts
+  assolits (només surt «ara no passa»); si és només per a la incidència, posa'l desactivat i
+  amb 0 punts.
+- Exemple: `php artisan db:seed --class=IncidenciaTecnoServeisSeeder` (l'antic `incident.sh`
+  del projecte AWS TecnoServeis: 6 avaries de SG, NACL i nginx, executades per l'agent amb rol
+  `aws` i SSM). Mòdul a `HEIMDEYE_INCIDENCIA_MODUL` (per defecte `9991`); els checks van al bloc 90.
+
 ## Agent de les instàncies
 
 Per a alumnes amb instàncies efímeres que HeimdEye no pot abastar (p. ex. AWS Learner Lab, on

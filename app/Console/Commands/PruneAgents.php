@@ -10,6 +10,7 @@ use App\Models\AgentTask;
 use App\Models\ConsoleSession;
 use App\Runner\AgentEditorTests;
 use App\Runner\CheckResult;
+use App\Runner\Incidents\IncidentTracker;
 use App\Runner\ResultRecorder;
 use Illuminate\Console\Command;
 
@@ -18,7 +19,7 @@ use Illuminate\Console\Command;
  *
  * - marca inactives les instàncies que fa estona que no envien batec (cada long poll compta);
  * - quan una instància passa a inactiva, cancel·la les feines que tenia en curs (accions i checks);
- * - caduca les feines que ningú no ha recollit dins la seva finestra.
+ * - caduca les feines que ningú no ha recollit dins la seva finestra (i les avaries que en depenen).
  *
  * Es programa cada minut (routes/console.php).
  */
@@ -28,7 +29,7 @@ class PruneAgents extends Command
 
     protected $description = 'Marca inactives les instàncies sense batec i caduca la feina pendent';
 
-    public function handle(ResultRecorder $recorder, AgentEditorTests $editorTests): int
+    public function handle(ResultRecorder $recorder, AgentEditorTests $editorTests, IncidentTracker $incidents): int
     {
         $limit = now()->subSeconds((int) config('heimdeye.agent.inactive_after_seconds', 300));
 
@@ -82,6 +83,9 @@ class PruneAgents extends Command
         }
 
         $expiredTests = $editorTests->expire();
+
+        // Les avaries d'incidència l'acció de les quals acaba de caducar (actualització massiva).
+        $incidents->reconcile();
 
         $this->line("Instàncies inactives: {$stale->count()}. Accions caducades: {$expired}. Checks caducats: {$expiredChecks->count()}. Proves caducades: {$expiredTests}. Consoles inactives: {$idleConsoles}.");
 

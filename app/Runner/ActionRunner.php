@@ -49,24 +49,55 @@ class ActionRunner
      */
     public function launch(Action $action, Collection $students, array $hostTypes = [], array $params = [], bool $checkMode = false, ?User $user = null, bool $sync = false): RunBatch
     {
+        $batch = $this->prepareBatch($action, $students, $hostTypes, $params, $user, $checkMode);
+        $this->dispatchBatch($batch, $action, $students, $hostTypes, $params, $user, $sync, $checkMode);
+
+        return $batch;
+    }
+
+    /**
+     * Primera meitat de launch(): valida l'execució i crea el lot, sense executar res encara.
+     * Les incidències hi enllacen les seves files abans de dispatchBatch().
+     *
+     * @param  Collection<int, Student>  $students
+     * @param  list<string>  $hostTypes
+     * @param  array<string, string>  $params
+     *
+     * @throws InvalidArgumentException si l'acció no es pot executar així
+     */
+    public function prepareBatch(Action $action, Collection $students, array $hostTypes = [], array $params = [], ?User $user = null, bool $checkMode = false): RunBatch
+    {
         $version = $action->currentVersion ?? throw new InvalidArgumentException("L'acció no té codi");
-        $params = $this->prepare($action, $version, $hostTypes, $params, $checkMode);
+        $this->prepare($action, $version, $hostTypes, $params, $checkMode);
         Demo::consumeRuns($user, $students->count());
 
-        $batch = RunBatch::create([
+        return RunBatch::create([
             'modul_id' => $action->modul_id,
             'origen' => RunOrigin::Action,
             'llancat_per' => $user?->id,
             'data_inici' => now(),
             'totals' => ['expected' => $students->count(), 'es_simulacio' => $checkMode],
         ]);
+    }
+
+    /**
+     * Segona meitat de launch(): posa a la cua (o encua per a l'agent) l'execució de cada alumne.
+     *
+     * @param  Collection<int, Student>  $students
+     * @param  list<string>  $hostTypes
+     * @param  array<string, string>  $params
+     */
+    public function dispatchBatch(RunBatch $batch, Action $action, Collection $students, array $hostTypes = [], array $params = [], ?User $user = null, bool $sync = false, bool $checkMode = false): void
+    {
+        $version = $action->currentVersion ?? throw new InvalidArgumentException("L'acció no té codi");
+        $params = Params::values($version->parametres, $params);
 
         // L'executor agent no connecta amb els equips: deixa la feina pendent perquè l'agent de
         // cada instància la reculli (long poll) i l'executi.
         if ($action->executor === Executor::Agent) {
             app(AgentDispatcher::class)->enqueue($action, $version, $students, $params, $user, $batch);
 
-            return $batch;
+            return;
         }
 
         $verification = $checkMode ? null : $this->verificationBatch($action, $version, $students->count(), $user);
@@ -84,8 +115,6 @@ class ActionRunner
                 report($e); // el treball ja ho ha desat com a error; es continua amb el següent alumne
             }
         }
-
-        return $batch;
     }
 
     /**

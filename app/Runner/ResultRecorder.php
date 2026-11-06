@@ -9,18 +9,19 @@ use App\Models\CheckStudent;
 use App\Models\CheckVersion;
 use App\Models\RunBatch;
 use App\Models\Student;
+use App\Runner\Incidents\IncidentTracker;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 /**
  * Desa una execució al log (amb la versió que s'ha executat) i actualitza l'estat del check per a
- * l'alumne. Una execució omesa només queda al log: l'estat, les dates i els punts no canvien.
+ * l'alumne (i les incidències que en depenen). Una execució omesa només queda al log: l'estat, les dates i els punts no canvien.
  */
 class ResultRecorder
 {
     public function record(RunBatch $batch, Check $check, Student $student, CheckResult $result, ?CheckVersion $version = null): CheckRun
     {
-        return DB::transaction(function () use ($batch, $check, $student, $result, $version) {
+        $run = DB::transaction(function () use ($batch, $check, $student, $result, $version) {
             $now = now();
 
             $run = CheckRun::create([
@@ -51,5 +52,10 @@ class ResultRecorder
 
             return $run;
         });
+
+        // Les incidències de l'alumne que es resolen amb aquest check.
+        app(IncidentTracker::class)->checkRecorded($run);
+
+        return $run;
     }
 }
