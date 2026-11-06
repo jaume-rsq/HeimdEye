@@ -655,7 +655,8 @@ arreglada; HeimdEye en deixa constància per alumne.
   amb 0 punts.
 - Exemple: `php artisan db:seed --class=IncidenciaTecnoServeisSeeder` (l'antic `incident.sh`
   del projecte AWS TecnoServeis: 6 avaries de SG, NACL i nginx, executades per l'agent amb rol
-  `aws` i SSM). Mòdul a `HEIMDEYE_INCIDENCIA_MODUL` (per defecte `9991`); els checks van al bloc 90.
+  `aws` i SSM). Va al mòdul `0378` (curs actual), bloc 3, tasca «Tiquet 2», que cal crear abans; es pot
+  canviar amb `HEIMDEYE_INCIDENCIA_MODUL`, `HEIMDEYE_INCIDENCIA_BLOC` i `HEIMDEYE_INCIDENCIA_TASCA`.
 
 ## Agent de les instàncies
 

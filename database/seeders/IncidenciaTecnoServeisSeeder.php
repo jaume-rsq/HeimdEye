@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Enums\CheckKind;
 use App\Enums\Executor;
+use App\Models\AcademicYear;
 use App\Models\Action;
 use App\Models\Block;
 use App\Models\Check;
@@ -11,6 +12,7 @@ use App\Models\Incident;
 use App\Models\Module;
 use App\Models\Task;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 /**
  * Incidència «La web de TecnoServeis no respon» (projecte AWS: VPC tecnoserveis-<NomCognom>,
@@ -22,11 +24,18 @@ use Illuminate\Database\Seeder;
  * les credencials del seu Learner Lab. Les avaries de la web (nginx) hi van per SSM Run Command,
  * com feia l'script. El NomCognom es dedueix del tag Name de la instància web en marxa.
  *
- * Mòdul: HEIMDEYE_INCIDENCIA_MODUL (codi, per defecte 9991). Els checks van a una tasca del bloc 90
- * «Incidències», desactivats i sense punts: només serveixen per resoldre la incidència.
+ * Va al mòdul 0378 (del curs actual), bloc 3, tasca «Tiquet 2», que ha de crear abans el professor;
+ * es pot canviar amb HEIMDEYE_INCIDENCIA_MODUL, _BLOC i _TASCA. Els checks hi queden desactivats i
+ * sense punts: només serveixen per resoldre la incidència.
  */
 class IncidenciaTecnoServeisSeeder extends Seeder
 {
+    public string $moduleCode = '0378';
+
+    public int $blockNumber = 3;
+
+    public string $taskTitle = 'Tiquet 2';
+
     /** Comú a les accions i els checks: troba la web, la VPC i el NomCognom, i les funcions de l'script. */
     public const PRELUDE = <<<'SH'
         # hosts: aws
@@ -146,16 +155,17 @@ class IncidenciaTecnoServeisSeeder extends Seeder
 
     public function run(): void
     {
-        $module = Module::where('codi', env('HEIMDEYE_INCIDENCIA_MODUL', '9991'))->firstOrFail();
-
-        $block = Block::firstOrCreate(
-            ['modul_id' => $module->id, 'numero' => 90],
-            ['titol' => 'Incidències', 'posicio' => 90],
-        );
-        $task = $block->tasks()->updateOrCreate(
-            ['titol' => 'TecnoServeis: la web no respon'],
-            ['enunciat' => 'Checks de resolució de la incidència «La web de TecnoServeis no respon». No compten per a la nota.', 'posicio' => 1],
-        );
+        $code = env('HEIMDEYE_INCIDENCIA_MODUL', $this->moduleCode);
+        $module = Module::where('codi', $code)
+            ->orderByDesc(AcademicYear::select('es_actual')->whereColumn('cursos.id', 'moduls.curs_id')->limit(1))
+            ->orderByDesc('id')
+            ->first() ?? throw new RuntimeException("No existeix el mòdul {$code}");
+        $number = (int) env('HEIMDEYE_INCIDENCIA_BLOC', $this->blockNumber);
+        $block = Block::where('modul_id', $module->id)->where('numero', $number)->first()
+            ?? throw new RuntimeException("El mòdul {$code} no té el bloc {$number}: crea'l primer");
+        $title = env('HEIMDEYE_INCIDENCIA_TASCA', $this->taskTitle);
+        // La tasca la crea el professor; si no hi és, es crea buida perquè hi vagin els checks.
+        $task = $block->tasks()->firstOrCreate(['titol' => $title], ['posicio' => ($block->tasks()->max('posicio') ?? 0) + 1]);
 
         $inject = $this->action($module, $block, 'TecnoServeis: injectar avaria', 'Trenca una part del camí cap a la web (paràmetre AVARIA, 0-5). Feta per a la incidència «La web de TecnoServeis no respon».', self::INJECT, true, 1);
         $repair = $this->action($module, $block, 'TecnoServeis: desfer avaria', 'Desfà l\'avaria AVARIA (0-5) de la incidència «La web de TecnoServeis no respon».', self::REPAIR, false, 2);
