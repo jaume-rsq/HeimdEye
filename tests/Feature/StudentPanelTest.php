@@ -6,6 +6,7 @@ use App\Enums\Level;
 use App\Enums\Role;
 use App\Filament\Pages\InventoryOverview;
 use App\Filament\Resources\Students\Pages\EditStudent;
+use App\Filament\Resources\Students\Pages\ListStudents;
 use App\Models\Module;
 use App\Models\Secret;
 use App\Models\Student;
@@ -164,5 +165,23 @@ class StudentPanelTest extends TestCase
         Livewire::test(EditStudent::class, ['record' => $this->student->id])
             ->assertSee('Comanda copiada')
             ->assertSee('tok-de-prova');
+    }
+
+    public function test_agent_tokens_are_generated_in_bulk(): void
+    {
+        [$with, $without] = $this->module->students()->orderBy('num_taula')->take(2)->get()->all();
+        $with->forceFill(['token_agent' => 'tok-vell'])->save();
+        $without->forceFill(['token_agent' => null])->save();
+
+        Livewire::test(ListStudents::class)
+            ->callTableBulkAction('token', [$with, $without], ['regenerar' => false])
+            ->assertNotified('1 token generat');
+        $this->assertSame('tok-vell', $with->fresh()->token_agent);
+        $this->assertNotNull($without->fresh()->token_agent);
+
+        Livewire::test(ListStudents::class)
+            ->callTableBulkAction('token', [$with, $without], ['regenerar' => true])
+            ->assertNotified('2 tokens generats');
+        $this->assertNotSame('tok-vell', $with->fresh()->token_agent);
     }
 }

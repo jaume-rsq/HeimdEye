@@ -7,6 +7,7 @@ use App\Models\Group;
 use App\Models\Student;
 use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Checkbox;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
@@ -75,6 +76,28 @@ class StudentsTable
                     ->action(function (Collection $records, array $data) {
                         Student::whereKey($records->modelKeys())->update(['grup_id' => $data['grup_id'] ?: null]);
                         Notification::make()->success()->title($records->count().' '.($records->count() === 1 ? 'alumne canviat' : 'alumnes canviats').' de grup')->send();
+                    })
+                    ->deselectRecordsAfterCompletion(),
+                // Token de l'agent per a tots els marcats; per defecte, només als que no en tenen.
+                BulkAction::make('token')
+                    ->label('Generar token')
+                    ->icon(Heroicon::OutlinedKey)
+                    ->modalHeading('Generar token de l\'agent')
+                    ->modalDescription('Es genera un token per als alumnes marcats que encara no en tenen. La comanda d\'instal·lació surt a la fitxa de cada alumne.')
+                    ->modalSubmitActionLabel('Generar')
+                    ->schema([
+                        Checkbox::make('regenerar')
+                            ->label('Regenerar també els que ja en tenen')
+                            ->helperText('L\'agent d\'aquests alumnes deixarà de connectar fins que el reinstal·lin amb la comanda nova.'),
+                    ])
+                    ->action(function (Collection $records, array $data) {
+                        $students = $records->filter(fn (Student $s) => ($data['regenerar'] ?? false) || blank($s->token_agent));
+                        $students->each(fn (Student $s) => $s->regenerateAgentToken());
+                        $skipped = $records->count() - $students->count();
+                        Notification::make()->success()
+                            ->title($students->count().' '.($students->count() === 1 ? 'token generat' : 'tokens generats'))
+                            ->body($skipped ? "{$skipped} ja en tenien i no s'han tocat." : null)
+                            ->send();
                     })
                     ->deselectRecordsAfterCompletion(),
                 BulkAction::make('activar')
