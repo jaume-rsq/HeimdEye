@@ -252,19 +252,39 @@ class IncidentsTest extends TestCase
 
     public function test_tecnoserveis_seeder_creates_six_options_that_launch(): void
     {
+        // El professor crea el mòdul 0378, el bloc 3 i la tasca «Tiquet 2».
+        $module = $this->module->replicate();
+        $module->codi = '0378';
+        $module->save();
+        $module->students()->attach($this->module->students()->pluck('alumnes.id'));
+        $block = $module->blocks()->create(['numero' => 3, 'titol' => 'Bloc 3', 'posicio' => 3]);
+        $task = $block->tasks()->create(['titol' => 'Tiquet 2', 'enunciat' => 'El del professor', 'posicio' => 2]);
+
         $this->seed(IncidenciaTecnoServeisSeeder::class);
         $this->seed(IncidenciaTecnoServeisSeeder::class); // idempotent
 
+        $this->assertSame(6, $task->checks()->count());
+        $this->assertSame('El del professor', $task->fresh()->enunciat);
+        $this->assertSame(1, $block->tasks()->count());
+
         $incident = Incident::where('nom', 'La web de TecnoServeis no respon')->sole();
         $this->assertCount(6, $incident->options);
+        $this->assertSame($module->id, $incident->modul_id);
+        $this->assertSame($block->id, $incident->bloc_id);
         $this->assertTrue($incident->options->every(fn ($o) => $o->check_id && $o->accio_reparacio_id));
         $this->assertTrue(Action::where('nom', 'TecnoServeis: injectar avaria')->sole()->es_incidencia);
 
-        $student = $this->students(1)->first();
+        $student = $module->students()->orderBy('num_taula')->first();
         app(IncidentLauncher::class)->launch($incident, [$student->id => $incident->options->take(3)->modelKeys()], 'aleatori', 3, null, null);
 
         $this->assertSame(3, IncidentStudent::where('estat', IncidentStatus::Pendent)->count());
         $this->assertSame(['aws'], ActionRun::pluck('rol_agent')->unique()->values()->all());
+    }
+
+    public function test_tecnoserveis_seeder_needs_the_module_to_exist(): void
+    {
+        $this->expectExceptionMessage('No existeix el mòdul 0378');
+        $this->seed(IncidenciaTecnoServeisSeeder::class);
     }
 
     public function test_panel_pages_render_and_close_works(): void
