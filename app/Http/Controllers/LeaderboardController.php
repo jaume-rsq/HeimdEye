@@ -32,19 +32,25 @@ class LeaderboardController
         ]);
     }
 
-    /** @return Collection<int, Module> mòduls del curs actual (amb un grup, els que hi tenen algun alumne) */
-    public static function modules(?int $groupId = null): Collection
+    /** @return Collection<int, Module> mòduls del curs (per defecte, l'actual); amb un grup, els que hi tenen algun alumne */
+    public static function modules(?int $groupId = null, ?int $yearId = null): Collection
     {
-        $year = AcademicYear::where('es_actual', true)->first();
+        $yearId ??= AcademicYear::where('es_actual', true)->value('id');
 
-        return $year ? Module::where('curs_id', $year->id)->withGroup($groupId)->orderBy('codi')->get() : collect();
+        return $yearId ? Module::where('curs_id', $yearId)->withGroup($groupId)->orderBy('codi')->get() : collect();
     }
 
-    /** @return Collection<int, Group> grups del curs actual amb algun alumne matriculat a un mòdul */
-    public static function groups(): Collection
+    /** @return Collection<int, Group> grups del curs (per defecte, l'actual) amb algun alumne matriculat a un mòdul */
+    public static function groups(?int $yearId = null): Collection
     {
-        $year = AcademicYear::where('es_actual', true)->first();
+        $yearId ??= AcademicYear::where('es_actual', true)->value('id');
 
-        return $year ? Group::where('curs_id', $year->id)->withStudentsIn(self::modules()->modelKeys())->orderBy('codi')->get() : collect();
+        return $yearId ? Group::where('curs_id', $yearId)->withStudentsIn(self::modules(null, $yearId)->modelKeys())->orderBy('codi')->get() : collect();
+    }
+
+    /** @return Collection<int, AcademicYear> cursos amb mòduls (sense la biblioteca), el més nou primer */
+    public static function years(): Collection
+    {
+        return AcademicYear::regular()->whereHas('modules')->orderByDesc('data_inici')->get();
     }
 }

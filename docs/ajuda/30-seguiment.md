@@ -2,16 +2,16 @@
 titol: Seguiment
 ordre: 30
 per: [professors]
-actualitzat: 2026-11-02
+actualitzat: 2026-11-06
 ---
 
 # Seguiment
 
-Menú **Seguiment**: a dalt a la dreta tria el **grup** i el **mòdul**, i després l'alumne. El
-selector de mòdul només mostra els mòduls amb algun alumne del grup, i la llista d'alumnes només
-els del grup matriculats al mòdul. Amb «Tots els grups» surten tots. També s'hi arriba clicant un
-nom al leaderboard o una casella de la graella d'alumnes d'un check. L'adreça guarda el grup,
-l'alumne, el mòdul i els filtres, i es pot compartir amb un altre professor.
+Menú **Seguiment**: a dalt a la dreta tria el **curs**, el **grup** i el **mòdul**, i després
+l'alumne. Cada selector només mostra el que hi ha dins del de l'esquerra: els grups i els mòduls
+del curs, els mòduls amb algun alumne del grup, i els alumnes del grup matriculats al mòdul. També s'hi arriba clicant un
+nom al leaderboard o una casella de la graella d'alumnes d'un check. L'adreça guarda el curs, el
+grup, l'alumne, el mòdul i els filtres, i es pot compartir amb un altre professor.
 
 - El quadre del mòdul resumeix l'alumne en el mòdul triat: punts, posició, percentatge
   d'obligatoris i progrés per bloc. Al costat hi ha els filtres de bloc, tasca i estat.

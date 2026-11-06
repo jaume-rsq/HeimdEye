@@ -18,6 +18,7 @@ use App\Policies\ActionPolicy;
 use App\Policies\DemoHiddenPolicy;
 use App\Policies\DemoReadOnlyPolicy;
 use App\Runner\Incidents\IncidentTracker;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Table;
 use Illuminate\Http\Middleware\TrustProxies;
 use Illuminate\Support\Facades\Gate;
@@ -55,7 +56,11 @@ class AppServiceProvider extends ServiceProvider
         ActionRun::saved(fn (ActionRun $run) => app(IncidentTracker::class)->actionRunSaved($run));
 
         // Totes les llistes recorden els filtres, la cerca i l'ordre en tornar-hi (p. ex. des de l'historial d'un check).
+        // Els filtres, a tot arreu igual: la icona de filtres obre un desplegable de dues columnes
+        // i s'apliquen amb el botó Aplicar.
         Table::configureUsing(fn (Table $table) => $table
+            ->filtersFormColumns(2)
+            ->filtersFormWidth(Width::ThreeExtraLarge)
             ->persistFiltersInSession()
             ->persistSearchInSession()
             ->persistColumnSearchesInSession()

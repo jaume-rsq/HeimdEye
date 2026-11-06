@@ -531,7 +531,6 @@ class CheckPanelTest extends TestCase
             ->assertCanSeeTableRecords([$new])
             ->assertCanNotSeeTableRecords([$old])
             ->assertSee('No agrupar per bloc')
-            ->assertSee('Més filtres')
             ->assertSet('tableGrouping', 'task.bloc_id:asc')
             ->set('tableGrouping', '')
             ->assertCanSeeTableRecords([$new]);

@@ -52,6 +52,9 @@ class StudentTracking extends Page
     protected Width|string|null $maxContentWidth = Width::Full;
 
     #[Url]
+    public ?int $curs = null;
+
+    #[Url]
     public ?int $grup = null;
 
     #[Url]
@@ -85,6 +88,10 @@ class StudentTracking extends Page
     {
         // Un alumne a la URL (des del leaderboard, la fitxa...) porta el seu grup i un dels seus mòduls.
         $linked = $this->alumne ? Student::find($this->alumne) : null;
+        if ($linked && $this->years()->contains('id', $linked->curs_id)) {
+            $this->curs = $linked->curs_id;
+        }
+        $this->ensureYear();
         if ($linked && $linked->grup_id !== null && $this->groups()->contains('id', $linked->grup_id)) {
             $this->grup = $linked->grup_id;
         }
@@ -102,6 +109,37 @@ class StudentTracking extends Page
             $this->modul = $modules->first(fn (Module $m) => $enrolled->contains($m->id))?->id;
         }
         $this->ensureModule();
+    }
+
+    public function updatedCurs(): void
+    {
+        $this->ensureYear();
+        unset($this->groups, $this->modules);
+        $this->ensureGroup();
+        unset($this->modules);
+        $this->ensureModule();
+    }
+
+    /** El curs triat, si l'usuari hi té mòduls; si no, l'actual (o el més nou). A la vista de l'alumne, cap. */
+    private function ensureYear(): void
+    {
+        $years = $this->years();
+        if ($this->curs === null || ! $years->contains('id', $this->curs)) {
+            $current = AcademicYear::where('es_actual', true)->value('id');
+            $this->curs = $years->contains('id', $current) ? $current : $years->first()?->id;
+        }
+    }
+
+    /** @return Collection<int, AcademicYear> cursos dels mòduls visibles, el més nou primer */
+    #[Computed]
+    public function years(): Collection
+    {
+        if ($this->readonly()) {
+            return collect();
+        }
+
+        return AcademicYear::whereKey($this->visibleModules()->pluck('curs_id')->unique()->values()->all())
+            ->orderByDesc('data_inici')->get();
     }
 
     public function updatedGrup(): void
@@ -176,6 +214,7 @@ class StudentTracking extends Page
     public function modules(): Collection
     {
         return $this->visibleModules()
+            ->when($this->curs, fn (Collection $c) => $c->where('curs_id', $this->curs))
             ->when($this->grup, fn (Collection $c) => $c->whereIn('id', Module::whereKey($c->modelKeys())->withGroup($this->grup)->pluck('id')))
             ->values();
     }
@@ -200,7 +239,8 @@ class StudentTracking extends Page
     {
         $current = AcademicYear::where('es_actual', true)->value('id');
 
-        return Group::withStudentsIn($this->visibleModules()->modelKeys())->get()
+        return Group::withStudentsIn($this->visibleModules()->modelKeys())
+            ->when($this->curs, fn ($q) => $q->where('curs_id', $this->curs))->get()
             ->sortBy(fn (Group $g) => [$g->curs_id === $current ? 0 : 1, $g->codi])
             ->values();
     }
@@ -243,6 +283,7 @@ class StudentTracking extends Page
     {
         return view('filament.partials.group-module-header', [
             'title' => static::$title,
+            'years' => $this->years(),
             'groups' => $this->readonly() ? collect() : $this->groups(),
             'modules' => $this->modules(),
         ]);

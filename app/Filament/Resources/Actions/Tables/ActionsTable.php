@@ -16,7 +16,6 @@ use Filament\Forms\Components\Select;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Grouping\Group;
@@ -124,10 +123,7 @@ class ActionsTable
                     })
                     ->indicateUsing(fn (array $data) => blank($data['estat'] ?? null) ? null
                         : "Darrera execució {$data['estat']} per a ".(($data['abast'] ?? 'algun') === 'tots' ? 'tots els alumnes' : 'algun alumne')),
-            ], layout: FiltersLayout::AboveContent)
-            // Amb poc espai, els filtres passen a dues línies.
-            ->filtersFormColumns(['default' => 1, 'md' => 3, 'xl' => 6])
-            ->deferFilters(false)
+            ])
             ->recordActions([
                 Action::make('versions')
                     ->label('Versions')

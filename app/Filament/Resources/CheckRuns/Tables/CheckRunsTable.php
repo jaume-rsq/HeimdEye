@@ -13,7 +13,6 @@ use Filament\Forms\Components\DatePicker;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -109,9 +108,7 @@ class CheckRunsTable
                         filled($data['des'] ?? null) ? 'Des de '.$data['des'] : null,
                         filled($data['fins'] ?? null) ? 'Fins a '.$data['fins'] : null,
                     ])),
-            ], layout: FiltersLayout::AboveContent)
-            ->filtersFormColumns(4)
-            ->deferFilters(false)
+            ])
             ->recordActions([
                 Action::make('sortida')
                     ->label('Sortida')

@@ -505,9 +505,12 @@ també poden ser playbooks (`executor = ansible`).
 Inventari, Administració i Ajuda surten plegats d'entrada (el navegador recorda si l'usuari els
 obre). Al costat del nom hi ha la icona de `public/` (`resources/views/filament/brand.blade.php`).
 
-### Filtres encadenats
+### Filtres
 
-A les llistes de checks, accions i alumnes, els filtres de curs, mòdul, bloc i grup depenen l'un de
+Totes les llistes tenen els filtres igual: la icona de l'embut obre un desplegable de dues columnes
+(`Table::configureUsing` a `AppServiceProvider`) i s'apliquen amb «Aplicar filtres».
+
+A les llistes de checks, accions i alumnes, a més, els filtres de curs, mòdul, bloc i grup depenen l'un de
 l'altre (`App\Filament\Support\ScopeFilters`): el curs limita els mòduls i els grups, i el mòdul
 limita els blocs. En canviar-ne un, els que en depenen es buiden. Les claus dels filtres no canvien,
 així que els enllaços i els filtres desats a la sessió continuen valent.
@@ -526,8 +529,9 @@ enllaça la demo pública (`HEIMDEYE_DEMO_URL`; buit, no surt; a la mateixa demo
 
 ## Leaderboard
 
-Classificació d'un mòdul del curs actual, per grup-classe: a dalt es tria el grup (o tots) i el
-mòdul, que només llista els mòduls amb algun alumne del grup (`?grup=` i `?modul=` a l'URL). Públic a `/leaderboard` (sense login: a Cloudflare Access cal
+Classificació d'un mòdul per grup-classe: al panell, a dalt es tria el curs (per defecte l'actual),
+el grup i el mòdul, que només llista els mòduls del curs amb algun alumne del grup (`?curs=`,
+`?grup=` i `?modul=` a l'URL). La pública és sempre del curs actual. Públic a `/leaderboard` (sense login: a Cloudflare Access cal
 una regla de Bypass per a aquest camí), on només surt l'àlies de l'alumne o «Taula NN»; al panell
 (menú Leaderboard) surt amb els noms reals.
 
@@ -548,7 +552,8 @@ Detall d'un alumne per a professors i admins (menú Seguiment, `/admin/seguiment
 el nom al leaderboard del panell, des de la fitxa de l'alumne o des d'una cel·la de la graella d'alumnes
 d'un check. L'URL guarda alumne, mòdul i filtres, i es pot compartir.
 
-- A la capçalera, selectors de grup i de mòdul (com al leaderboard); després l'alumne, d'entre els
+- A la capçalera, selectors de curs, grup i mòdul (com al leaderboard; un alumne a l'URL porta el
+  seu curs); després l'alumne, d'entre els
   del grup matriculats al mòdul. Un alumne a l'URL que no és del grup treu el filtre de grup.
 - Un admin veu tots els mòduls; un professor només els que imparteix (i els alumnes d'aquests mòduls).
 - El quadre del mòdul triat (punts, posició, % d'obligatoris, progrés per bloc i dates) i, al
