@@ -622,7 +622,7 @@ Menú Accions → Llista d'accions (`/admin/accions`):
 
 - Agrupada per bloc (plegable) i ordenada per **posició** `bloc.acció` (`Action::orderByPosition`), com
   els checks; les accions sense bloc van al final del mòdul. El mòdul surt només amb el codi.
-- Filtres per curs (per defecte l'actual), mòdul, executor, nom i estat de la darrera execució
+- Filtres per curs (per defecte l'actual), mòdul, bloc, executor, nom i estat de la darrera execució
   real per a tots o algun alumne.
 - Icona d'estat segons la darrera execució real (les simulacions no compten) de cada alumne
   actiu: verd = tots ok/changed amb la versió vigent, blau = encara falten alumnes o n'hi ha
