@@ -100,8 +100,13 @@ class ScopeFiltersTest extends TestCase
             ->assertSet('modul', $this->other->id)
             ->assertSee('Alumne Futur');
 
+        // El seguiment recorda el curs triat al leaderboard.
         Livewire::test(StudentTracking::class)
-            ->assertSet('curs', $this->module->curs_id)
+            ->assertSet('curs', $this->other->curs_id)
+            ->assertSet('modul', $this->other->id)
+            ->assertSet('alumne', $student->id)
+            ->set('curs', $this->module->curs_id)
+            ->assertSet('modul', $this->module->id)
             ->set('curs', $this->other->curs_id)
             ->assertSet('modul', $this->other->id)
             ->assertSet('alumne', $student->id);

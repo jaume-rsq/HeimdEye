@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Filament\Actions\ExtendChecks;
+use App\Filament\Pages\Concerns\RemembersScope;
 use App\Models\AcademicYear;
 use App\Models\Block;
 use App\Models\Check;
@@ -39,6 +40,25 @@ use Livewire\Attributes\Url;
  */
 class StudentTracking extends Page
 {
+    use RemembersScope;
+
+    /** El seguiment també recorda l'alumne; un alumne o una tasca a la URL manen. */
+    protected function rememberedScope(): array
+    {
+        return ['curs', 'grup', 'modul', 'alumne'];
+    }
+
+    protected function scopeLinkProperties(): array
+    {
+        return ['curs', 'grup', 'modul', 'alumne', 'tasca'];
+    }
+
+    /** La vista de l'alumne (El meu seguiment) sempre és la seva: no recorda res. */
+    protected function remembersScope(): bool
+    {
+        return ! $this->readonly();
+    }
+
     protected static ?string $slug = 'seguiment';
 
     protected static ?string $title = 'Seguiment';
@@ -86,6 +106,7 @@ class StudentTracking extends Page
 
     public function mount(): void
     {
+        $this->restoreScope();
         // Un alumne a la URL (des del leaderboard, la fitxa...) porta el seu grup i un dels seus mòduls.
         $linked = $this->alumne ? Student::find($this->alumne) : null;
         if ($linked && $this->years()->contains('id', $linked->curs_id)) {

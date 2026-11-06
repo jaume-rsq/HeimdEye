@@ -7,6 +7,7 @@ use App\Filament\Pages\Concerns\ManagesLevels;
 use App\Filament\Pages\Concerns\ManagesSecrets;
 use App\Filament\Pages\Concerns\ManagesStudentPanel;
 use App\Filament\Pages\Concerns\ManagesVariables;
+use App\Filament\Pages\Concerns\RemembersScope;
 use App\Jobs\TestConnection;
 use App\Models\AcademicYear;
 use App\Models\Group;
@@ -39,6 +40,14 @@ use UnitEnum;
  */
 class InventoryOverview extends Page
 {
+    use RemembersScope;
+
+    /** Un alumne a la URL (el panell lateral des de la fitxa) també mana. */
+    protected function scopeLinkProperties(): array
+    {
+        return ['curs', 'grup', 'modul', 'alumne'];
+    }
+
     use ManagesHostTypes;
     use ManagesLevels;
     use ManagesSecrets;
@@ -91,6 +100,7 @@ class InventoryOverview extends Page
 
     public function mount(): void
     {
+        $this->restoreScope();
         // Un mòdul a la URL porta el seu curs; si no, el curs actual (o el més recent).
         $linked = $this->modul ? Module::find($this->modul) : null;
         if ($linked) {
