@@ -3,6 +3,7 @@
 namespace App\Filament\Pages;
 
 use App\Http\Controllers\LeaderboardController;
+use App\Models\AcademicYear;
 use App\Models\Module;
 use App\Support\Leaderboard;
 use BackedEnum;
@@ -34,6 +35,9 @@ class LeaderboardPage extends Page
     protected Width|string|null $maxContentWidth = Width::Full;
 
     #[Url]
+    public ?int $curs = null;
+
+    #[Url]
     public ?int $grup = null;
 
     #[Url]
@@ -41,8 +45,27 @@ class LeaderboardPage extends Page
 
     public function mount(): void
     {
+        $this->ensureYear();
         $this->ensureGroup();
         $this->ensureModule();
+    }
+
+    public function updatedCurs(): void
+    {
+        $this->ensureYear();
+        unset($this->groups, $this->modules);
+        $this->ensureGroup();
+        $this->ensureModule();
+    }
+
+    /** El curs triat, si té mòduls; si no, l'actual (o el més nou). */
+    private function ensureYear(): void
+    {
+        $years = $this->years();
+        if ($this->curs === null || ! $years->contains('id', $this->curs)) {
+            $current = AcademicYear::where('es_actual', true)->value('id');
+            $this->curs = $years->contains('id', $current) ? $current : $years->first()?->id;
+        }
     }
 
     public function updatedGrup(): void
@@ -69,15 +92,21 @@ class LeaderboardPage extends Page
     }
 
     #[Computed]
+    public function years(): Collection
+    {
+        return LeaderboardController::years();
+    }
+
+    #[Computed]
     public function groups(): Collection
     {
-        return LeaderboardController::groups();
+        return LeaderboardController::groups($this->curs);
     }
 
     #[Computed]
     public function modules(): Collection
     {
-        return LeaderboardController::modules($this->grup);
+        return LeaderboardController::modules($this->grup, $this->curs);
     }
 
     #[Computed]
@@ -94,6 +123,7 @@ class LeaderboardPage extends Page
 
         return view('filament.partials.group-module-header', [
             'title' => static::$title,
+            'years' => $this->years(),
             'groups' => $this->groups(),
             'modules' => $this->modules(),
             'actions' => new HtmlString('<a href="'.$url.'" target="_blank" rel="noopener" style="padding: .4rem .65rem; border: 1px solid rgba(128,128,128,.35); border-radius: .5rem; font-size: .875rem; white-space: nowrap">Versió pública ↗</a>'),

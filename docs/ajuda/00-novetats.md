@@ -12,6 +12,10 @@ canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esq
 
 ## 06/11/2026
 
+- **Filtres iguals a tot arreu**: a Checks, Accions i els històrics, com a Alumnes i Incidències,
+  els filtres s'obren amb la icona de l'embut i s'apliquen amb **Aplicar filtres**. A sobre de la
+  llista hi ha els filtres actius, i cadascun es treu amb la ✕.
+- **Leaderboard i Seguiment** tenen selector de **curs**, a l'esquerra del de grup.
 - **Filtres encadenats** a les llistes de checks, d'accions i d'alumnes: en triar un curs, el
   desplegable de mòduls només mostra els d'aquell curs (i el de grups, els seus grups); en triar
   un mòdul, el de blocs només mostra els del mòdul. Si canvies el de dalt, els de sota es buiden.

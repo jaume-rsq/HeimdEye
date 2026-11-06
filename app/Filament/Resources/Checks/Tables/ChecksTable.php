@@ -20,14 +20,11 @@ use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
-use Filament\Schemas\Components\Grid;
-use Filament\Schemas\Components\Section;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ViewColumn;
-use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
@@ -148,23 +145,7 @@ class ChecksTable
                     })
                     ->indicateUsing(fn (array $data) => blank($data['estat'] ?? null) ? null
                         : "Darrera execució {$data['estat']} per a ".(($data['abast'] ?? 'algun') === 'tots' ? 'tots els alumnes' : 'algun alumne')),
-            ], layout: FiltersLayout::AboveContent)
-            // Curs, mòdul i bloc en una línia; la resta, en una secció plegada a sota.
-            ->filtersFormColumns(1)
-            ->filtersFormSchema(fn (array $filters) => [
-                Grid::make(['default' => 1, 'md' => 5])->schema([
-                    $filters['curs']->columnSpan(1),
-                    $filters['modul']->columnSpan(2),
-                    $filters['bloc']->columnSpan(2),
-                ]),
-                Section::make('Més filtres')
-                    ->collapsible()
-                    ->collapsed()
-                    ->compact()
-                    ->columns(['default' => 1, 'md' => 4])
-                    ->schema([$filters['executor'], $filters['actiu'], $filters['execucions']->columnSpan(2)]),
             ])
-            ->deferFilters(false)
             ->recordActions([
                 ActionGroup::make([
                     Action::make('info')
