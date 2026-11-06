@@ -5,13 +5,13 @@ namespace App\Filament\Resources\Incidents\Tables;
 use App\Enums\IncidentStatus;
 use App\Filament\Actions\LaunchIncident;
 use App\Filament\Resources\Incidents\IncidentResource;
+use App\Filament\Support\ScopeFilters;
 use App\Models\AcademicYear;
 use App\Models\Incident;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -39,14 +39,11 @@ class IncidentsTable
                 TextColumn::make('resoltes_count')->label('Resoltes')->color('success'),
             ])
             ->filters([
-                SelectFilter::make('curs')
-                    ->label('Curs')
-                    ->options(fn () => AcademicYear::regular()->orderByDesc('data_inici')->pluck('nom', 'id'))
-                    ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['value'] ?? null,
-                        fn (Builder $q, $id) => $q->whereHas('module', fn (Builder $m) => $m->where('curs_id', $id)),
-                    )),
+                ScopeFilters::course('curs',
+                    fn (Builder $q, int $id) => $q->whereHas('module', fn (Builder $m) => $m->where('curs_id', $id)),
+                    children: ['modul'])
+                    ->options(fn () => AcademicYear::regular()->orderByDesc('data_inici')->pluck('nom', 'id')),
+                ScopeFilters::module('modul', 'curs', fn (Builder $q, int $id) => $q->where('modul_id', $id)),
             ])
             ->recordActions([
                 Action::make('seguiment')

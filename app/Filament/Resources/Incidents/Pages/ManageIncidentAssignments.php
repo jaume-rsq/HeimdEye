@@ -6,6 +6,7 @@ use App\Enums\IncidentStatus;
 use App\Filament\Actions\LaunchIncident;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Incidents\IncidentResource;
+use App\Models\Group;
 use App\Models\Incident;
 use App\Models\IncidentStudent;
 use App\Runner\Incidents\IncidentLauncher;
@@ -101,6 +102,15 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                     ->toggleable(),
             ])
             ->filters([
+                // El grup-classe de l'alumne (del curs del mòdul de la incidència).
+                SelectFilter::make('grup')
+                    ->label('Grup')
+                    ->options(fn () => Group::where('curs_id', $this->getOwnerRecord()->module?->curs_id)->orderBy('codi')->get()
+                        ->mapWithKeys(fn (Group $g) => [$g->id => $g->label()]))
+                    ->query(fn (Builder $query, array $data) => $query->when(
+                        $data['value'] ?? null,
+                        fn (Builder $q, $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id)),
+                    )),
                 SelectFilter::make('estat')
                     ->options(IncidentStatus::class)
                     ->multiple(),

@@ -1,6 +1,7 @@
 {{--
     Capçalera de l'Inventari: el títol i, al costat, les pestanyes (Alumnes, Equips, Variables,
-    Secrets); a la dreta, el curs i el mòdul. Fa wire:model a $curs, $modul i $pestanya de la pàgina.
+    Secrets) i, a Alumnes, la vista (Equips o Variables); a la dreta, el curs, el grup i el mòdul.
+    Fa wire:model a $curs, $grup, $modul, $pestanya i $vista de la pàgina.
 --}}
 @php
     $pestanya = $this->pestanya;
@@ -19,6 +20,14 @@
                 <button type="button" role="tab" wire:click="$set('pestanya', 'secrets')" @class(['on' => $pestanya === 'secrets'])>Secrets</button>
             @endif
         </div>
+        {{-- A la pestanya Alumnes, la vista (equips o variables) també aquí dalt. --}}
+        @if ($pestanya === 'alumnes')
+            <span style="font-size: .8rem; opacity: .65; margin-left: .25rem">Veure</span>
+            <div class="he-inv-tabs" role="tablist" aria-label="Vista dels alumnes">
+                <button type="button" role="tab" wire:click="$set('vista', 'equips')" @class(['on' => $this->vista === 'equips'])>Equips</button>
+                <button type="button" role="tab" wire:click="$set('vista', 'variables')" @class(['on' => $this->vista === 'variables'])>Variables</button>
+            </div>
+        @endif
     </div>
     <div style="display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center">
         <label style="{{ $label }}">Curs
@@ -28,8 +37,17 @@
                 @endforeach
             </select>
         </label>
+        @if ($this->groups->isNotEmpty())
+            <label style="{{ $label }}">Grup
+                <select wire:model.live="grup" wire:key="inv-grups-{{ $this->curs }}" style="{{ $style }}; min-width: 10rem">
+                    @foreach ($this->groups as $id => $name)
+                        <option value="{{ $id }}" @selected($this->grup === $id)>{{ $name }}</option>
+                    @endforeach
+                </select>
+            </label>
+        @endif
         <label style="{{ $label }}">Mòdul
-            <select wire:model.live="modul" wire:key="inv-moduls-{{ $this->curs }}" style="{{ $style }}; min-width: 22rem">
+            <select wire:model.live="modul" wire:key="inv-moduls-{{ $this->curs }}-{{ $this->grup }}" style="{{ $style }}; min-width: 22rem">
                 @foreach ($this->modules as $id => $name)
                     <option value="{{ $id }}" @selected($this->modul === $id)>{{ $name }}</option>
                 @endforeach

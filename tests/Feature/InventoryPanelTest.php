@@ -9,6 +9,7 @@ use App\Filament\Resources\Students\Pages\CreateStudent;
 use App\Filament\Resources\Students\Pages\EditStudent;
 use App\Filament\Resources\Students\Pages\ListStudents;
 use App\Models\AcademicYear;
+use App\Models\Group;
 use App\Models\Module;
 use App\Models\Student;
 use App\Models\User;
@@ -158,5 +159,27 @@ class InventoryPanelTest extends TestCase
         // Un mòdul a l'enllaç porta el seu curs.
         Livewire::test(InventoryOverview::class, ['modul' => $oldModule->id])
             ->assertSet('curs', $old->id);
+    }
+
+    public function test_the_group_limits_the_students_and_the_view_tabs_are_in_the_header(): void
+    {
+        $smix2 = Group::where('codi', 'SMIX2')->firstOrFail();
+        $other = Group::create(['curs_id' => $this->module->curs_id, 'codi' => 'SMIX1', 'nom' => '1r SMIX']);
+        $this->student->update(['grup_id' => $other->id]);
+        $classmate = $smix2->students()->orderBy('num_taula')->firstOrFail();
+
+        // Sempre hi ha un grup: el primer del curs (SMIX1), només amb el seu alumne.
+        Livewire::test(InventoryOverview::class)
+            ->assertSet('grup', $other->id)
+            ->assertSee('Veure')
+            ->assertSee($this->student->nom_complet)
+            ->assertDontSee($classmate->nom_complet)
+            ->set('grup', $smix2->id)
+            ->assertSee($classmate->nom_complet)
+            ->assertDontSee($this->student->nom_complet);
+
+        // Un alumne a l'enllaç porta el seu grup.
+        Livewire::test(InventoryOverview::class, ['modul' => $this->module->id, 'alumne' => $classmate->id])
+            ->assertSet('grup', $smix2->id);
     }
 }

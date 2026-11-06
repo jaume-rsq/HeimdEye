@@ -16,12 +16,6 @@
 
     <div class="he-inv" x-data="{ search: '' }" @if ($provesPendents) wire:poll.2s="refreshConnection" @endif>
         <div class="he-inv-bar">
-            @if ($pestanya === 'alumnes')
-                <div class="he-inv-tabs">
-                    <button type="button" wire:click="$set('vista', 'equips')" @class(['on' => $vista === 'equips'])>Equips</button>
-                    <button type="button" wire:click="$set('vista', 'variables')" @class(['on' => $vista === 'variables'])>Variables</button>
-                </div>
-            @endif
             <input type="search" x-model.debounce.200ms="search" placeholder="{{ $pestanya === 'alumnes' ? 'Cerca alumne o valor...' : 'Cerca nom o valor...' }}" style="flex: 1 1 14rem; min-width: 0" />
             @if ($pestanya === 'alumnes')
                 <label style="display: flex; gap: .4rem; align-items: center">
