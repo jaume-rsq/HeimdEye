@@ -505,6 +505,13 @@ també poden ser playbooks (`executor = ansible`).
 Inventari, Administració i Ajuda surten plegats d'entrada (el navegador recorda si l'usuari els
 obre). Al costat del nom hi ha la icona de `public/` (`resources/views/filament/brand.blade.php`).
 
+### Filtres encadenats
+
+A les llistes de checks, accions i alumnes, els filtres de curs, mòdul, bloc i grup depenen l'un de
+l'altre (`App\Filament\Support\ScopeFilters`): el curs limita els mòduls i els grups, i el mòdul
+limita els blocs. En canviar-ne un, els que en depenen es buiden. Les claus dels filtres no canvien,
+així que els enllaços i els filtres desats a la sessió continuen valent.
+
 ## Ajuda
 
 Menú **Ajuda** (`/admin/ajuda`, i `/alumne/ajuda` per als alumnes): les pàgines són els fitxers

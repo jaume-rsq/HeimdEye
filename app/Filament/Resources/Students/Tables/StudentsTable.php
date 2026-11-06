@@ -2,8 +2,8 @@
 
 namespace App\Filament\Resources\Students\Tables;
 
+use App\Filament\Support\ScopeFilters;
 use App\Models\Group;
-use App\Models\Module;
 use App\Models\Student;
 use Filament\Actions\BulkAction;
 use Filament\Actions\EditAction;
@@ -14,7 +14,6 @@ use Filament\Schemas\Components\Text;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -49,17 +48,9 @@ class StudentsTable
                 TernaryFilter::make('es_actiu')->label('Actiu')->default(true),
                 // Sense relationship(): Filament hi fa un "select distinct moduls.*" i Postgres no
                 // sap comparar la columna json "combina".
-                SelectFilter::make('modul')
-                    ->label('Mòdul')
-                    ->options(fn () => Module::orderBy('nom')->pluck('nom', 'id'))
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['value'],
-                        fn (Builder $query, $id) => $query->whereHas('modules', fn (Builder $query) => $query->whereKey($id)),
-                    )),
-                SelectFilter::make('curs_id')->label('Curs')->relationship('academicYear', 'nom'),
-                SelectFilter::make('grup_id')
-                    ->label('Grup')
-                    ->options(fn () => Group::with('academicYear')->orderBy('codi')->get()->mapWithKeys(fn (Group $g) => [$g->id => "{$g->label()} ({$g->academicYear->nom})"])),
+                ScopeFilters::course('curs_id', fn (Builder $q, int $id) => $q->where('curs_id', $id), children: ['modul', 'grup_id'], default: fn () => null),
+                ScopeFilters::module('modul', 'curs_id', fn (Builder $q, int $id) => $q->whereHas('modules', fn (Builder $m) => $m->whereKey($id))),
+                ScopeFilters::group('grup_id', 'curs_id', fn (Builder $q, int $id) => $q->where('grup_id', $id)),
             ])
             ->recordActions([
                 EditAction::make()->label('Fitxa'),
