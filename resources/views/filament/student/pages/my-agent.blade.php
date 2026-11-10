@@ -12,7 +12,7 @@
         .he-agent-tab:last-child { border-right: 0; }
         .he-agent-tab-on { background: #2563eb; color: #fff; }
         .he-agent-host { display: flex; align-items: center; gap: .4rem; font-size: .8rem; font-weight: 600; }
-        .he-agent-host input { font-size: .8rem; padding: .25rem .5rem; border-radius: .4rem; border: 1px solid rgba(128,128,128,.45); background: rgba(128,128,128,.06); color: inherit; width: 8rem; font-family: ui-monospace, monospace; }
+        .he-agent-host input, .he-agent-host select { font-size: .8rem; padding: .25rem .5rem; border-radius: .4rem; border: 1px solid rgba(128,128,128,.45); background: rgba(128,128,128,.06); color: inherit; width: 8rem; font-family: ui-monospace, monospace; }
         .he-agent-code { background: #0b0f1a; color: #d6deeb; border-radius: .6rem; padding: .9rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .8rem; line-height: 1.55; overflow-x: auto; white-space: pre; margin: 0; }
         .he-agent-btn { padding: .3rem .7rem; border-radius: .5rem; border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.08); font-size: .8rem; cursor: pointer; color: inherit; }
         .he-agent-help { border: 1px solid rgba(128,128,128,.25); border-radius: .6rem; padding: .9rem 1rem; margin-top: .6rem; background: rgba(128,128,128,.04); }
@@ -37,6 +37,13 @@
                 <label class="he-agent-host">
                     Hostname
                     <input type="text" x-model="host" placeholder="web" spellcheck="false" autocapitalize="off" autocomplete="off">
+                </label>
+                <label class="he-agent-host">
+                    Usuari
+                    <select x-model="as" style="width: auto;">
+                        <option value="usuari">Usuari actual</option>
+                        <option value="root">root</option>
+                    </select>
                 </label>
                 <button type="button" class="he-agent-btn" @click="copy()">
                     <span x-show="! copied">Copia</span>
@@ -66,6 +73,7 @@
                 Alpine.data('heAgentCmd', (cfg) => ({
                     mode: 'servei',
                     host: 'web',
+                    as: 'usuari',
                     copied: false,
                     base: cfg.base,
                     url: cfg.url,
@@ -79,10 +87,13 @@
                             + 'chmod +x heimdeye-agent';
                     },
                     get action() {
+                        var tail = ' --url ' + this.url + ' --token ' + this.token + ' --hostname ' + this.hostValue;
                         if (this.mode === 'executable') {
-                            return './heimdeye-agent run --url ' + this.url + ' --token ' + this.token + ' --hostname ' + this.hostValue;
+                            // Interactiu: com a root cal sudo; com el teu usuari, res.
+                            return (this.as === 'root' ? 'sudo ' : '') + './heimdeye-agent run' + tail;
                         }
-                        return 'sudo ./heimdeye-agent install --url ' + this.url + ' --token ' + this.token + ' --hostname ' + this.hostValue;
+                        // Servei: per defecte corre com l'usuari del sudo; --user root el força a root.
+                        return 'sudo ./heimdeye-agent install' + tail + (this.as === 'root' ? ' --user root' : '');
                     },
                     get command() {
                         return this.download + '\n' + this.action;
@@ -134,14 +145,16 @@
                     dona-li un nom diferent a cadascuna (web, bd, dns…).
                 </li>
                 <li>
-                    <code>--user</code> (només al mode <strong>Servei</strong>): sota quin usuari corre el
-                    servei. <strong>Si no el poses</strong>, corre amb l'usuari que llança el
-                    <code>sudo</code> (el del <code>whoami</code>), que és el que té configurat l'AWS CLI
-                    en una WSL. L'has d'afegir a mà en aquests casos:
+                    <strong>Usuari</strong> (selector sobre la comanda): sota quin usuari corre l'agent.
                     <ul>
-                        <li>A una EC2 per <strong>AWS SSM</strong> hi entres com a <code>ssm-user</code>, que no té les credencials (venen del rol de la instància, accessible des de root): afegeix <code>--user root</code>.</li>
-                        <li>Per fer-lo córrer amb un altre usuari del sistema: <code>--user NOM</code>.</li>
+                        <li><strong>Usuari actual</strong> (per defecte): corre amb el teu usuari, el del
+                        <code>whoami</code>, que és el que té configurat l'AWS CLI en una WSL. És el cas normal.</li>
+                        <li><strong>root</strong>: el fa córrer com a root. Cal, per exemple, a una EC2 per
+                        <strong>AWS SSM</strong>, on hi entres com a <code>ssm-user</code>: aquest usuari no
+                        té les credencials (venen del rol de la instància, accessible des de root).</li>
                     </ul>
+                    Al mode Servei això posa <code>--user root</code>; al mode Executable, afegeix un
+                    <code>sudo</code> davant.
                 </li>
             </ul>
         </div>
