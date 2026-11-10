@@ -264,6 +264,10 @@ class IncidentsTest extends TestCase
         $before = ActionRun::count();
 
         Livewire::test(ManageIncidentAssignments::class, ['record' => $incident->id])
+            ->filterTable('alumne_id', [$a->id])
+            ->assertCanSeeTableRecords($rows->where('alumne_id', $a->id))
+            ->assertCanNotSeeTableRecords($rows->where('alumne_id', $b->id))
+            ->removeTableFilters()
             ->callTableBulkAction('repararTots', $rows)
             ->assertNotified('2 reparacions a la cua');
 

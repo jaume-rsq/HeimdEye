@@ -6,9 +6,9 @@ use App\Enums\IncidentStatus;
 use App\Filament\Actions\LaunchIncident;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Incidents\IncidentResource;
-use App\Models\Group;
 use App\Models\Incident;
 use App\Models\IncidentStudent;
+use App\Models\Student;
 use App\Runner\Incidents\IncidentLauncher;
 use App\Runner\Incidents\IncidentTracker;
 use Carbon\CarbonInterval;
@@ -102,15 +102,14 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                     ->toggleable(),
             ])
             ->filters([
-                // El grup-classe de l'alumne (del curs del mòdul de la incidència).
-                SelectFilter::make('grup')
-                    ->label('Grup')
-                    ->options(fn () => Group::where('curs_id', $this->getOwnerRecord()->module?->curs_id)->orderBy('codi')->get()
-                        ->mapWithKeys(fn (Group $g) => [$g->id => $g->label()]))
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['value'] ?? null,
-                        fn (Builder $q, $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id)),
-                    )),
+                // Els alumnes que han rebut alguna avaria d'aquesta incidència.
+                SelectFilter::make('alumne_id')
+                    ->label('Alumne')
+                    ->options(fn () => Student::whereIn('id', $this->getOwnerRecord()->assignments()->select('alumne_id'))
+                        ->orderBy('num_taula')->get()
+                        ->mapWithKeys(fn (Student $s) => [$s->id => sprintf('%02d · %s', $s->num_taula, $s->nom_complet ?: $s->usuari)]))
+                    ->searchable()
+                    ->multiple(),
                 SelectFilter::make('estat')
                     ->options(IncidentStatus::class)
                     ->multiple(),
