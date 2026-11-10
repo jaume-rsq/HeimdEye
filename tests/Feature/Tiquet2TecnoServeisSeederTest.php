@@ -82,10 +82,10 @@ class Tiquet2TecnoServeisSeederTest extends TestCase
         $this->assertTrue($checks->every(fn (Check $c) => filled($c->descripcio) && $c->versions()->count() === 1));
 
         $actions = Action::where('bloc_id', $this->block->id)->whereKeyNot($t3action->id)->get();
-        $this->assertCount(8, $actions);
+        $this->assertCount(10, $actions);
         $this->assertSame(['TecnoServeis: injectar avaria'], $actions->where('es_incidencia', true)->pluck('nom')->all());
         $all = $actions->firstWhere('nom', 'T2: muntar tot el tiquet 2');
-        $this->assertCount(5, $all->currentVersion->checks_verificacio);
+        $this->assertCount(10, $all->currentVersion->checks_verificacio);
         $this->assertTrue(Check::whereIn('id', $all->currentVersion->checks_verificacio)->get()->every(fn (Check $c) => $c->tasca_id === $this->task->id));
 
         $incident = Incident::where('tasca_id', $this->task->id)->sole();

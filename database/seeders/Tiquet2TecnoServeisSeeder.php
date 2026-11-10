@@ -52,20 +52,93 @@ class Tiquet2TecnoServeisSeeder extends Seeder
 
     private const REPAIR_ACTION = 'TecnoServeis: desfer avaria';
 
+    private const RECREATE_ACTION = 'T2: recrear una instància amb la IP fixa';
+
+    /**
+     * R2: la IP privada principal d'una instància no es pot canviar. Es fa una AMI de la instància,
+     * se'n llança una de nova amb la IP fixa (mateixa subxarxa, SG, perfil, tipus, clau i tags), es
+     * mouen l'Elastic IP i les rutes que hi apuntaven, i s'acaba l'antiga. L'AMI queda com a còpia.
+     */
+    private const RECREATE = <<<'SH'
+        case "$HE_PARAM_QUINA" in
+          gateway) OLD=$GW; IP=10.$X.1.10; SUB=public-a ;;
+          web) OLD=$WEB; IP=10.$X.11.10; SUB=private-a ;;
+          *) echo "QUINA ha de ser gateway o web"; exit 1 ;;
+        esac
+        need "el $HE_PARAM_QUINA (Name *$HE_PARAM_QUINA)" "$OLD"
+        read -r CUR TYPE KEY PROFILE <<< "$(aws ec2 describe-instances --instance-ids "$OLD" \
+          --query 'Reservations[0].Instances[0].[PrivateIpAddress,InstanceType,KeyName,IamInstanceProfile.Arn]' --output text)"
+        [ "$CUR" != "$IP" ] || { echo "El $HE_PARAM_QUINA ja té la $IP: no cal fer res"; exit 0; }
+        S=$(subnet "$SUB"); need "la subxarxa $SUB ($(net "$SUB"))" "$S"
+        used=$(aws ec2 describe-network-interfaces --filters "Name=vpc-id,Values=$VPC" "Name=addresses.private-ip-address,Values=$IP" \
+          --query 'NetworkInterfaces[0].NetworkInterfaceId' --output text)
+        [ -z "$used" ] || [ "$used" = None ] || { echo "La $IP ja la fa servir $used"; exit 1; }
+        SGS=$(aws ec2 describe-instances --instance-ids "$OLD" --query 'Reservations[0].Instances[0].SecurityGroups[].GroupId' --output text)
+        TAGS=$(aws ec2 describe-instances --instance-ids "$OLD" --output json --query 'Reservations[0].Instances[0].Tags' | python3 -c '
+        import json, sys
+        tags = [t for t in json.load(sys.stdin) or [] if not t["Key"].startswith("aws:")]
+        print(json.dumps([{"ResourceType": "instance", "Tags": tags}]))')
+
+        echo "1/4 AMI de $OLD ($CUR)..."
+        AMI=$(aws ec2 create-image --instance-id "$OLD" --name "$NC-$HE_PARAM_QUINA-$(date +%Y%m%d-%H%M%S)" \
+          --description "Còpia abans de recrear amb la IP $IP (HeimdEye)" --query ImageId --output text) || exit 1
+        aws ec2 wait image-available --image-ids "$AMI" || { echo "L'AMI $AMI no està disponible"; exit 1; }
+
+        echo "2/4 Instància nova amb la $IP..."
+        args=(--image-id "$AMI" --instance-type "$TYPE" --subnet-id "$S" --private-ip-address "$IP" --tag-specifications "$TAGS")
+        # shellcheck disable=SC2206
+        args+=(--security-group-ids $SGS)
+        [ -z "$KEY" ] || [ "$KEY" = None ] || args+=(--key-name "$KEY")
+        [ -z "$PROFILE" ] || [ "$PROFILE" = None ] || args+=(--iam-instance-profile "Arn=$PROFILE")
+        NEW=$(aws ec2 run-instances "${args[@]}" --query 'Instances[0].InstanceId' --output text) || exit 1
+        aws ec2 wait instance-running --instance-ids "$NEW" || exit 1
+        [ "$HE_PARAM_QUINA" != gateway ] || aws ec2 modify-instance-attribute --instance-id "$NEW" --no-source-dest-check || exit 1
+
+        echo "3/4 Elastic IP i rutes..."
+        EIP=$(aws ec2 describe-addresses --filters "Name=instance-id,Values=$OLD" --query 'Addresses[0].AllocationId' --output text)
+        if [ -n "$EIP" ] && [ "$EIP" != None ]; then
+          aws ec2 associate-address --allocation-id "$EIP" --instance-id "$NEW" --allow-reassociation >/dev/null || exit 1
+          echo "Elastic IP $EIP mogut a $NEW"
+        fi
+        OLD_ENI=$(aws ec2 describe-instances --instance-ids "$OLD" --query 'Reservations[0].Instances[0].NetworkInterfaces[0].NetworkInterfaceId' --output text)
+        while read -r rt dest; do
+          [ -n "$dest" ] || continue
+          aws ec2 replace-route --route-table-id "$rt" --destination-cidr-block "$dest" --instance-id "$NEW" || exit 1
+          echo "Ruta $dest de $rt cap a $NEW"
+        done < <(aws ec2 describe-route-tables --filters "Name=vpc-id,Values=$VPC" --output json | python3 -c '
+        import json, sys
+        old, eni = sys.argv[1], sys.argv[2]
+        for t in json.load(sys.stdin)["RouteTables"]:
+            for r in t["Routes"]:
+                if r.get("InstanceId") == old or r.get("NetworkInterfaceId") == eni:
+                    print(t["RouteTableId"], r.get("DestinationCidrBlock", ""))' "$OLD" "$OLD_ENI")
+
+        echo "4/4 S'acaba $OLD..."
+        aws ec2 terminate-instances --instance-ids "$OLD" >/dev/null || exit 1
+        echo "$HE_PARAM_QUINA recreat: $NEW amb la $IP (còpia a l'AMI $AMI; esborra-la quan no la necessitis)."
+        if [ "$HE_PARAM_QUINA" = web ]; then
+          echo "El DNAT del gateway apuntava a $CUR: torna a llançar «T2: nftables al gateway» quan el web arrenqui."
+        else
+          echo "La IP pública del gateway pot haver canviat (si no tenia Elastic IP)."
+        fi
+        SH;
+
     // ── Accions: el que demana el tiquet ──────────────────────────────────────────────────────
 
     /** [nom, descripció, cos, checks de verificació, temps màxim] */
     private const ACTIONS = [
         ['T2: obrir el 80 del gateway a Internet', 'Afegeix al Security Group del gateway l\'entrada tcp/80 des de 0.0.0.0/0 (l\'única que dona la cara).',
             'pas_publicar', ['Política: només el tcp/80 és obert a Internet'], 120],
+        ['T2: tancar el que sobra als Security Groups', 'Dels Security Groups en ús a la VPC, treu les regles que inclouen el 22 (o tot el trànsit) i les obertes a Internet que no siguin el tcp/80 del gateway. Després assegura les del mínim privilegi: el web accepta el 80 del gateway, i el gateway el 80 i el 443 del web.',
+            'pas_tancar', ['F2: El gateway només exposa el port 80', 'Política: només el tcp/80 és obert a Internet', 'Política: cap Security Group amb el 22'], 120],
         ['T2: nftables al gateway', 'Escriu /etc/nftables.conf al gateway (DNAT i SNAT del web, masquerade de sortida, input i forward amb política drop i registre DROP). El carrega en viu amb una assegurança de 5 minuts, comprova que el web es veu des d\'Internet i només llavors el desa. La còpia d\'abans queda a /etc/nftables.conf.abans-heimdeye.',
-            'pas_nftables', ['F1: El web es veu des d\'Internet', 'F7: nftables amb política drop', 'F7: nftables publica el web (DNAT i SNAT)', 'F8: Session Manager continua funcionant'], 300],
+            'pas_nftables', ['F1: El web es veu des d\'Internet', 'F4: El web no surt per altres ports', 'F7: nftables amb política drop', 'F7: nftables publica el web (DNAT i SNAT)', 'F8: Session Manager continua funcionant'], 300],
         ['T2: NACL pròpies', 'Crea (o reaprofita) les NACL <NomCognom>-nacl-public i -nacl-private amb les regles de la solució de referència, incloses les tornades, i les associa a les quatre subxarxes.',
-            'pas_nacl', ['F5: Les subxarxes tenen NACL pròpies', 'F1: El web es veu des d\'Internet', 'F3: El web surt a Internet per https', 'F8: Session Manager continua funcionant'], 300],
+            'pas_nacl', ['F5: Les subxarxes tenen NACL pròpies', 'F1: El web es veu des d\'Internet', 'F3: El web surt a Internet per https', 'F4: El web no surt per altres ports', 'F8: Session Manager continua funcionant'], 300],
         ['T2: Flow Logs de la VPC', 'Crea el grup de logs /tecnoserveis/<NomCognom>/flowlogs i un flow log de tota la VPC (tot el trànsit) amb LabRole, si la VPC encara no en té.',
             'pas_flowlogs', ['F6: Flow Logs de la VPC a CloudWatch'], 120],
-        ['T2: muntar tot el tiquet 2', 'Fa els quatre passos en ordre: obrir el 80 del gateway, nftables, NACL i Flow Logs. No canvia les IP de les instàncies (R2): això ho ha de fer el build.sh amb --private-ip-address.',
-            "pas_publicar\npas_nftables\npas_nacl\npas_flowlogs", ['F1: El web es veu des d\'Internet', 'F5: Les subxarxes tenen NACL pròpies', 'F6: Flow Logs de la VPC a CloudWatch', 'F7: nftables amb política drop', 'F8: Session Manager continua funcionant'], 600],
+        ['T2: muntar tot el tiquet 2', 'Fa els cinc passos en ordre: obrir el 80 del gateway, tancar el que sobra als Security Groups, nftables, NACL i Flow Logs. No canvia les IP de les instàncies (R2): per a això hi ha «T2: recrear una instància amb la IP fixa».',
+            "pas_publicar\npas_tancar\npas_nftables\npas_nacl\npas_flowlogs", ['F1: El web es veu des d\'Internet', 'F2: El gateway només exposa el port 80', 'F3: El web surt a Internet per https', 'F4: El web no surt per altres ports', 'F5: Les subxarxes tenen NACL pròpies', 'F6: Flow Logs de la VPC a CloudWatch', 'F7: nftables amb política drop', 'F8: Session Manager continua funcionant', 'Política: només el tcp/80 és obert a Internet', 'Política: cap Security Group amb el 22'], 600],
         ['T2: escaneig de prova', 'Prova des de l\'agent uns quants ports tancats de la IP pública del gateway, perquè quedin denegats als Flow Logs (REJECT) i al registre d\'nftables (F6 i F7). Els Flow Logs poden trigar uns minuts.',
             <<<'SH'
             need "la IP pública del gateway" "$GW_PUB"
@@ -336,15 +409,34 @@ class Tiquet2TecnoServeisSeeder extends Seeder
         foreach (self::RESOLUTION as [$name, , $body]) {
             $checks[$name] = TecnoServeisCode::build($body);
         }
-        $actions = [
-            self::INJECT_ACTION => TecnoServeisCode::build(self::INJECT),
-            self::REPAIR_ACTION => TecnoServeisCode::build(self::REPAIR),
-        ];
-        foreach (self::ACTIONS as [$name, , $body]) {
-            $actions[$name] = TecnoServeisCode::build($body);
-        }
+        $actions = array_column(self::actionSpecs(), 'codi', 'nom');
 
         return ['checks' => $checks, 'accions' => $actions];
+    }
+
+    /**
+     * Les accions del tiquet, tal com han de quedar (les fa servir run() i TecnoServeisCodiSeeder).
+     * «verifica» són noms de checks de la tasca.
+     *
+     * @return list<array{nom: string, descripcio: string, codi: string, es_incidencia: bool, posicio: int, temps_max_seg: int, parametres: ?array, verifica: list<string>}>
+     */
+    public static function actionSpecs(): array
+    {
+        $specs = [];
+        foreach (self::ACTIONS as $i => [$name, $description, $body, $verify, $timeout]) {
+            $specs[] = ['nom' => $name, 'descripcio' => $description, 'codi' => TecnoServeisCode::build($body), 'es_incidencia' => false,
+                'posicio' => $i + 1, 'temps_max_seg' => $timeout, 'parametres' => null, 'verifica' => $verify];
+        }
+        $specs[] = ['nom' => self::RECREATE_ACTION, 'descripcio' => 'R2: fa una AMI del gateway o del web, en llança una de nova amb la IP fixa (10.X.1.10 o 10.X.11.10) amb el mateix SG, perfil, tipus, clau i tags, hi mou l\'Elastic IP i les rutes, i ACABA la instància antiga. No es fa sola: llança-la només quan calgui. Si recrees el web, torna a llançar «T2: nftables al gateway».',
+            'codi' => TecnoServeisCode::build(self::RECREATE), 'es_incidencia' => false, 'posicio' => count(self::ACTIONS) + 1, 'temps_max_seg' => 1800,
+            'parametres' => [['name' => 'QUINA', 'label' => 'Instància (gateway o web)', 'default' => 'web']], 'verifica' => ['R2: IP privades fixes']];
+        $param = [['name' => 'AVARIA', 'label' => 'Avaria (0-6)', 'default' => '0']];
+        $specs[] = ['nom' => self::INJECT_ACTION, 'descripcio' => 'Trenca una part del camí cap a la web (paràmetre AVARIA, 0-6). Feta per a la incidència «'.self::INCIDENT.'».',
+            'codi' => TecnoServeisCode::build(self::INJECT), 'es_incidencia' => true, 'posicio' => 20, 'temps_max_seg' => 180, 'parametres' => $param, 'verifica' => []];
+        $specs[] = ['nom' => self::REPAIR_ACTION, 'descripcio' => 'Desfà l\'avaria AVARIA (0-6) de la incidència «'.self::INCIDENT.'».',
+            'codi' => TecnoServeisCode::build(self::REPAIR), 'es_incidencia' => false, 'posicio' => 21, 'temps_max_seg' => 180, 'parametres' => $param, 'verifica' => []];
+
+        return $specs;
     }
 
     /** @return array<string, string> la descripció de cada check, pel nom */
@@ -374,16 +466,12 @@ class Tiquet2TecnoServeisSeeder extends Seeder
             $checks[$name] = $this->check($task, $i + 1, $name, $description, $info, TecnoServeisCode::build($body), CheckKind::Required, 1, null);
         }
 
-        foreach (self::ACTIONS as $i => [$name, $description, $body, $verify, $timeout]) {
-            $this->action($module, $block, $name, $description, TecnoServeisCode::build($body), false, $i + 1, $timeout,
-                null, array_map(fn (string $n) => $checks[$n]->id, $verify));
+        $actions = [];
+        foreach (self::actionSpecs() as $spec) {
+            $actions[$spec['nom']] = self::createAction($module, $block, $spec, array_map(fn (string $n) => $checks[$n]->id, $spec['verifica']));
         }
-
-        $param = [['name' => 'AVARIA', 'label' => 'Avaria (0-6)', 'default' => '0']];
-        $inject = $this->action($module, $block, self::INJECT_ACTION, 'Trenca una part del camí cap a la web (paràmetre AVARIA, 0-6). Feta per a la incidència «'.self::INCIDENT.'».',
-            TecnoServeisCode::build(self::INJECT), true, 20, 180, $param, []);
-        $repair = $this->action($module, $block, self::REPAIR_ACTION, 'Desfà l\'avaria AVARIA (0-6) de la incidència «'.self::INCIDENT.'».',
-            TecnoServeisCode::build(self::REPAIR), false, 21, 180, $param, []);
+        $inject = $actions[self::INJECT_ACTION];
+        $repair = $actions[self::REPAIR_ACTION];
 
         $incident = Incident::create([
             'modul_id' => $module->id,
@@ -419,30 +507,33 @@ class Tiquet2TecnoServeisSeeder extends Seeder
         $incidents = Incident::where('bloc_id', $block->id)
             ->where(fn ($q) => $q->where('tasca_id', $task->id)->orWhere(fn ($q) => $q->whereNull('tasca_id')->where('nom', self::INCIDENT)))
             ->delete();
-        $names = [...array_column(self::ACTIONS, 0), self::INJECT_ACTION, self::REPAIR_ACTION];
+        $names = array_column(self::actionSpecs(), 'nom');
         $actions = Action::where('bloc_id', $block->id)->whereIn('nom', $names)->delete();
         $checks = $task->checks()->delete();
 
         $this->command?->info("Esborrat: {$checks} checks i {$incidents} incidències de «{$task->titol}», i {$actions} accions del tiquet al bloc {$block->numero}.");
     }
 
-    /** @param  list<int>  $verify */
-    private function action(Module $module, Block $block, string $name, string $description, string $code, bool $fault, int $position, int $timeout, ?array $params, array $verify): Action
+    /**
+     * @param  array{nom: string, descripcio: string, codi: string, es_incidencia: bool, posicio: int, temps_max_seg: int, parametres: ?array}  $spec
+     * @param  list<int>  $verify  ids dels checks de verificació
+     */
+    public static function createAction(Module $module, Block $block, array $spec, array $verify): Action
     {
         $action = $module->actions()->create([
-            'nom' => $name,
+            'nom' => $spec['nom'],
             'bloc_id' => $block->id,
-            'descripcio' => $description,
+            'descripcio' => $spec['descripcio'],
             'executor' => Executor::Agent,
-            'es_incidencia' => $fault,
-            'posicio' => $position,
+            'es_incidencia' => $spec['es_incidencia'],
+            'posicio' => $spec['posicio'],
         ]);
         $action->versions()->create([
             'versio' => 1,
-            'temps_max_seg' => $timeout,
-            'parametres' => $params,
+            'temps_max_seg' => $spec['temps_max_seg'],
+            'parametres' => $spec['parametres'],
             'checks_verificacio' => $verify ?: null,
-            'codi' => $code,
+            'codi' => $spec['codi'],
         ]);
 
         return $action;
