@@ -56,7 +56,8 @@ class TecnoServeisCodiSeederTest extends TestCase
 
         $p6 = Tiquet1TecnoServeisSeeder::codes()['P6: Cap Security Group amb el 22'];
         $this->assertStringNotContainsString('sg_permet', $p6);
-        $this->assertLessThan(15, substr_count($p6, "\n"));
+        $this->assertStringContainsString('sgs_en_us', $p6); // el SG «default» sense instàncies no compta
+        $this->assertLessThan(25, substr_count($p6, "\n"));
     }
 
     public function test_it_adds_a_version_only_where_the_code_changed(): void
@@ -74,8 +75,13 @@ class TecnoServeisCodiSeederTest extends TestCase
         $other = $this->block->module->actions()->create(['nom' => 'Una altra', 'bloc_id' => $this->block->id, 'executor' => 'agent']);
         $other->versions()->create(['versio' => 1, 'codi' => "# hosts: aws\ntrue\n"]);
 
+        $p6 = $this->t1->checks()->where('nom', 'P6: Cap Security Group amb el 22')->sole();
+        $p6->update(['descripcio' => 'La d\'abans']);
+
         $this->seed(TecnoServeisCodiSeeder::class);
         $this->seed(TecnoServeisCodiSeeder::class); // ja està al dia: no fa res
+
+        $this->assertSame(Tiquet1TecnoServeisSeeder::descriptions()[$p6->nom], $p6->fresh()->descripcio);
 
         $this->assertSame(1, $untouched->versions()->count());
         $this->assertSame(1, $other->versions()->count());

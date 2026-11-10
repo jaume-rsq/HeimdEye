@@ -144,16 +144,20 @@ class Tiquet1TecnoServeisSeeder extends Seeder
             sg_permet "$W" 80 "$GW_IP" "$G" || { echo "El SG del web no deixa entrar el tcp/80 del gateway"; exit 1; }
             sg_permet "$W" 80 198.51.100.7 && { echo "El SG del web deixa entrar el tcp/80 des d'Internet"; exit 1; }
             for p in 80 443; do sg_permet "$G" "$p" "$WEB_IP" "$W" || { echo "El SG del gateway no deixa entrar el tcp/$p del web (NAT)"; exit 1; }; done
-            any=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC" \
+            S=$(sgs_en_us); need "cap Security Group en ús" "$S"
+            # shellcheck disable=SC2086
+            any=$(aws ec2 describe-security-groups --group-ids $S \
               --query "SecurityGroups[].IpPermissions[?IpRanges[?CidrIp=='0.0.0.0/0'] || Ipv6Ranges[?CidrIpv6=='::/0']][].[IpProtocol,FromPort,ToPort]" \
               --output text | tr -s '[:space:]' ' ' | sed 's/ $//')
             [ -z "$any" ] || [ "$any" = "tcp 80 80" ] || { echo "Regles obertes a Internet: $any"; exit 1; }
             echo "SG web: 80 des del gateway; SG gateway: 80 i 443 des del web"
             SH],
-        ['P6: Cap Security Group amb el 22', 'Cap regla d\'entrada de cap Security Group de la VPC inclou el port 22, ni en un rang ni com a «tot el trànsit». Comprova-ho amb la comanda P6 de l\'enunciat.',
+        ['P6: Cap Security Group amb el 22', 'Cap regla d\'entrada dels Security Groups en ús a la VPC (els d\'alguna instància o interfície) inclou el port 22, ni en un rang ni com a «tot el trànsit». Comprova-ho amb la comanda P6 de l\'enunciat.',
             "**Objectiu:** que no hi hagi cap port d'administració obert.\n\n**Per què:** el 22 obert és l'objectiu número u dels atacs automàtics.",
             <<<'SH'
-            p22=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC" \
+            S=$(sgs_en_us); need "cap Security Group en ús" "$S"
+            # shellcheck disable=SC2086
+            p22=$(aws ec2 describe-security-groups --group-ids $S \
               --query "SecurityGroups[].IpPermissions[?(FromPort<=\`22\` && ToPort>=\`22\`) || IpProtocol=='-1'][]" --output text)
             [ -z "$p22" ] || [ "$p22" = None ] || { echo "Hi ha regles que inclouen el 22: $(head -c 150 <<< "$p22")"; exit 1; }
             echo "Cap Security Group té el 22"
@@ -196,6 +200,12 @@ class Tiquet1TecnoServeisSeeder extends Seeder
         }
 
         return $codes;
+    }
+
+    /** @return array<string, string> la descripció de cada check, pel nom */
+    public static function descriptions(): array
+    {
+        return array_column(self::CHECKS, 1, 0);
     }
 
     public function run(): void

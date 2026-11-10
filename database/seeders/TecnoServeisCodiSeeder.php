@@ -12,7 +12,8 @@ use RuntimeException;
 
 /**
  * Posa al dia el codi dels checks i accions dels tiquets 1 i 2 de TecnoServeis sense esborrar res:
- * a cada check o acció (pel nom) amb un codi diferent del que toca, hi afegeix una versió nova.
+ * a cada check o acció (pel nom) amb un codi diferent del que toca, hi afegeix una versió nova, i
+ * actualitza la descripció dels checks.
  * Les execucions, els resultats i les incidències llançades es queden com estaven.
  *
  * El codi és el de TecnoServeisCode: només les funcions que fa servir cada check, en lloc de tot
@@ -36,18 +37,25 @@ class TecnoServeisCodiSeeder extends Seeder
 
         $t2 = Tiquet2TecnoServeisSeeder::codes();
         $tasks = [
-            env('HEIMDEYE_T1_TASCA', 'Tiquet 1') => Tiquet1TecnoServeisSeeder::codes(),
-            env('HEIMDEYE_INCIDENCIA_TASCA', 'Tiquet 2') => $t2['checks'],
+            env('HEIMDEYE_T1_TASCA', 'Tiquet 1') => [Tiquet1TecnoServeisSeeder::codes(), Tiquet1TecnoServeisSeeder::descriptions()],
+            env('HEIMDEYE_INCIDENCIA_TASCA', 'Tiquet 2') => [$t2['checks'], Tiquet2TecnoServeisSeeder::descriptions()],
         ];
 
-        foreach ($tasks as $title => $codes) {
+        foreach ($tasks as $title => [$codes, $descriptions]) {
             $task = $block->tasks()->where('titol', $title)->first();
             if ($task === null) {
                 $this->command?->warn("No hi ha la tasca «{$title}» al bloc {$number}: me la salto.");
 
                 continue;
             }
-            $this->update($task->checks()->with('currentVersion')->get(), $codes, "checks de «{$title}»");
+            $checks = $task->checks()->with('currentVersion')->get();
+            $this->update($checks, $codes, "checks de «{$title}»");
+            foreach ($checks as $check) {
+                // La descripció (el que llegeix l'alumne) no té versions: s'actualitza i prou.
+                if (isset($descriptions[$check->nom]) && $check->descripcio !== $descriptions[$check->nom]) {
+                    $check->update(['descripcio' => $descriptions[$check->nom]]);
+                }
+            }
         }
 
         $this->update(Action::where('bloc_id', $block->id)->with('currentVersion')->get(), $t2['accions'], "accions del bloc {$number}");

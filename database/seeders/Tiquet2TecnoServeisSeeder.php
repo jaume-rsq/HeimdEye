@@ -194,19 +194,23 @@ class Tiquet2TecnoServeisSeeder extends Seeder
             [ "$on" = 2 ] || { echo "Només $on de 2 instàncies (gateway i web) són Online a Session Manager"; exit 1; }
             echo "gateway i web Online a Session Manager"
             SH],
-        ['Política: només el tcp/80 és obert a Internet', 'L\'única regla d\'entrada dels Security Groups de la VPC amb origen 0.0.0.0/0 és la del tcp/80 del gateway. Comprova-ho: P6 del tiquet 1.',
+        ['Política: només el tcp/80 és obert a Internet', 'L\'única regla d\'entrada dels Security Groups en ús a la VPC amb origen 0.0.0.0/0 és la del tcp/80 del gateway. Comprova-ho: P6 del tiquet 1.',
             "**Objectiu:** aplicar la política de l'empresa a la capa de Security Groups.\n\n**Per què:** mínim privilegi: el web es publica pel 80 i res més ha de ser accessible des d'Internet.",
             <<<'SH'
-            any=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC" \
+            S=$(sgs_en_us); need "cap Security Group en ús" "$S"
+            # shellcheck disable=SC2086
+            any=$(aws ec2 describe-security-groups --group-ids $S \
               --query "SecurityGroups[].IpPermissions[?IpRanges[?CidrIp=='0.0.0.0/0'] || Ipv6Ranges[?CidrIpv6=='::/0']][].[IpProtocol,FromPort,ToPort]" \
               --output text | tr -s '[:space:]' ' ' | sed 's/ $//')
             [ "$any" = "tcp 80 80" ] || { echo "Regles obertes a Internet: ${any:-cap} (ha de ser només tcp 80 80)"; exit 1; }
             echo "Només el tcp/80 és obert a Internet"
             SH],
-        ['Política: cap Security Group amb el 22', 'Cap regla d\'entrada de cap Security Group de la VPC inclou el port 22, ni en un rang ni com a «tot el trànsit».',
+        ['Política: cap Security Group amb el 22', 'Cap regla d\'entrada dels Security Groups en ús a la VPC (els d\'alguna instància o interfície) inclou el port 22, ni en un rang ni com a «tot el trànsit».',
             "**Objectiu:** que l'administració continuï anant només per Session Manager.\n\n**Per què:** el 22 obert és l'objectiu número u dels atacs automàtics.",
             <<<'SH'
-            p22=$(aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC" \
+            S=$(sgs_en_us); need "cap Security Group en ús" "$S"
+            # shellcheck disable=SC2086
+            p22=$(aws ec2 describe-security-groups --group-ids $S \
               --query "SecurityGroups[].IpPermissions[?(FromPort<=\`22\` && ToPort>=\`22\`) || IpProtocol=='-1'][]" --output text)
             [ -z "$p22" ] || [ "$p22" = None ] || { echo "Hi ha regles que inclouen el 22: $(head -c 150 <<< "$p22")"; exit 1; }
             echo "Cap Security Group té el 22"
@@ -341,6 +345,12 @@ class Tiquet2TecnoServeisSeeder extends Seeder
         }
 
         return ['checks' => $checks, 'accions' => $actions];
+    }
+
+    /** @return array<string, string> la descripció de cada check, pel nom */
+    public static function descriptions(): array
+    {
+        return array_column(self::CHECKS, 1, 0) + array_column(self::RESOLUTION, 1, 0);
     }
 
     public function run(): void
