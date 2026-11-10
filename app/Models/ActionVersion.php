@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Executor;
 use App\Models\Concerns\ExecutableVersion;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -34,5 +35,10 @@ class ActionVersion extends Model
     public function author(): BelongsTo
     {
         return $this->belongsTo(User::class, 'creat_per');
+    }
+
+    protected function ownerExecutor(): ?Executor
+    {
+        return $this->action?->executor;
     }
 }

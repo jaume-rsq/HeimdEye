@@ -243,14 +243,6 @@ class RunnerTest extends TestCase
         $this->assertSame([], CodeHeaders::parse("echo hola\n# hosts: pve")->hosts);
     }
 
-    public function test_executor_cannot_change(): void
-    {
-        $check = $this->check('true');
-
-        $this->expectException(\LogicException::class);
-        $check->update(['executor' => Executor::Ssh]);
-    }
-
     public function test_a_secret_without_value_is_an_error(): void
     {
         $result = $this->execute($this->check('[ -n "$HE_SECRET_JAUME_PASSWORD" ]'));

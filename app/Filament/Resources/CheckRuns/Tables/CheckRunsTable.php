@@ -40,7 +40,8 @@ class CheckRunsTable
                     ->visible($check === null),
                 TextColumn::make('checkVersion.versio')
                     ->label('Versió')
-                    ->prefix('v'),
+                    ->prefix('v')
+                    ->tooltip(fn ($record) => ($executor = $record->checkVersion?->effectiveExecutor()) ? "Executor: {$executor->value}" : null),
                 TextColumn::make('student.nom_complet')
                     ->label('Alumne')
                     ->formatStateUsing(fn (CheckRun $record) => sprintf('%02d · %s', $record->student->num_taula, $record->student->nom_complet))

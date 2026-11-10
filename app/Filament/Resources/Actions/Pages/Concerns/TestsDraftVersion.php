@@ -37,9 +37,17 @@ trait TestsDraftVersion
         return new ActionVersion(ActionForm::versionData($this->form->getRawState()));
     }
 
+    /** L'executor és part de la versió: provar-la amb un executor no val per a un altre. */
     protected function draftHash(): string
     {
-        return md5(json_encode(ActionForm::versionData($this->form->getRawState())));
+        return md5(json_encode([...ActionForm::versionData($this->form->getRawState()), 'executor' => $this->draftExecutor()?->value]));
+    }
+
+    protected function draftExecutor(): ?Executor
+    {
+        $executor = $this->form->getRawState()['executor'] ?? null;
+
+        return $executor instanceof Executor ? $executor : Executor::tryFrom((string) $executor);
     }
 
     /** Atura el desament si el codi no es pot executar així (grups d'equips, secrets en clar). */

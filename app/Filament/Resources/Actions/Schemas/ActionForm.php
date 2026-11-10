@@ -3,9 +3,10 @@
 namespace App\Filament\Resources\Actions\Schemas;
 
 use App\Enums\Executor;
+use App\Filament\Support\ScopeFields;
+use App\Models\Action as ActionModel;
 use App\Models\Block;
 use App\Models\Check;
-use App\Models\Module;
 use App\Runner\Params;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CodeEditor;
@@ -39,21 +40,18 @@ class ActionForm
                     ->columns(2)
                     ->schema([
                         TextInput::make('nom')->required()->maxLength(255),
-                        Select::make('modul_id')
-                            ->label('Mòdul')
-                            ->options(fn () => Module::with('academicYear')->get()->mapWithKeys(fn (Module $m) => [$m->id => trim("{$m->codi} {$m->nom}")." ({$m->academicYear->nom})"]))
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(fn (Set $set) => $set('bloc_id', null))
-                            ->disabledOn('edit'),
+                        ScopeFields::executor(Executor::Ansible),
                         Textarea::make('descripcio')->label('Descripció')->rows(2)->columnSpanFull(),
-                        Select::make('executor')
-                            ->options(collect(Executor::cases())->mapWithKeys(fn (Executor $e) => [$e->value => $e->value]))
-                            ->default(Executor::Ansible->value)
-                            ->required()
-                            ->live()
-                            ->disabledOn('edit')
-                            ->helperText('No es pot canviar un cop creada l\'acció.'),
+                        ScopeFields::course(['bloc_id', 'checks_verificacio']),
+                        ScopeFields::module(
+                            function (Set $set) {
+                                $set('bloc_id', null);
+                                $set('checks_verificacio', []);
+                            },
+                            fn (ActionModel $record) => self::moveWarning($record),
+                        )->helperText(fn (string $operation) => $operation === 'edit'
+                            ? 'Per moure l\'acció, tria un altre curs i mòdul. Les versions i l\'historial la segueixen.'
+                            : null),
                         Select::make('bloc_id')
                             ->label('Bloc')
                             ->options(fn (Get $get) => Block::where('modul_id', $get('modul_id'))->orderBy('numero')->get()
@@ -137,6 +135,18 @@ class ActionForm
                     ])
                     ->schema([View::make('filament.test-results')]),
             ]);
+    }
+
+    /** Avís en moure una acció que ja s'ha executat o que fa servir alguna incidència. */
+    public static function moveWarning(ActionModel $action): ?string
+    {
+        $runs = $action->runs()->count();
+        if ($runs === 0 && ! $action->es_incidencia) {
+            return null;
+        }
+
+        return "Aquesta acció ja té {$runs} execucions. Si la mous, l'historial passa al mòdul nou, el codi s'ha de poder executar amb els equips del mòdul nou i es treuen els checks de verificació (són del mòdul antic)."
+            .($action->es_incidencia ? ' És una acció d\'avaria: revisa les incidències que la fan servir.' : '');
     }
 
     /**

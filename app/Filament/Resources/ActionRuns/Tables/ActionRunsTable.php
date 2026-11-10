@@ -46,7 +46,8 @@ class ActionRunsTable
                     ->visible($action === null),
                 TextColumn::make('version.versio')
                     ->label('Versió')
-                    ->prefix('v'),
+                    ->prefix('v')
+                    ->tooltip(fn ($record) => ($executor = $record->version?->effectiveExecutor()) ? "Executor: {$executor->value}" : null),
                 TextColumn::make('student.nom_complet')
                     ->label('Alumne')
                     ->formatStateUsing(fn (ActionRun $record) => sprintf('%02d · %s', $record->student->num_taula, $record->student->nom_complet))

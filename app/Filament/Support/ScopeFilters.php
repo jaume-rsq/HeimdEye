@@ -6,13 +6,14 @@ use App\Models\AcademicYear;
 use App\Models\Block;
 use App\Models\Group;
 use App\Models\Module;
+use App\Models\Task;
 use Filament\Forms\Components\Select;
 use Filament\Tables\Contracts\HasTable;
 use Filament\Tables\Filters\SelectFilter;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Filtres encadenats de les llistes: curs → mòdul → bloc (i curs → grup). Cada desplegable només
+ * Filtres encadenats de les llistes: curs → mòdul → bloc → tasca (i curs → grup). Cada desplegable només
  * ofereix el que hi ha dins del triat al de sobre, i en canviar-lo es buiden els de sota.
  * Les claus dels filtres (curs, modul, bloc, grup) són les de sempre: els enllaços i els filtres
  * desats a la sessió continuen funcionant.
@@ -53,8 +54,11 @@ class ScopeFilters
             ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $q, $id) => $apply($q, (int) $id)));
     }
 
-    /** @param  \Closure(Builder, int): mixed  $apply */
-    public static function block(string $name, string $course, string $module, \Closure $apply): SelectFilter
+    /**
+     * @param  \Closure(Builder, int): mixed  $apply
+     * @param  list<string>  $children
+     */
+    public static function block(string $name, string $course, string $module, \Closure $apply, array $children = []): SelectFilter
     {
         return SelectFilter::make($name)
             ->label('Bloc')
@@ -68,6 +72,23 @@ class ScopeFilters
                     ->orderBy('modul_id')->orderBy('posicio')->orderBy('numero')->get()
                     ->mapWithKeys(fn (Block $b) => [$b->id => ($moduleId ? '' : "{$b->module->codi} · ")."Bloc {$b->numero}: {$b->titol}"]);
             })
+            ->modifyFormFieldUsing(fn (Select $field) => self::resets($field, $children))
+            ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $q, $id) => $apply($q, (int) $id)));
+    }
+
+    /**
+     * Tasques del bloc triat. Sense bloc no n'ofereix cap: n'hi hauria massa per triar.
+     *
+     * @param  \Closure(Builder, int): mixed  $apply
+     */
+    public static function task(string $name, string $block, \Closure $apply): SelectFilter
+    {
+        return SelectFilter::make($name)
+            ->label('Tasca')
+            ->options(fn (HasTable $livewire) => ($blockId = self::value($livewire, $block))
+                ? Task::where('bloc_id', $blockId)->orderBy('posicio')->pluck('titol', 'id')
+                : [])
+            ->placeholder('Totes')
             ->query(fn (Builder $query, array $data) => $query->when($data['value'] ?? null, fn (Builder $q, $id) => $apply($q, (int) $id)));
     }
 
