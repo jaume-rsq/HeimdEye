@@ -14,7 +14,7 @@ class Incident extends Model
 {
     protected $table = 'incidencies';
 
-    protected $fillable = ['modul_id', 'bloc_id', 'nom', 'equip', 'simptoma', 'notes', 'posicio'];
+    protected $fillable = ['modul_id', 'bloc_id', 'tasca_id', 'nom', 'equip', 'simptoma', 'notes', 'posicio'];
 
     public function module(): BelongsTo
     {
@@ -24,6 +24,11 @@ class Incident extends Model
     public function block(): BelongsTo
     {
         return $this->belongsTo(Block::class, 'bloc_id');
+    }
+
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class, 'tasca_id');
     }
 
     public function options(): HasMany

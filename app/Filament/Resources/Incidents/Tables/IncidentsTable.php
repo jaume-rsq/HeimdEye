@@ -21,7 +21,7 @@ class IncidentsTable
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
-                ->with(['module', 'block'])
+                ->with(['module', 'block', 'task'])
                 ->withCount([
                     'options',
                     'assignments as obertes_count' => fn (Builder $q) => $q->whereIn('estat', IncidentStatus::activeValues()),
@@ -38,6 +38,7 @@ class IncidentsTable
                     ->extraCellAttributes(['style' => 'min-width: 14rem; max-width: 22rem']),
                 TextColumn::make('module.codi')->label('Mòdul')->tooltip(fn (Incident $record) => $record->module?->nom),
                 TextColumn::make('block.numero')->label('Bloc')->placeholder('—'),
+                TextColumn::make('task.titol')->label('Tasca')->placeholder('—')->toggleable(),
                 TextColumn::make('equip')->badge()->color('gray')->placeholder('—'),
                 TextColumn::make('options_count')->label('Opcions'),
                 TextColumn::make('obertes_count')->label('Obertes')->color(fn (int $state) => $state > 0 ? 'danger' : 'gray'),
@@ -46,9 +47,11 @@ class IncidentsTable
             ->filters([
                 ScopeFilters::course('curs',
                     fn (Builder $q, int $id) => $q->whereHas('module', fn (Builder $m) => $m->where('curs_id', $id)),
-                    children: ['modul'])
+                    children: ['modul', 'bloc', 'tasca'])
                     ->options(fn () => AcademicYear::regular()->orderByDesc('data_inici')->pluck('nom', 'id')),
-                ScopeFilters::module('modul', 'curs', fn (Builder $q, int $id) => $q->where('modul_id', $id)),
+                ScopeFilters::module('modul', 'curs', fn (Builder $q, int $id) => $q->where('modul_id', $id), children: ['bloc', 'tasca']),
+                ScopeFilters::block('bloc', 'curs', 'modul', fn (Builder $q, int $id) => $q->where('bloc_id', $id), children: ['tasca']),
+                ScopeFilters::task('tasca', 'bloc', fn (Builder $q, int $id) => $q->where('tasca_id', $id)),
             ])
             ->recordActions([
                 Action::make('seguiment')

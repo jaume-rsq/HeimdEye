@@ -664,8 +664,8 @@ Una incidència és una avaria intencionada que el professor injecta als equips 
 perquè la resolguin. Fa servir les accions per trencar i els checks per saber si ja està
 arreglada; HeimdEye en deixa constància per alumne.
 
-- **Definició** (menú Accions → Incidències, `/admin/incidencies`): nom, mòdul, bloc, equip,
-  el **símptoma** que llegirà l'alumne i les notes del professor. Cada **opció** és una acció
+- **Definició** (menú Accions → Incidències, `/admin/incidencies`): nom, mòdul, bloc, tasca
+  (opcional: un bloc pot tenir incidències diferents per tasca), equip, el **símptoma** que llegirà l'alumne i les notes del professor. Cada **opció** és una acció
   (millor marcada com a «acció d'avaria», `accions.es_incidencia`) amb valors per als seus
   paràmetres, el **check de resolució**, una acció de **reparació** opcional (rep els mateixos
   paràmetres) i un **pes** per al sorteig. Una mateixa acció amb un paràmetre diferent pot fer
@@ -693,7 +693,8 @@ arreglada; HeimdEye en deixa constància per alumne.
   munten el tiquet (SG, nftables, NACL, Flow Logs, tot alhora i un escaneig de prova) i la
   incidència «La web de TecnoServeis no respon» amb 7 avaries (les 6 de l'antic `incident.sh` i
   el DNAT a un port equivocat), tot executat per l'agent amb rol `aws` (AWS CLI, python3 i SSM).
-  **Abans esborra** els checks de la tasca «Tiquet 2» i les accions i incidències del bloc.
+  **Abans esborra** els checks i les incidències de la tasca «Tiquet 2» i les accions del bloc que
+  crea ell (pel nom); la resta del bloc (altres tiquets) no es toca.
   `Tiquet1TecnoServeisSeeder` fa el mateix amb els checks de les proves P1-P8 i els requisits del
   tiquet 1 (tasca «Tiquet 1»; només n'esborra els checks), perquè els alumnes revisin el punt de partida.
   Va al mòdul `0378` (curs actual), bloc 3, tasca «Tiquet 2»; es pot canviar amb
