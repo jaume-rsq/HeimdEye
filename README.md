@@ -697,6 +697,9 @@ arreglada; HeimdEye en deixa constància per alumne.
   crea ell (pel nom); la resta del bloc (altres tiquets) no es toca.
   `Tiquet1TecnoServeisSeeder` fa el mateix amb els checks de les proves P1-P8 i els requisits del
   tiquet 1 (tasca «Tiquet 1»; només n'esborra els checks), perquè els alumnes revisin el punt de partida.
+  Cada check i acció porta només les funcions que fa servir (`TecnoServeisCode`). Per posar al dia
+  el codi del que ja hi ha sense esborrar res (afegeix una versió nova on el codi canvia):
+  `php artisan db:seed --class=TecnoServeisCodiSeeder --force`.
   Va al mòdul `0378` (curs actual), bloc 3, tasca «Tiquet 2»; es pot canviar amb
   `HEIMDEYE_INCIDENCIA_MODUL`, `HEIMDEYE_INCIDENCIA_BLOC` i `HEIMDEYE_INCIDENCIA_TASCA`.
 

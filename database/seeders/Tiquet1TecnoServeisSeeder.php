@@ -16,7 +16,7 @@ use RuntimeException;
  * requisits, perquè els alumnes revisin el punt de partida del tiquet 2.
  *
  * Abans de crear-los, ESBORRA els checks de la tasca «Tiquet 1» (amb les seves execucions). No toca
- * res més del bloc. Fa servir el mateix preàmbul que el tiquet 2 (agent amb rol «aws», AWS CLI i
+ * res més del bloc. Fa servir les mateixes peces de codi que el tiquet 2 (TecnoServeisCode) (agent amb rol «aws», AWS CLI i
  * python3, SSM al gateway i al web): veg. Tiquet2TecnoServeisSeeder.
  *
  * Els checks han de continuar passant després del tiquet 2: per això P4 no prova el 80 (el T2 el
@@ -187,6 +187,17 @@ class Tiquet1TecnoServeisSeeder extends Seeder
             SH],
     ];
 
+    /** @return array<string, string> el codi de cada check, pel nom */
+    public static function codes(): array
+    {
+        $codes = [];
+        foreach (self::CHECKS as [$name, , , $body]) {
+            $codes[$name] = TecnoServeisCode::build($body);
+        }
+
+        return $codes;
+    }
+
     public function run(): void
     {
         $code = env('HEIMDEYE_INCIDENCIA_MODUL', $this->moduleCode);
@@ -222,7 +233,7 @@ class Tiquet1TecnoServeisSeeder extends Seeder
         $check->versions()->create([
             'versio' => 1,
             'temps_max_seg' => 150,
-            'codi' => Tiquet2TecnoServeisSeeder::PRELUDE."\n".Tiquet2TecnoServeisSeeder::STEPS."\n".$body,
+            'codi' => TecnoServeisCode::build($body),
         ]);
     }
 }
