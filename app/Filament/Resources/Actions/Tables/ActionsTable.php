@@ -31,7 +31,7 @@ class ActionsTable
     public static function configure(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['module', 'block', 'currentVersion']))
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['module', 'block', 'task', 'currentVersion']))
             ->defaultSort('posicio')
             // Un grup per bloc, plegable, com a la llista de checks: es veu la seqüència d'accions.
             ->groups([
@@ -65,7 +65,10 @@ class ActionsTable
                     ->searchable()
                     ->sortable()
                     ->weight('bold')
-                    ->description(fn (ActionModel $record) => $record->es_incidencia ? 'avaria (incidències)' : null),
+                    ->description(fn (ActionModel $record) => collect([
+                        $record->task ? "Tasca: {$record->task->titol}" : null,
+                        $record->es_incidencia ? 'avaria (incidències)' : null,
+                    ])->filter()->implode(' · ') ?: null),
                 TextColumn::make('descripcio')
                     ->label('Descripció')
                     ->wrap()
@@ -91,10 +94,11 @@ class ActionsTable
             ->filters([
                 ScopeFilters::course('curs',
                     fn (Builder $q, int $id) => $q->whereHas('module', fn (Builder $m) => $m->where('curs_id', $id)),
-                    children: ['modul_id', 'bloc']),
-                ScopeFilters::module('modul_id', 'curs', fn (Builder $q, int $id) => $q->where('modul_id', $id), children: ['bloc'])
+                    children: ['modul_id', 'bloc', 'tasca']),
+                ScopeFilters::module('modul_id', 'curs', fn (Builder $q, int $id) => $q->where('modul_id', $id), children: ['bloc', 'tasca'])
                     ->columnSpan(2),
-                ScopeFilters::block('bloc', 'curs', 'modul_id', fn (Builder $q, int $id) => $q->where('bloc_id', $id)),
+                ScopeFilters::block('bloc', 'curs', 'modul_id', fn (Builder $q, int $id) => $q->where('bloc_id', $id), children: ['tasca']),
+                ScopeFilters::task('tasca', 'bloc', fn (Builder $q, int $id) => $q->where('tasca_id', $id)),
                 SelectFilter::make('executor')
                     ->options(collect(Executor::cases())->mapWithKeys(fn (Executor $e) => [$e->value => $e->value])),
                 Filter::make('execucions')

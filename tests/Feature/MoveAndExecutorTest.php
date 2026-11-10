@@ -7,6 +7,7 @@ use App\Enums\Executor;
 use App\Enums\Role;
 use App\Enums\RunOrigin;
 use App\Filament\Resources\Actions\Pages\EditAction;
+use App\Filament\Resources\Actions\Pages\ListActions;
 use App\Filament\Resources\Checks\Pages\EditCheck;
 use App\Filament\Resources\Checks\Pages\ListChecks;
 use App\Models\Block;
@@ -165,5 +166,34 @@ class MoveAndExecutorTest extends TestCase
             ->filterTable('tasca', $task->id)
             ->assertCanSeeTableRecords([$mine])
             ->assertCanNotSeeTableRecords([$theirs]);
+    }
+
+    public function test_an_action_can_belong_to_a_task_and_the_list_filters_by_it(): void
+    {
+        $task = $this->task($this->module);
+        $sibling = $task->block->tasks()->create(['titol' => 'Una altra tasca', 'posicio' => 2]);
+        $mine = $this->module->actions()->create(['nom' => 'De la tasca', 'executor' => Executor::Local, 'bloc_id' => $task->bloc_id]);
+        $mine->versions()->create(['versio' => 1, 'codi' => 'echo hola', 'temps_max_seg' => 60]);
+        $theirs = $this->module->actions()->create(['nom' => 'De l\'altra', 'executor' => Executor::Local, 'bloc_id' => $task->bloc_id, 'tasca_id' => $sibling->id]);
+
+        Livewire::test(EditAction::class, ['record' => $mine->id])
+            ->fillForm(['tasca_id' => $task->id])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertSame($task->id, $mine->fresh()->tasca_id);
+
+        Livewire::test(ListActions::class)
+            ->filterTable('bloc', $task->bloc_id)
+            ->assertCanSeeTableRecords([$mine, $theirs])
+            ->filterTable('tasca', $task->id)
+            ->assertCanSeeTableRecords([$mine])
+            ->assertCanNotSeeTableRecords([$theirs]);
+
+        Livewire::test(EditAction::class, ['record' => $mine->id])
+            ->fillForm(['bloc_id' => null])
+            ->assertSchemaStateSet(['tasca_id' => null])
+            ->call('save')
+            ->assertHasNoFormErrors();
+        $this->assertNull($mine->fresh()->tasca_id, 'sense bloc no hi ha tasca');
     }
 }

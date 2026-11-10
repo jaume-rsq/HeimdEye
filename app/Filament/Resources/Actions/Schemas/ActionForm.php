@@ -8,6 +8,7 @@ use App\Filament\Support\ScopeFields;
 use App\Models\Action as ActionModel;
 use App\Models\Block;
 use App\Models\Check;
+use App\Models\Task;
 use App\Runner\Params;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CodeEditor;
@@ -43,10 +44,11 @@ class ActionForm
                         TextInput::make('nom')->required()->maxLength(255),
                         ScopeFields::executor(Executor::Ansible),
                         Textarea::make('descripcio')->label('Descripció')->rows(2)->columnSpanFull(),
-                        ScopeFields::course(['bloc_id', 'checks_verificacio']),
+                        ScopeFields::course(['bloc_id', 'tasca_id', 'checks_verificacio']),
                         ScopeFields::module(
                             function (Set $set) {
                                 $set('bloc_id', null);
+                                $set('tasca_id', null);
                                 $set('checks_verificacio', []);
                             },
                             fn (ActionModel $record) => self::moveWarning($record),
@@ -58,7 +60,16 @@ class ActionForm
                             ->options(fn (Get $get) => Block::where('modul_id', $get('modul_id'))->orderBy('numero')->get()
                                 ->mapWithKeys(fn (Block $b) => [$b->id => "Bloc {$b->numero}: {$b->titol}"]))
                             ->placeholder('Cap')
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('tasca_id', null))
                             ->helperText('La llista d\'accions s\'agrupa per bloc; les que no en tenen surten al final.'),
+                        Select::make('tasca_id')
+                            ->label('Tasca')
+                            ->options(fn (Get $get) => $get('bloc_id') ? Task::where('bloc_id', $get('bloc_id'))->orderBy('posicio')->pluck('titol', 'id') : [])
+                            ->placeholder('Cap (tot el bloc)')
+                            ->disabled(fn (Get $get) => ! $get('bloc_id'))
+                            ->dehydrated() // també desactivat: si es treu el bloc, es desa sense tasca
+                            ->helperText('Opcional: per filtrar les accions per tasca a la llista.'),
                         TextInput::make('posicio')->label('Posició')->numeric()->default(0)->minValue(0)
                             ->helperText('Ordre dins del bloc: la seqüència en què es llancen.'),
                         TextInput::make('caducitat_agent_seg')
