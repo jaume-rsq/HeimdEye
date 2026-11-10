@@ -145,6 +145,31 @@ class StudentPanelTest extends TestCase
         $this->assertNull($this->student->agentInstallCommand());
     }
 
+    public function test_the_student_fiche_shows_the_reusable_agent_command_box(): void
+    {
+        config(['heimdeye.agent.download_base' => 'https://example.test/latest', 'app.url' => 'https://heimdeye.test']);
+        $token = $this->student->regenerateAgentToken();
+
+        Livewire::test(EditStudent::class, ['record' => $this->student->id])
+            ->assertOk()
+            // Mateixes pestanyes/camps que la pàgina de l'alumne (partial compartit).
+            ->assertSee('Servei')
+            ->assertSee('Executable')
+            ->assertSee('Hostname')
+            ->assertSee('Usuari actual')
+            ->assertSee("sudo ./heimdeye-agent install --url https://heimdeye.test --token {$token} --hostname web", escape: false);
+    }
+
+    public function test_the_student_fiche_without_a_token_asks_to_generate_one(): void
+    {
+        $this->student->forceFill(['token_agent' => null])->save();
+
+        Livewire::test(EditStudent::class, ['record' => $this->student->id])
+            ->assertOk()
+            ->assertSee('Encara no té token')
+            ->assertDontSee('heimdeye-agent install');
+    }
+
     public function test_demo_visitors_see_the_panel_but_cannot_add_exceptions(): void
     {
         config(['heimdeye.demo.enabled' => true]);
@@ -158,12 +183,11 @@ class StudentPanelTest extends TestCase
 
     public function test_the_agent_install_command_can_be_copied(): void
     {
-        Livewire::test(EditStudent::class, ['record' => $this->student->id])
-            ->assertDontSee('Comanda copiada');
-
         $this->student->forceFill(['token_agent' => 'tok-de-prova'])->save();
+
         Livewire::test(EditStudent::class, ['record' => $this->student->id])
-            ->assertSee('Comanda copiada')
+            // La caixa reutilitzable porta el botó Copia i el token per muntar la comanda.
+            ->assertSee('Copia')
             ->assertSee('tok-de-prova');
     }
 

@@ -6,7 +6,6 @@ use App\Enums\Role;
 use App\Models\AcademicYear;
 use App\Models\Group;
 use App\Models\Student;
-use Filament\Actions\Action;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -14,10 +13,9 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
-use Filament\Support\Icons\Heroicon;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Js;
 
 class StudentForm
 {
@@ -63,21 +61,14 @@ class StudentForm
                     ->description('L\'alumne instal·la l\'agent a la seva instància amb aquesta comanda. El token el genera i el revoca el professor amb els botons de dalt; no es mostra sol.')
                     ->visible(fn (?Student $record) => $record !== null)
                     ->schema([
-                        Textarea::make('comanda_agent')
-                            ->label('Comanda d\'instal·lació')
-                            ->dehydrated(false)
-                            ->disabled()
-                            ->rows(5)
-                            ->helperText('Baixa el binari (segons l\'arquitectura), el fa executable i l\'instal·la com a servei. Canvia "web" pel nom que vulgui donar a cada instància (web, bd, dns...). El servei corre amb l\'usuari que llança el sudo (així hereta les credencials, p. ex. l\'AWS CLI d\'una WSL); afegeix "--user root" a l\'última línia si el vols com a root.')
-                            ->formatStateUsing(fn (?Student $record) => $record?->agentInstallCommand()
-                                ?? 'Encara no té token. Fes servir el botó «Generar token» de dalt.')
-                            // Copia la comanda sencera (totes les línies, amb el token) al porta-retalls.
-                            ->hintAction(Action::make('copiarComanda')
-                                ->label('Copiar')
-                                ->icon(Heroicon::OutlinedClipboardDocument)
-                                ->visible(fn (?Student $record) => filled($record?->token_agent))
-                                ->alpineClickHandler(fn (?Student $record) => 'window.navigator.clipboard.writeText('.Js::from((string) $record?->agentInstallCommand()).'); '
-                                    .'$tooltip('.Js::from('Comanda copiada').', { theme: $store.theme, timeout: 2000 })')),
+                        // Mateixa caixa reutilitzable que la pàgina «El meu agent» de l'alumne: pestanyes
+                        // Servei/Executable, hostname i selector d'usuari, amb la comanda muntada en viu.
+                        View::make('partials.agent-command-box')
+                            ->viewData(fn (?Student $record) => [
+                                'ctx' => $record?->agentCommandContext(),
+                                'initial' => $record?->agentInstallCommand(),
+                                'emptyMessage' => 'Encara no té token. Fes servir el botó «Generar token» de dalt.',
+                            ]),
                         Textarea::make('instancies_agent')
                             ->label('Instàncies registrades')
                             ->dehydrated(false)
