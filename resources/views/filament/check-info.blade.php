@@ -23,7 +23,7 @@
         <div>
             <div style="font-weight: 600; margin-bottom: .35rem">Codi del check amb les teves dades</div>
             @if ($preview && $preview['codi'] !== null)
-                <pre style="white-space: pre-wrap; font-size: .75rem; max-height: 28rem; overflow: auto; background: rgba(128,128,128,.08); padding: .6rem; border-radius: .5rem; margin: 0">{{ $preview['codi'] }}</pre>
+                <x-copy-pre :text="$preview['codi']" style="white-space: pre-wrap; font-size: .75rem; max-height: 28rem; overflow: auto; background: rgba(128,128,128,.08); padding: .6rem; border-radius: .5rem; margin: 0" />
             @endif
             @foreach ($preview['avisos'] ?? [] as $avis)
                 <div style="font-size: .75rem; color: rgb(217,119,6)">{{ $avis }}</div>
