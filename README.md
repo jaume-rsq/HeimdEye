@@ -694,6 +694,8 @@ arreglada; HeimdEye en deixa constància per alumne.
   incidència «La web de TecnoServeis no respon» amb 7 avaries (les 6 de l'antic `incident.sh` i
   el DNAT a un port equivocat), tot executat per l'agent amb rol `aws` (AWS CLI, python3 i SSM).
   **Abans esborra** els checks de la tasca «Tiquet 2» i les accions i incidències del bloc.
+  `Tiquet1TecnoServeisSeeder` fa el mateix amb els checks de les proves P1-P8 i els requisits del
+  tiquet 1 (tasca «Tiquet 1»; només n'esborra els checks), perquè els alumnes revisin el punt de partida.
   Va al mòdul `0378` (curs actual), bloc 3, tasca «Tiquet 2»; es pot canviar amb
   `HEIMDEYE_INCIDENCIA_MODUL`, `HEIMDEYE_INCIDENCIA_BLOC` i `HEIMDEYE_INCIDENCIA_TASCA`.
 
