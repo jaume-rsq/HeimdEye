@@ -40,10 +40,23 @@ class MyAgent extends Page
         return Auth::user()?->student;
     }
 
+    /** Comanda inicial (mode servei, hostname «web») que surt renderitzada; Alpine la refà en viu. */
     #[Computed]
     public function installCommand(): ?string
     {
         return $this->student()?->agentInstallCommand();
+    }
+
+    /**
+     * Les dades que la vista injecta a Alpine per muntar la comanda en viu segons el mode i el
+     * hostname que tria l'alumne. null si encara no té token.
+     *
+     * @return array{base: string, url: string, token: string}|null
+     */
+    #[Computed]
+    public function commandContext(): ?array
+    {
+        return $this->student()?->agentCommandContext();
     }
 
     /** Instàncies que l'alumne ha registrat amb l'agent. @return Collection<int, \App\Models\AgentInstance> */
