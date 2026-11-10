@@ -29,19 +29,37 @@ class EditAction extends EditRecord
 
     protected static string $resource = ActionResource::class;
 
+    /** L'acció amb el mòdul i l'executor del formulari (es poden canviar). */
     protected function draftAction(): Action
     {
-        return $this->record;
+        $state = $this->form->getRawState();
+        $action = clone $this->record;
+        $action->forceFill([
+            'modul_id' => $state['modul_id'] ?? $this->record->modul_id,
+            'executor' => $this->draftExecutor() ?? $this->record->executor,
+        ]);
+
+        return $action->unsetRelation('module');
     }
 
-    /** Una versió nova només es desa si s'ha provat tal com és. */
+    /**
+     * Una versió nova (codi, paràmetres, temps, checks o executor diferents) només es desa si
+     * s'ha provat tal com és. Si només es mou a un altre mòdul, el codi hi ha de ser vàlid.
+     */
     protected function beforeSave(): void
     {
         $current = $this->record->currentVersion;
         $draft = ActionForm::versionData($this->form->getRawState());
-        if ($current === null || $draft !== ActionForm::versionData($current->only(ActionForm::VERSION_FIELDS))) {
+        if ($current === null || $this->executorChanged() || $draft !== ActionForm::versionData($current->only(ActionForm::VERSION_FIELDS))) {
             $this->requireTestedDraft();
+        } elseif ((int) ($this->form->getRawState()['modul_id'] ?? 0) !== $this->record->modul_id) {
+            $this->requireValidCode();
         }
+    }
+
+    private function executorChanged(): bool
+    {
+        return $this->draftExecutor() !== null && $this->draftExecutor() !== $this->record->executor;
     }
 
     public function getTitle(): string|Htmlable
@@ -87,13 +105,15 @@ class EditAction extends EditRecord
     {
         /** @var Action $record */
         return DB::transaction(function () use ($record, $data) {
-            $record->update(array_diff_key($data, array_flip([...ActionForm::VERSION_FIELDS, 'comentari', 'executor', 'modul_id'])));
+            $executorChanged = $this->executorChanged();
+            $record->update(array_diff_key($data, array_flip([...ActionForm::VERSION_FIELDS, 'comentari'])));
 
             $current = $record->currentVersion;
             $new = ActionForm::versionData($data);
-            if ($current === null || $new !== ActionForm::versionData($current->only(ActionForm::VERSION_FIELDS))) {
+            if ($current === null || $executorChanged || $new !== ActionForm::versionData($current->only(ActionForm::VERSION_FIELDS))) {
                 $version = $record->versions()->create([
                     ...$new,
+                    'executor' => $record->executor,
                     'comentari' => $data['comentari'] ?? null,
                     'versio' => ($current->versio ?? 0) + 1,
                     'creat_per' => auth()->id(),

@@ -4,8 +4,9 @@ namespace App\Filament\Resources\Checks\Schemas;
 
 use App\Enums\CheckKind;
 use App\Enums\Executor;
+use App\Filament\Support\ScopeFields;
 use App\Models\Block;
-use App\Models\Module;
+use App\Models\Check;
 use App\Runner\Params;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CodeEditor;
@@ -44,14 +45,12 @@ class CheckForm
                     ->columns(2)
                     ->schema([
                         TextInput::make('nom')->required()->maxLength(255),
-                        Select::make('modul_id')
-                            ->label('Mòdul')
-                            ->options(fn () => Module::with('academicYear')->get()->mapWithKeys(fn (Module $m) => [$m->id => "{$m->nom} ({$m->academicYear->nom})"]))
-                            ->required()
-                            ->live()
-                            ->dehydrated(false)
-                            ->disabledOn('edit')
-                            ->afterStateUpdated(fn (Set $set) => $set('tasca_id', null)),
+                        ScopeFields::executor(Executor::Ssh),
+                        ScopeFields::course(['tasca_id']),
+                        ScopeFields::module(
+                            fn (Set $set) => $set('tasca_id', null),
+                            fn (Check $record) => self::moveWarning($record),
+                        )->dehydrated(false),
                         Select::make('tasca_id')
                             ->label('Tasca')
                             ->options(fn (Get $get) => Block::where('modul_id', $get('modul_id'))->with('tasks')->orderBy('numero')->get()
@@ -59,14 +58,11 @@ class CheckForm
                                 ->all())
                             ->searchable()
                             ->required()
-                            ->live(),
-                        Select::make('executor')
-                            ->options(collect(Executor::cases())->mapWithKeys(fn (Executor $e) => [$e->value => $e->value]))
-                            ->default(Executor::Ssh->value)
-                            ->required()
                             ->live()
-                            ->disabledOn('edit')
-                            ->helperText('No es pot canviar un cop creat el check.'),
+                            ->helperText(fn (string $operation) => $operation === 'edit'
+                                ? 'Per moure el check, tria una altra tasca (o un altre curs i mòdul). Les versions, l\'historial i els assoliments el segueixen.'
+                                : null)
+                            ->columnSpanFull(),
                         Textarea::make('descripcio')->label('Descripció')->rows(2)->columnSpanFull(),
                         MarkdownEditor::make('info')
                             ->label('Info per a l\'alumne')
@@ -156,6 +152,18 @@ class CheckForm
                     ])
                     ->schema([View::make('filament.test-results')]),
             ]);
+    }
+
+    /** Avís en moure un check que ja s'ha executat o que ja tenen alumnes assolit. */
+    public static function moveWarning(Check $check): ?string
+    {
+        $runs = $check->runs()->count();
+        $passed = $check->states()->whereNotNull('data_primer_assoliment')->count();
+        if ($runs === 0 && $passed === 0) {
+            return null;
+        }
+
+        return "Aquest check ja té {$runs} execucions i {$passed} alumnes que l'han assolit. Si el mous, l'historial i els assoliments passen al mòdul nou, i el codi s'ha de poder executar amb els equips del mòdul nou.";
     }
 
     /**

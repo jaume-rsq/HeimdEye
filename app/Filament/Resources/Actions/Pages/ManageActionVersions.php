@@ -53,6 +53,11 @@ class ManageActionVersions extends ManageRelatedRecords
                     ->label('Versió')
                     ->prefix('v')
                     ->weight('bold'),
+                TextColumn::make('executor')
+                    ->label('Executor')
+                    ->state(fn ($record) => $record->effectiveExecutor()?->value)
+                    ->badge()
+                    ->color('gray'),
                 TextColumn::make('comentari')
                     ->label('Comentari')
                     ->limit(60)

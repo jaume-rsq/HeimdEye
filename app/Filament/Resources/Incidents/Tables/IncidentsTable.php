@@ -29,8 +29,13 @@ class IncidentsTable
                 ]))
             ->defaultSort('posicio')
             ->columns([
+                // Columna estreta: el nom ocupa com a molt 3 línies (i el símptoma 2); la resta, al tooltip.
                 TextColumn::make('nom')->searchable()->sortable()->weight('bold')
-                    ->description(fn (Incident $record) => str($record->simptoma)->limit(90)),
+                    ->wrap()
+                    ->lineClamp(3)
+                    ->tooltip(fn (Incident $record) => $record->nom."\n\n".$record->simptoma)
+                    ->description(fn (Incident $record) => str($record->simptoma)->limit(70))
+                    ->extraCellAttributes(['style' => 'min-width: 14rem; max-width: 22rem']),
                 TextColumn::make('module.codi')->label('Mòdul')->tooltip(fn (Incident $record) => $record->module?->nom),
                 TextColumn::make('block.numero')->label('Bloc')->placeholder('—'),
                 TextColumn::make('equip')->badge()->color('gray')->placeholder('—'),

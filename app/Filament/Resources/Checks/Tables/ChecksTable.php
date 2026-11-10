@@ -101,15 +101,17 @@ class ChecksTable
             ->filters([
                 ScopeFilters::course('curs',
                     fn (Builder $q, int $id) => $q->whereHas('task.block.module', fn (Builder $m) => $m->where('curs_id', $id)),
-                    children: ['modul', 'bloc'],
+                    children: ['modul', 'bloc', 'tasca'],
                     default: fn () => self::latestBlock()?->module->curs_id ?? AcademicYear::where('es_actual', true)->value('id')),
                 ScopeFilters::module('modul', 'curs',
                     fn (Builder $q, int $id) => $q->whereHas('task.block', fn (Builder $b) => $b->where('modul_id', $id)),
-                    children: ['bloc'])
+                    children: ['bloc', 'tasca'])
                     ->default(fn () => self::latestBlock()?->modul_id),
                 ScopeFilters::block('bloc', 'curs', 'modul',
-                    fn (Builder $q, int $id) => $q->whereHas('task', fn (Builder $t) => $t->where('bloc_id', $id)))
+                    fn (Builder $q, int $id) => $q->whereHas('task', fn (Builder $t) => $t->where('bloc_id', $id)),
+                    children: ['tasca'])
                     ->default(fn () => self::latestBlock()?->id),
+                ScopeFilters::task('tasca', 'bloc', fn (Builder $q, int $id) => $q->where('tasca_id', $id)),
                 SelectFilter::make('executor')
                     ->options(collect(Executor::cases())->mapWithKeys(fn (Executor $e) => [$e->value => $e->value])),
                 TernaryFilter::make('actiu')

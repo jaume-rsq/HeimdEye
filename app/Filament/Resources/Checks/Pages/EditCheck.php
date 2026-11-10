@@ -29,19 +29,37 @@ class EditCheck extends EditRecord
 
     protected static string $resource = CheckResource::class;
 
+    /** El check amb la tasca i l'executor del formulari (es poden canviar). */
     protected function draftCheck(): Check
     {
-        return $this->record;
+        $state = $this->form->getRawState();
+        $check = clone $this->record;
+        $check->forceFill([
+            'tasca_id' => $state['tasca_id'] ?? $this->record->tasca_id,
+            'executor' => $this->draftExecutor() ?? $this->record->executor,
+        ]);
+
+        return $check->unsetRelation('task');
     }
 
-    /** Una versió nova només es desa si s'ha provat tal com és. */
+    /**
+     * Una versió nova (codi, paràmetres, temps o executor diferents) només es desa si s'ha provat
+     * tal com és. Si només es mou a una altra tasca, el codi ha de ser vàlid al mòdul nou.
+     */
     protected function beforeSave(): void
     {
         $current = $this->record->currentVersion;
         $draft = CheckForm::versionData($this->form->getRawState());
-        if ($current === null || $draft !== CheckForm::versionData($current->only(CheckForm::VERSION_FIELDS))) {
+        if ($current === null || $this->executorChanged() || $draft !== CheckForm::versionData($current->only(CheckForm::VERSION_FIELDS))) {
             $this->requireTestedDraft();
+        } elseif ((int) ($this->form->getRawState()['tasca_id'] ?? 0) !== $this->record->tasca_id) {
+            $this->requireValidCode();
         }
+    }
+
+    private function executorChanged(): bool
+    {
+        return $this->draftExecutor() !== null && $this->draftExecutor() !== $this->record->executor;
     }
 
     public function getTitle(): string|Htmlable
@@ -96,13 +114,15 @@ class EditCheck extends EditRecord
     {
         /** @var Check $record */
         return DB::transaction(function () use ($record, $data) {
-            $record->update(array_diff_key($data, array_flip([...CheckForm::VERSION_FIELDS, 'comentari', 'executor', 'modul_id'])));
+            $executorChanged = $this->executorChanged();
+            $record->update(array_diff_key($data, array_flip([...CheckForm::VERSION_FIELDS, 'comentari', 'modul_id'])));
 
             $current = $record->currentVersion;
             $new = CheckForm::versionData($data);
-            if ($current === null || $new !== CheckForm::versionData($current->only(CheckForm::VERSION_FIELDS))) {
+            if ($current === null || $executorChanged || $new !== CheckForm::versionData($current->only(CheckForm::VERSION_FIELDS))) {
                 $version = $record->versions()->create([
                     ...$new,
+                    'executor' => $record->executor,
                     'comentari' => $data['comentari'] ?? null,
                     'versio' => ($current->versio ?? 0) + 1,
                     'creat_per' => auth()->id(),

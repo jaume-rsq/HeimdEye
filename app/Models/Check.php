@@ -4,7 +4,6 @@ namespace App\Models;
 
 use App\Enums\CheckKind;
 use App\Enums\Executor;
-use App\Models\Concerns\HasFixedExecutor;
 use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
@@ -16,8 +15,6 @@ use Illuminate\Support\Carbon;
 
 class Check extends Model
 {
-    use HasFixedExecutor;
-
     protected $table = 'checks';
 
     protected $fillable = [

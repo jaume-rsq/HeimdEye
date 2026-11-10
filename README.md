@@ -216,14 +216,15 @@ Els noms de taules i camps són en català (sense accents); les classes PHP es m
 
 ## Codi: versions, executors, capçaleres i paràmetres
 
-Els checks i les accions funcionen igual: tenen un **executor** fix i el codi va per
+Els checks i les accions funcionen igual: tenen un **executor** i el codi va per
 **versions** (`versions_check`, `versions_accio`). Cada edició crea una versió nova, la vigent
 és la de `versio` més alta i cada execució apunta a la versió que es va fer servir, de manera que
 sempre se sap quin codi exacte va córrer.
 
 | On | Camp | Per a què |
 | --- | --- | --- |
-| check / acció | `executor` | `local`, `ssh`, `ansible` (o `http`, encara no implementat). No es pot canviar un cop creat: si canvia l'executor, és un check o una acció diferent. |
+| check / acció | `executor` | `local`, `ssh`, `ansible`, `agent` (o `http`, encara no implementat). És el de la versió vigent. |
+| versió | `executor` | Amb quin executor es va escriure la versió. Canviar l'executor a l'editor crea una versió nova (cal provar-la i ha de passar les validacions del nou executor). |
 | versió | `codi` | El que s'executa: un script bash o un playbook, amb les capçaleres (vegeu més avall). |
 | versió | `parametres` | Paràmetres declarats: `[{name, label, default}]`. |
 | versió | `temps_max_seg` | Temps màxim d'execució; després el resultat és `timeout`. |
@@ -640,7 +641,9 @@ Menú Accions → Llista d'accions (`/admin/accions`):
 - Botons Versions, Historial, Editar darrera versió, Simular (només Ansible) i Executar.
 - Editar no modifica mai una versió: si canvia el codi, els paràmetres, el temps màxim o els
   checks de verificació, es crea la versió següent, amb un comentari opcional del canvi.
-  L'executor i el mòdul no es poden canviar.
+  L'executor també es pot canviar (crea una versió nova, que cal provar), i l'acció es pot
+  moure a un altre curs i mòdul (les versions i l'historial la segueixen; es treuen els checks
+  de verificació, que són del mòdul antic). Els checks es poden moure igual a una altra tasca.
 - Les simulacions no compten per a l'estat ni surten a l'historial: després de Simular es veu
   el resultat a «Darrera simulació» de l'acció.
 - A l'editor (nova acció o editar), el botó **Provar** simula o executa el codi del formulari
