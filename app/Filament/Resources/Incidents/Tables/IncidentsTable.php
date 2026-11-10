@@ -46,9 +46,12 @@ class IncidentsTable
             ->filters([
                 ScopeFilters::course('curs',
                     fn (Builder $q, int $id) => $q->whereHas('module', fn (Builder $m) => $m->where('curs_id', $id)),
-                    children: ['modul'])
+                    children: ['modul', 'bloc', 'tasca'])
                     ->options(fn () => AcademicYear::regular()->orderByDesc('data_inici')->pluck('nom', 'id')),
-                ScopeFilters::module('modul', 'curs', fn (Builder $q, int $id) => $q->where('modul_id', $id)),
+                ScopeFilters::module('modul', 'curs', fn (Builder $q, int $id) => $q->where('modul_id', $id), children: ['bloc', 'tasca']),
+                ScopeFilters::block('bloc', 'curs', 'modul', fn (Builder $q, int $id) => $q->where('bloc_id', $id), children: ['tasca']),
+                // La incidència no té tasca: és la dels checks de resolució de les seves opcions.
+                ScopeFilters::task('tasca', 'bloc', fn (Builder $q, int $id) => $q->whereHas('options.check', fn (Builder $c) => $c->where('tasca_id', $id))),
             ])
             ->recordActions([
                 Action::make('seguiment')

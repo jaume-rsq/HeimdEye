@@ -332,6 +332,30 @@ class IncidentsTest extends TestCase
         $this->assertSame($teacher->id, $row->fresh()->tancat_per);
     }
 
+    public function test_the_list_filters_by_block_and_task(): void
+    {
+        $this->actingAs(User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]));
+        $web = $this->incident(1); // checks a la tasca «Resolució» del bloc 90
+        $task = $web->options->first()->check->task;
+        $web->update(['bloc_id' => $task->bloc_id]);
+        $other = Incident::create(['modul_id' => $this->module->id, 'nom' => 'DNS trencat', 'equip' => 'web', 'simptoma' => 'x']);
+
+        Livewire::test(ListIncidents::class)
+            ->filterTable('modul', $this->module->id)
+            ->assertCanSeeTableRecords([$web, $other])
+            ->filterTable('bloc', $task->bloc_id)
+            ->assertCanSeeTableRecords([$web])
+            ->assertCanNotSeeTableRecords([$other])
+            ->filterTable('tasca', $task->id)
+            ->assertCanSeeTableRecords([$web]);
+
+        $empty = $task->block->tasks()->create(['titol' => 'Una altra', 'posicio' => 2]);
+        Livewire::test(ListIncidents::class)
+            ->filterTable('bloc', $task->bloc_id)
+            ->filterTable('tasca', $empty->id)
+            ->assertCanNotSeeTableRecords([$web, $other]);
+    }
+
     public function test_launch_wizard_injects_the_previewed_plan(): void
     {
         $teacher = User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]);
