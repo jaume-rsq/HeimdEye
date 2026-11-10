@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-const version = "1.3.0"
+const version = "1.4.0"
 
 type config struct {
 	url      string
@@ -120,11 +120,12 @@ func run(cfg config) error {
 			fmt.Printf("consola %s tancada\n", string(task.ID))
 			continue
 		}
+		fmt.Printf("feina %s: %s, en marxa\n", string(task.ID), task.label())
 		exit, output, durationMs, timedOut := execute(ctx, task)
 		if err := postResult(ctx, client, cfg, task.ID, exit, output, durationMs, timedOut); err != nil {
 			fmt.Fprintln(os.Stderr, "result:", err)
 		} else {
-			fmt.Printf("feina %s executada (exit %d)\n", string(task.ID), exit)
+			fmt.Printf("feina %s: %s, executada (exit %d)\n", string(task.ID), task.label(), exit)
 		}
 	}
 	return nil
@@ -135,10 +136,19 @@ func run(cfg config) error {
 // feina és una sessió de consola interactiva i s'obre un bash persistent (veg. runConsole).
 type task struct {
 	ID      json.RawMessage   `json:"id"`
+	Name    string            `json:"name"`
 	Code    string            `json:"code"`
 	Env     map[string]string `json:"env"`
 	Timeout int               `json:"timeout"`
 	Console bool              `json:"console"`
+}
+
+// label és el nom que HeimdEye dona a la feina (acció o check); els servidors antics no l'envien.
+func (t *task) label() string {
+	if t.Name == "" {
+		return "sense nom"
+	}
+	return t.Name
 }
 
 func register(ctx context.Context, client *http.Client, cfg config) error {

@@ -29,6 +29,7 @@
     <div class="tabs">
         <x-filament::button size="xs" x-on:click="tab = 'codi'">Codi</x-filament::button>
         <x-filament::button size="xs" color="gray" x-on:click="tab = 'diff'">Diferències amb la versió anterior</x-filament::button>
+        <x-filament::button size="xs" color="gray" icon="heroicon-o-clipboard-document" x-on:click="{{ \App\Filament\Support\CopyCode::js(\Illuminate\Support\Js::from($version->codi)) }}">Copiar el codi</x-filament::button>
     </div>
     <pre x-show="tab === 'codi'">{{ $version->codi }}</pre>
     @if ($diff)

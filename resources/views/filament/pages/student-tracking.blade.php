@@ -285,7 +285,9 @@
                                                     <td style="text-align: right"><strong>{{ $fmt($r['punts']) }}</strong></td>
                                                     <td style="text-align: right; white-space: nowrap" x-on:click.stop>
                                                         <span style="display: inline-flex; gap: .15rem; align-items: center; vertical-align: middle">
+                                                            @unless ($r['emmascarat'] ?? false)
                                                             <x-filament::icon-button icon="heroicon-o-information-circle" color="gray" size="sm" label="Info" tooltip="Info: objectiu, justificació i codi amb les dades de l'alumne" wire:click="mountAction('info', { check: {{ $check->id }} })" />
+                                                            @endunless
                                                             @if ($this->canVerify($check))
                                                                 @php($wait = $this->verifyWaitMinutes($check))
                                                                 @if ($wait)

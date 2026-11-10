@@ -104,6 +104,7 @@ class AgentApiTest extends TestCase
         $taskId = $poll->json('task.id');
         $this->assertNotNull($taskId);
         $this->assertStringContainsString('pve=', $poll->json('task.code'));
+        $this->assertSame('acció «'.$action->nom.'»', $poll->json('task.name'));
         $this->assertSame('198.51.100.19', $poll->json('task.env.HE_IP_PVE'));
 
         // Recollida: ja no la torna a donar.

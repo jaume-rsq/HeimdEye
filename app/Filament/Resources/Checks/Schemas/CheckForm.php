@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Checks\Schemas;
 
 use App\Enums\CheckKind;
 use App\Enums\Executor;
+use App\Filament\Support\CopyCode;
 use App\Filament\Support\ScopeFields;
 use App\Models\Block;
 use App\Models\Check;
@@ -102,6 +103,7 @@ class CheckForm
                     ->schema([
                         CodeEditor::make('codi')
                             ->label('Codi')
+                            ->hintAction(CopyCode::hint())
                             ->language(fn (Get $get) => $get('executor') === Executor::Ansible->value ? Language::Yaml : null)
                             ->required()
                             ->helperText('Amb ssh, cal la capçalera "# hosts: pve, vm_router" a dalt de tot; amb Ansible, el hosts: de cada play (mai "all"), i cap tasca pot canviar res. Els secrets es fan servir com a $HE_SECRET_NOM (bash) o {{ nom }} (Ansible). Cap secret pot arribar en clar a un equip d\'alumne.'),

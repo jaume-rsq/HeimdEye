@@ -6,9 +6,9 @@ use App\Enums\IncidentStatus;
 use App\Filament\Actions\LaunchIncident;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Incidents\IncidentResource;
-use App\Models\Group;
 use App\Models\Incident;
 use App\Models\IncidentStudent;
+use App\Models\Student;
 use App\Runner\Incidents\IncidentLauncher;
 use App\Runner\Incidents\IncidentTracker;
 use Carbon\CarbonInterval;
@@ -102,15 +102,14 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                     ->toggleable(),
             ])
             ->filters([
-                // El grup-classe de l'alumne (del curs del mòdul de la incidència).
-                SelectFilter::make('grup')
-                    ->label('Grup')
-                    ->options(fn () => Group::where('curs_id', $this->getOwnerRecord()->module?->curs_id)->orderBy('codi')->get()
-                        ->mapWithKeys(fn (Group $g) => [$g->id => $g->label()]))
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['value'] ?? null,
-                        fn (Builder $q, $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id)),
-                    )),
+                // Els alumnes que han rebut alguna avaria d'aquesta incidència.
+                SelectFilter::make('alumne_id')
+                    ->label('Alumne')
+                    ->options(fn () => Student::whereIn('id', $this->getOwnerRecord()->assignments()->select('alumne_id'))
+                        ->orderBy('num_taula')->get()
+                        ->mapWithKeys(fn (Student $s) => [$s->id => sprintf('%02d · %s', $s->num_taula, $s->nom_complet ?: $s->usuari)]))
+                    ->searchable()
+                    ->multiple(),
                 SelectFilter::make('estat')
                     ->options(IncidentStatus::class)
                     ->multiple(),
@@ -118,7 +117,7 @@ class ManageIncidentAssignments extends ManageRelatedRecords
             ->recordActions([
                 Action::make('accio')
                     ->label('Execució')
-                    ->icon(Heroicon::OutlinedCommandLine)
+                    ->icon(Heroicon::OutlinedClock)
                     ->color('gray')
                     ->iconButton()
                     ->tooltip('Historial de l\'acció d\'avaria (amb la sortida)')
@@ -126,8 +125,8 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                     ->url(fn (IncidentStudent $record) => ActionResource::getUrl('runs', ['record' => $record->option->accio_id])),
                 Action::make('comprovar')
                     ->label('Comprovar')
-                    ->icon(Heroicon::OutlinedPlay)
-                    ->color('gray')
+                    ->icon(Heroicon::OutlinedCheckCircle)
+                    ->color('success')
                     ->iconButton()
                     ->tooltip('Llançar ara el check de resolució')
                     ->visible(fn (IncidentStudent $record) => in_array($record->estat, [IncidentStatus::Verificant, IncidentStatus::Oberta], true) && $record->option?->check_id)
@@ -162,8 +161,14 @@ class ManageIncidentAssignments extends ManageRelatedRecords
             ->toolbarActions([
                 BulkAction::make('comprovarTots')
                     ->label('Comprovar')
-                    ->icon(Heroicon::OutlinedPlay)
+                    ->icon(Heroicon::OutlinedCheckCircle)
                     ->action(fn (Collection $records) => self::verify($records)),
+                BulkAction::make('repararTots')
+                    ->label('Reparar')
+                    ->icon(Heroicon::OutlinedWrench)
+                    ->requiresConfirmation()
+                    ->modalDescription('S\'executa l\'acció de reparació de cada avaria marcada a l\'equip del seu alumne, i queden tancades com a reparades. Les pendents (encara no injectades), les ja reparades i les que no tenen acció de reparació se salten.')
+                    ->action(fn (Collection $records) => self::repair($records)),
                 BulkAction::make('tancarTots')
                     ->label('Tancar')
                     ->icon(Heroicon::OutlinedXMark)
@@ -182,6 +187,30 @@ class ManageIncidentAssignments extends ManageRelatedRecords
             ->count();
 
         Notification::make()->success()->title("Check llançat per a {$n} avaries")->send();
+    }
+
+    /** @param  \Illuminate\Support\Collection<int, IncidentStudent>  $records */
+    private static function repair($records): void
+    {
+        $launcher = app(IncidentLauncher::class);
+        $n = 0;
+        $errors = [];
+        foreach ($records as $record) {
+            if (! $record->option?->accio_reparacio_id || in_array($record->estat, [IncidentStatus::Reparada, IncidentStatus::Pendent], true)) {
+                continue;
+            }
+            try {
+                $launcher->repair($record, auth()->user());
+                $n++;
+            } catch (InvalidArgumentException $e) {
+                $errors[] = ($record->student?->usuari ?? '?').': '.$e->getMessage();
+            }
+        }
+
+        Notification::make()->{$errors ? 'warning' : 'success'}()
+            ->title("{$n} reparacions a la cua")
+            ->body($errors ? implode("\n", $errors) : null)
+            ->send();
     }
 
     /** @param  \Illuminate\Support\Collection<int, IncidentStudent>  $records */
