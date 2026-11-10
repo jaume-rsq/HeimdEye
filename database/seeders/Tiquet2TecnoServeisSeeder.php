@@ -122,7 +122,7 @@ class Tiquet2TecnoServeisSeeder extends Seeder
     // ── Accions: el que demana el tiquet ──────────────────────────────────────────────────────
 
     /** Funcions de cada pas; l'acció de cada pas en crida una i la de «tot» les crida totes. */
-    private const STEPS = <<<'SH'
+    public const STEPS = <<<'SH'
         pas_publicar() {  # Security Group del gateway: l'única entrada des d'Internet, tcp/80
           need "el gateway (Name *gateway)" "$GW"
           local G; G=$(sg_of "$GW"); need "el SG del gateway" "$G"
