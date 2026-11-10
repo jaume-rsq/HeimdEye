@@ -688,10 +688,14 @@ arreglada; HeimdEye en deixa constància per alumne.
 - No donen punts. Si el check de resolució és d'un bloc normal, l'avaria no treu punts
   assolits (només surt «ara no passa»); si és només per a la incidència, posa'l desactivat i
   amb 0 punts.
-- Exemple: `php artisan db:seed --class=IncidenciaTecnoServeisSeeder` (l'antic `incident.sh`
-  del projecte AWS TecnoServeis: 6 avaries de SG, NACL i nginx, executades per l'agent amb rol
-  `aws` i SSM). Va al mòdul `0378` (curs actual), bloc 3, tasca «Tiquet 2», que cal crear abans; es pot
-  canviar amb `HEIMDEYE_INCIDENCIA_MODUL`, `HEIMDEYE_INCIDENCIA_BLOC` i `HEIMDEYE_INCIDENCIA_TASCA`.
+- Exemple: `php artisan db:seed --class=Tiquet2TecnoServeisSeeder --force` (tiquet 2 del projecte
+  AWS TecnoServeis). Crea els checks de les proves F1-F8 (més R2 i la política), les accions que
+  munten el tiquet (SG, nftables, NACL, Flow Logs, tot alhora i un escaneig de prova) i la
+  incidència «La web de TecnoServeis no respon» amb 7 avaries (les 6 de l'antic `incident.sh` i
+  el DNAT a un port equivocat), tot executat per l'agent amb rol `aws` (AWS CLI, python3 i SSM).
+  **Abans esborra** els checks de la tasca «Tiquet 2» i les accions i incidències del bloc.
+  Va al mòdul `0378` (curs actual), bloc 3, tasca «Tiquet 2»; es pot canviar amb
+  `HEIMDEYE_INCIDENCIA_MODUL`, `HEIMDEYE_INCIDENCIA_BLOC` i `HEIMDEYE_INCIDENCIA_TASCA`.
 
 ## Agent de les instàncies
 
