@@ -26,10 +26,10 @@
                 @if ($result['comanda'] ?? null)
                     <details style="margin-top: .5rem;">
                         <summary style="cursor: pointer; opacity: .8;">Codi executat per a aquest alumne (amb variables i paràmetres substituïts)</summary>
-                        <pre style="margin-top: .25rem;">{{ $result['comanda'] }}</pre>
+                        <x-copy-pre :text="$result['comanda']" style="margin-top: .25rem;" />
                     </details>
                 @endif
-                <pre style="margin-top: .5rem;">{{ $result['sortida'] ?: '(sense sortida)' }}</pre>
+                <x-copy-pre :text="$result['sortida'] ?: '(sense sortida)'" style="margin-top: .5rem;" />
             @endif
         </details>
     @endforeach

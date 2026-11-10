@@ -251,7 +251,8 @@ class StudentTrackingTest extends TestCase
             ->assertActionMounted('info')
             ->assertMountedActionModalSeeHtml('<strong>Objectiu del test:</strong>')
             ->assertMountedActionModalDontSeeHtml('<script>alert(1)</script>')
-            ->assertMountedActionModalSee('Codi del check amb les teves dades');
+            ->assertMountedActionModalSee('Codi del check amb les teves dades')
+            ->assertMountedActionModalSee('Codi copiat'); // el botó de copiar el codi
     }
 
     public function test_the_edit_icon_is_only_for_who_can_edit_the_check(): void

@@ -345,7 +345,7 @@
                                                         <div style="display: grid; gap: 1rem; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr)">
                                                             <div>
                                                                 <div class="sub" style="margin-bottom: .3rem">Sortida de la darrera execució</div>
-                                                                @if ($r['sortida'])<pre>{{ $r['sortida'] }}</pre>@else<span class="sub">Sense sortida.</span>@endif
+                                                                @if ($r['sortida'])<x-copy-pre :text="$r['sortida']" />@else<span class="sub">Sense sortida.</span>@endif
                                                             </div>
                                                             <div>
                                                                 <div class="sub" style="margin-bottom: .3rem">Canvis d'estat ({{ $r['execucions'] }} execucions)</div>

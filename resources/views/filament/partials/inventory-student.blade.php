@@ -102,7 +102,7 @@
 
         <div x-show="tab === 'ansible'" x-cloak>
             <p class="sub" style="margin-bottom: .5rem">L'inventari que rep el runner per a aquest alumne amb tots els equips. Les contrasenyes surten emmascarades i els fitxers de clau només existeixen durant l'execució.</p>
-            <pre class="mono" style="margin: 0; max-height: 60vh; overflow: auto; border-radius: .5rem; padding: .75rem; background: #0b1020; color: #e5e7eb; font-size: .75rem; line-height: 1.4">{{ $panel['ansible'] }}</pre>
+            <x-copy-pre :text="$panel['ansible']" class="mono" style="margin: 0; max-height: 60vh; overflow: auto; border-radius: .5rem; padding: .75rem; background: #0b1020; color: #e5e7eb; font-size: .75rem; line-height: 1.4" />
         </div>
 
         <div x-show="tab === 'activitat'" x-cloak style="display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr))">

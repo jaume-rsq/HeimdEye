@@ -17,5 +17,5 @@
     @endif
 
     <h4>Sortida</h4>
-    <pre>{{ $run->sortida ?: '(buida)' }}</pre>
+    <x-copy-pre :text="$run->sortida ?: '(buida)'" />
 </div>
