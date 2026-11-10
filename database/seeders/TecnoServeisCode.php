@@ -54,6 +54,14 @@ final class TecnoServeisCode
         'sg_of' => ['/(?<![\w-])sg_of(?![\w-])/', <<<'SH'
             sg_of() { aws ec2 describe-instances --instance-ids "$1" --query 'Reservations[0].Instances[0].SecurityGroups[0].GroupId' --output text; }
             SH],
+        'sgs_en_us' => ['/(?<![\w-])sgs_en_us(?![\w-])/', <<<'SH'
+            # Security Groups que fa servir alguna interfície de la VPC. Els que no fa servir ningú, com el
+            # «default» que AWS crea amb cada VPC (deixa entrar tot el trànsit del mateix SG), no compten.
+            sgs_en_us() {
+              aws ec2 describe-network-interfaces --filters "Name=vpc-id,Values=$VPC" \
+                --query 'NetworkInterfaces[].Groups[].GroupId' --output text | tr -s '[:space:]' '\n' | sort -u | xargs
+            }
+            SH],
         'sg_permet' => ['/(?<![\w-])sg_permet(?![\w-])/', <<<'SH'
             # Alguna regla d'entrada del SG $1 deixa passar el tcp/$2 des de la IP $3 (o des del SG $4)?
             sg_permet() {
