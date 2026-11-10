@@ -14,7 +14,7 @@ class Action extends Model
 {
     protected $table = 'accions';
 
-    protected $fillable = ['modul_id', 'bloc_id', 'nom', 'descripcio', 'executor', 'posicio', 'caducitat_agent_seg', 'es_incidencia'];
+    protected $fillable = ['modul_id', 'bloc_id', 'tasca_id', 'nom', 'descripcio', 'executor', 'posicio', 'caducitat_agent_seg', 'es_incidencia'];
 
     protected function casts(): array
     {
@@ -38,6 +38,11 @@ class Action extends Model
     public function block(): BelongsTo
     {
         return $this->belongsTo(Block::class, 'bloc_id');
+    }
+
+    public function task(): BelongsTo
+    {
+        return $this->belongsTo(Task::class, 'tasca_id');
     }
 
     public function versions(): HasMany
