@@ -41,10 +41,16 @@ class StudentAgentPageTest extends TestCase
         Livewire::test(MyAgent::class)
             ->assertOk()
             ->assertSee('curl -fsSL -o heimdeye-agent https://example.test/latest/heimdeye-agent-linux-$A', escape: false)
-            ->assertSee("--token {$token} --hostname web", escape: false)
-            // L'ajuda desplegable i els dos paràmetres que l'alumne pot canviar.
+            // Comanda inicial renderitzada: mode servei, hostname «web».
+            ->assertSee("sudo ./heimdeye-agent install --url https://heimdeye.test --token {$token} --hostname web", escape: false)
+            // Pestanyes de mode i camp hostname sobre la comanda.
+            ->assertSee('Servei')
+            ->assertSee('Executable')
+            ->assertSee('Hostname')
+            // La variant executable (mode interactiu, sense sudo) la munta Alpine a partir d'aquesta plantilla.
+            ->assertSee("./heimdeye-agent run --url ' + this.url + ' --token ' + this.token", escape: false)
+            // L'ajuda desplegable i els paràmetres que l'alumne pot canviar.
             ->assertSee('Què és el meu agent?')
-            ->assertSee('Els dos paràmetres que pots canviar')
             ->assertSee('--hostname', escape: false)
             ->assertSee('--user root', escape: false)
             ->assertSee('ssm-user');

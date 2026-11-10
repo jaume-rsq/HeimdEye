@@ -112,24 +112,50 @@ class Student extends Model
     }
 
     /**
-     * Comanda completa que l'alumne enganxa a la instància per instal·lar l'agent: detecta
-     * l'arquitectura, baixa el binari de la release, el fa executable i l'instal·la com a servei
-     * (sota l'usuari que llança el sudo). null si encara no té token (el genera el professor).
+     * Les dades que necessita la comanda de l'agent: la base de descàrrega, la URL de HeimdEye i el
+     * token de l'alumne. null si encara no té token (el genera el professor). La vista de l'alumne
+     * les fa servir per muntar la comanda en viu (mode servei/executable i hostname editables).
+     *
+     * @return array{base: string, url: string, token: string}|null
      */
-    public function agentInstallCommand(): ?string
+    public function agentCommandContext(): ?array
     {
         if (empty($this->token_agent)) {
             return null;
         }
 
-        $base = rtrim((string) config('heimdeye.agent.download_base'), '/');
-        $url = rtrim((string) config('app.url'), '/');
+        return [
+            'base' => rtrim((string) config('heimdeye.agent.download_base'), '/'),
+            'url' => rtrim((string) config('app.url'), '/'),
+            'token' => $this->token_agent,
+        ];
+    }
+
+    /**
+     * Comanda completa que l'alumne enganxa a la instància: detecta l'arquitectura, baixa el binari
+     * de la release, el fa executable i, segons el mode, l'instal·la com a servei (sota l'usuari que
+     * llança el sudo) o el deixa a punt per executar-lo de manera interactiva (`run`). null si encara
+     * no té token.
+     *
+     * @param  'servei'|'executable'  $mode
+     */
+    public function agentInstallCommand(?string $hostname = null, string $mode = 'servei'): ?string
+    {
+        $ctx = $this->agentCommandContext();
+        if ($ctx === null) {
+            return null;
+        }
+
+        $host = trim((string) $hostname) ?: 'web';
+        $action = $mode === 'executable'
+            ? "./heimdeye-agent run --url {$ctx['url']} --token {$ctx['token']} --hostname {$host}"
+            : "sudo ./heimdeye-agent install --url {$ctx['url']} --token {$ctx['token']} --hostname {$host}";
 
         return implode("\n", [
             'ARCH=$(uname -m); case "$ARCH" in x86_64) A=amd64;; aarch64|arm64) A=arm64;; *) echo "arquitectura no suportada: $ARCH"; exit 1;; esac',
-            "curl -fsSL -o heimdeye-agent {$base}/heimdeye-agent-linux-\$A",
+            "curl -fsSL -o heimdeye-agent {$ctx['base']}/heimdeye-agent-linux-\$A",
             'chmod +x heimdeye-agent',
-            "sudo ./heimdeye-agent install --url {$url} --token {$this->token_agent} --hostname web",
+            $action,
         ]);
     }
 }
