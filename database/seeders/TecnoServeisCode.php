@@ -141,6 +141,42 @@ final class TecnoServeisCode
               echo "SG del gateway: tcp/80 obert a Internet"
             }
             SH],
+        'pas_tancar' => ['/(?<![\w-])pas_tancar(?![\w-])/', <<<'SH'
+            pas_tancar() {  # treu dels SG en ús el 22 i el que és obert a Internet, menys el tcp/80 del gateway
+              need "el gateway (Name *gateway)" "$GW"; need "el web (Name *web)" "$WEB"
+              local S G n=0 sg perm
+              S=$(sgs_en_us); need "cap Security Group en ús" "$S"; G=$(sg_of "$GW")
+              # shellcheck disable=SC2086
+              while IFS=$'\t' read -r sg perm; do
+                [ -n "$sg" ] || continue
+                aws ec2 revoke-security-group-ingress --group-id "$sg" --ip-permissions "$perm" >/dev/null || exit 1
+                echo "Tret de $sg: $perm"; n=$((n + 1))
+              done < <(aws ec2 describe-security-groups --group-ids $S --output json | python3 -c '
+            import json, sys
+            gw = sys.argv[1]
+            for g in json.load(sys.stdin)["SecurityGroups"]:
+                for p in g["IpPermissions"]:
+                    proto, lo, hi = p["IpProtocol"], p.get("FromPort"), p.get("ToPort")
+                    base = {k: p[k] for k in ("IpProtocol", "FromPort", "ToPort") if k in p}
+                    if proto == "-1" or (proto in ("tcp", "6") and lo <= 22 <= hi):
+                        print(g["GroupId"], json.dumps([p]), sep="\t")  # el 22 (o tot el trànsit): fora sencera
+                        continue
+                    if g["GroupId"] == gw and proto in ("tcp", "6") and lo == hi == 80:
+                        continue  # la publicació del web
+                    v4 = [r for r in p.get("IpRanges", []) if r["CidrIp"] == "0.0.0.0/0"]
+                    v6 = [r for r in p.get("Ipv6Ranges", []) if r["CidrIpv6"] == "::/0"]
+                    if v4 or v6:
+                        print(g["GroupId"], json.dumps([dict(base, IpRanges=v4, Ipv6Ranges=v6)]), sep="\t")
+            ' "$G")
+              # El que sí cal (R6): el web accepta el 80 del gateway, i el gateway el 80 i el 443 del web (NAT).
+              local W; W=$(sg_of "$WEB")
+              tolera aws ec2 authorize-security-group-ingress --group-id "$W" --protocol tcp --port 80 --source-group "$G" || exit 1
+              for p in 80 443; do
+                tolera aws ec2 authorize-security-group-ingress --group-id "$G" --protocol tcp --port "$p" --source-group "$W" || exit 1
+              done
+              echo "Security Groups: $n regles tretes; web 80 des del gateway i gateway 80/443 des del web"
+            }
+            SH],
         'pas_nftables' => ['/(?<![\w-])pas_nftables(?![\w-])/', <<<'SH'
             pas_nftables() {  # DNAT i SNAT del web, masquerade de sortida, política drop i registre, amb assegurança
               need "el gateway (Name *gateway)" "$GW"; need "el web (Name *web)" "$WEB"; need "la IP pública del gateway" "$GW_PUB"

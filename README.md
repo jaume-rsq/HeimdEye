@@ -690,7 +690,8 @@ arreglada; HeimdEye en deixa constància per alumne.
   amb 0 punts.
 - Exemple: `php artisan db:seed --class=Tiquet2TecnoServeisSeeder --force` (tiquet 2 del projecte
   AWS TecnoServeis). Crea els checks de les proves F1-F8 (més R2 i la política), les accions que
-  munten el tiquet (SG, nftables, NACL, Flow Logs, tot alhora i un escaneig de prova) i la
+  munten el tiquet (SG del 80, tancar el que sobra als SG, nftables, NACL, Flow Logs, tot alhora,
+  un escaneig de prova i, a part, recrear el gateway o el web amb la IP fixa de l'R2) i la
   incidència «La web de TecnoServeis no respon» amb 7 avaries (les 6 de l'antic `incident.sh` i
   el DNAT a un port equivocat), tot executat per l'agent amb rol `aws` (AWS CLI, python3 i SSM).
   **Abans esborra** els checks i les incidències de la tasca «Tiquet 2» i les accions del bloc que
@@ -698,7 +699,8 @@ arreglada; HeimdEye en deixa constància per alumne.
   `Tiquet1TecnoServeisSeeder` fa el mateix amb els checks de les proves P1-P8 i els requisits del
   tiquet 1 (tasca «Tiquet 1»; només n'esborra els checks), perquè els alumnes revisin el punt de partida.
   Cada check i acció porta només les funcions que fa servir (`TecnoServeisCode`). Per posar al dia
-  el codi del que ja hi ha sense esborrar res (afegeix una versió nova on el codi canvia):
+  el que ja hi ha sense esborrar res (versió nova on el codi, els paràmetres o els checks de
+  verificació canvien; descripcions al dia; crea les accions noves del tiquet 2):
   `php artisan db:seed --class=TecnoServeisCodiSeeder --force`.
   Va al mòdul `0378` (curs actual), bloc 3, tasca «Tiquet 2»; es pot canviar amb
   `HEIMDEYE_INCIDENCIA_MODUL`, `HEIMDEYE_INCIDENCIA_BLOC` i `HEIMDEYE_INCIDENCIA_TASCA`.

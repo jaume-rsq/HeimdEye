@@ -77,11 +77,19 @@ class TecnoServeisCodiSeederTest extends TestCase
 
         $p6 = $this->t1->checks()->where('nom', 'P6: Cap Security Group amb el 22')->sole();
         $p6->update(['descripcio' => 'La d\'abans']);
+        // Una acció nova del seeder que encara no hi era: es crea.
+        $missing = $actions->firstWhere('nom', 'T2: tancar el que sobra als Security Groups');
+        $missing->delete();
+        $actions = $actions->except($missing->id);
 
         $this->seed(TecnoServeisCodiSeeder::class);
         $this->seed(TecnoServeisCodiSeeder::class); // ja està al dia: no fa res
 
         $this->assertSame(Tiquet1TecnoServeisSeeder::descriptions()[$p6->nom], $p6->fresh()->descripcio);
+        $recreated = Action::where('bloc_id', $this->block->id)->where('nom', 'T2: tancar el que sobra als Security Groups')->sole();
+        $this->assertSame(1, $recreated->versions()->count());
+        $this->assertCount(3, $recreated->currentVersion->checks_verificacio);
+        $this->assertSame(11, Action::where('bloc_id', $this->block->id)->count()); // 10 del seeder i «Una altra»
 
         $this->assertSame(1, $untouched->versions()->count());
         $this->assertSame(1, $other->versions()->count());
@@ -95,6 +103,6 @@ class TecnoServeisCodiSeederTest extends TestCase
         }
         $all = $actions->firstWhere('nom', 'T2: muntar tot el tiquet 2');
         $this->assertSame($all->currentVersion->checks_verificacio, $all->fresh()->currentVersion->checks_verificacio);
-        $this->assertCount(5, $all->fresh()->currentVersion->checks_verificacio);
+        $this->assertCount(10, $all->fresh()->currentVersion->checks_verificacio);
     }
 }
