@@ -48,11 +48,17 @@ class Tiquet2TecnoServeisSeederTest extends TestCase
 
     public function test_it_cleans_the_block_and_creates_checks_actions_and_the_incident(): void
     {
-        // Ja hi ha coses al bloc: un check al T1 (es queda) i un al T2, una acció i una incidència (se'n van).
-        $t1 = $this->block->tasks()->where('titol', 'Tiquet 1')->sole()->checks()->create(['nom' => 'Del T1', 'executor' => 'agent']);
+        // Ja hi ha coses al bloc. Se'n van: un check i una incidència del T2, la incidència d'abans
+        // (sense tasca) i una acció del seeder. Es queden: el del T1 i el que no és del seeder (T3).
+        $tiquet1 = $this->block->tasks()->where('titol', 'Tiquet 1')->sole();
+        $t1 = $tiquet1->checks()->create(['nom' => 'Del T1', 'executor' => 'agent']);
         $this->task->checks()->create(['nom' => 'Vell', 'executor' => 'agent']);
-        $old = $this->module->actions()->create(['nom' => 'Vella', 'bloc_id' => $this->block->id, 'executor' => 'agent']);
-        Incident::create(['modul_id' => $this->module->id, 'bloc_id' => $this->block->id, 'nom' => 'Vella', 'equip' => 'aws', 'simptoma' => 'x']);
+        $old = $this->module->actions()->create(['nom' => 'TecnoServeis: injectar avaria', 'bloc_id' => $this->block->id, 'executor' => 'agent']);
+        $t3action = $this->module->actions()->create(['nom' => 'T3: una altra', 'bloc_id' => $this->block->id, 'executor' => 'agent']);
+        $base = ['modul_id' => $this->module->id, 'bloc_id' => $this->block->id, 'equip' => 'aws', 'simptoma' => 'x'];
+        Incident::create([...$base, 'nom' => 'Vella', 'tasca_id' => $this->task->id]);
+        Incident::create([...$base, 'nom' => Tiquet2TecnoServeisSeeder::INCIDENT]);
+        $t1incident = Incident::create([...$base, 'nom' => 'Del T1', 'tasca_id' => $tiquet1->id]);
         $other = Module::where('codi', '9991')->sole()->actions()->create(['nom' => 'D\'un altre mòdul', 'executor' => 'agent']);
 
         $this->seed(Tiquet2TecnoServeisSeeder::class);
@@ -61,6 +67,8 @@ class Tiquet2TecnoServeisSeederTest extends TestCase
         $this->assertModelExists($t1);
         $this->assertModelExists($other);
         $this->assertModelMissing($old);
+        $this->assertModelExists($t3action);
+        $this->assertModelExists($t1incident);
         $this->assertSame('El del professor', $this->task->fresh()->enunciat);
         $this->assertSame(2, $this->block->tasks()->count());
 
@@ -73,14 +81,15 @@ class Tiquet2TecnoServeisSeederTest extends TestCase
         $this->assertTrue($checks->where('tipus', CheckKind::Optional)->every(fn (Check $c) => $c->punts === 0 && $c->es_actiu === false));
         $this->assertTrue($checks->every(fn (Check $c) => filled($c->descripcio) && $c->versions()->count() === 1));
 
-        $actions = Action::where('bloc_id', $this->block->id)->get();
+        $actions = Action::where('bloc_id', $this->block->id)->whereKeyNot($t3action->id)->get();
         $this->assertCount(8, $actions);
         $this->assertSame(['TecnoServeis: injectar avaria'], $actions->where('es_incidencia', true)->pluck('nom')->all());
         $all = $actions->firstWhere('nom', 'T2: muntar tot el tiquet 2');
         $this->assertCount(5, $all->currentVersion->checks_verificacio);
         $this->assertTrue(Check::whereIn('id', $all->currentVersion->checks_verificacio)->get()->every(fn (Check $c) => $c->tasca_id === $this->task->id));
 
-        $incident = Incident::where('bloc_id', $this->block->id)->sole();
+        $incident = Incident::where('tasca_id', $this->task->id)->sole();
+        $this->assertSame(2, Incident::where('bloc_id', $this->block->id)->count());
         $this->assertSame('La web de TecnoServeis no respon', $incident->nom);
         $this->assertCount(7, $incident->options);
         $this->assertTrue($incident->options->every(fn ($o) => $o->check_id && $o->accio_reparacio_id));

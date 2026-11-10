@@ -337,7 +337,7 @@ class IncidentsTest extends TestCase
         $this->actingAs(User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]));
         $web = $this->incident(1); // checks a la tasca «Resolució» del bloc 90
         $task = $web->options->first()->check->task;
-        $web->update(['bloc_id' => $task->bloc_id]);
+        $web->update(['bloc_id' => $task->bloc_id, 'tasca_id' => $task->id]);
         $other = Incident::create(['modul_id' => $this->module->id, 'nom' => 'DNS trencat', 'equip' => 'web', 'simptoma' => 'x']);
 
         Livewire::test(ListIncidents::class)

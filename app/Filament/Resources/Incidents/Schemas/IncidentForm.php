@@ -6,6 +6,7 @@ use App\Models\Action;
 use App\Models\Block;
 use App\Models\Check;
 use App\Models\Module;
+use App\Models\Task;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
@@ -38,13 +39,24 @@ class IncidentForm
                             ->options(fn () => Module::with('academicYear')->get()->mapWithKeys(fn (Module $m) => [$m->id => trim("{$m->codi} {$m->nom}")." ({$m->academicYear->nom})"]))
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn (Set $set) => $set('bloc_id', null))
+                            ->afterStateUpdated(function (Set $set) {
+                                $set('bloc_id', null);
+                                $set('tasca_id', null);
+                            })
                             ->disabledOn('edit'),
                         Select::make('bloc_id')
                             ->label('Bloc')
                             ->options(fn (Get $get) => Block::where('modul_id', $get('modul_id'))->orderBy('numero')->get()
                                 ->mapWithKeys(fn (Block $b) => [$b->id => "Bloc {$b->numero}: {$b->titol}"]))
-                            ->placeholder('Cap'),
+                            ->placeholder('Cap')
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('tasca_id', null)),
+                        Select::make('tasca_id')
+                            ->label('Tasca')
+                            ->options(fn (Get $get) => $get('bloc_id') ? Task::where('bloc_id', $get('bloc_id'))->orderBy('posicio')->pluck('titol', 'id') : [])
+                            ->placeholder('Cap (tot el bloc)')
+                            ->disabled(fn (Get $get) => ! $get('bloc_id'))
+                            ->helperText('Un bloc pot tenir incidències diferents per a cada tasca.'),
                         TextInput::make('equip')
                             ->label('Equip')
                             ->maxLength(255)

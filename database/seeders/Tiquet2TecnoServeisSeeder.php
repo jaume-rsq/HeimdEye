@@ -48,6 +48,10 @@ class Tiquet2TecnoServeisSeeder extends Seeder
 
     public const INCIDENT = 'La web de TecnoServeis no respon';
 
+    private const INJECT_ACTION = 'TecnoServeis: injectar avaria';
+
+    private const REPAIR_ACTION = 'TecnoServeis: desfer avaria';
+
     /** Comú a tot: troba la VPC, X, el gateway i el web, i defineix les funcions d'ajuda. */
     public const PRELUDE = <<<'SH'
         # hosts: aws
@@ -559,14 +563,15 @@ class Tiquet2TecnoServeisSeeder extends Seeder
         }
 
         $param = [['name' => 'AVARIA', 'label' => 'Avaria (0-6)', 'default' => '0']];
-        $inject = $this->action($module, $block, 'TecnoServeis: injectar avaria', 'Trenca una part del camí cap a la web (paràmetre AVARIA, 0-6). Feta per a la incidència «'.self::INCIDENT.'».',
+        $inject = $this->action($module, $block, self::INJECT_ACTION, 'Trenca una part del camí cap a la web (paràmetre AVARIA, 0-6). Feta per a la incidència «'.self::INCIDENT.'».',
             self::FAULTS."\n".self::INJECT, true, 20, 180, $param, []);
-        $repair = $this->action($module, $block, 'TecnoServeis: desfer avaria', 'Desfà l\'avaria AVARIA (0-6) de la incidència «'.self::INCIDENT.'».',
+        $repair = $this->action($module, $block, self::REPAIR_ACTION, 'Desfà l\'avaria AVARIA (0-6) de la incidència «'.self::INCIDENT.'».',
             self::FAULTS."\n".self::REPAIR, false, 21, 180, $param, []);
 
         $incident = Incident::create([
             'modul_id' => $module->id,
             'bloc_id' => $block->id,
+            'tasca_id' => $task->id,
             'nom' => self::INCIDENT,
             'equip' => 'aws',
             'simptoma' => 'Els clients diuen que la web de TecnoServeis no carrega. Troba què ha canviat i arregla-ho.',
@@ -588,14 +593,20 @@ class Tiquet2TecnoServeisSeeder extends Seeder
         }
     }
 
-    /** Esborra el que hi hagi del tiquet: checks de la tasca, i accions i incidències del bloc. */
+    /**
+     * Esborra el que hi hagi del tiquet: els checks i les incidències de la tasca, i les accions del
+     * bloc que crea aquest seeder (pel nom). La resta del bloc (altres tiquets) no es toca.
+     */
     private function clean(Block $block, Task $task): void
     {
-        $incidents = Incident::where('bloc_id', $block->id)->delete();
-        $actions = Action::where('bloc_id', $block->id)->delete();
+        $incidents = Incident::where('bloc_id', $block->id)
+            ->where(fn ($q) => $q->where('tasca_id', $task->id)->orWhere(fn ($q) => $q->whereNull('tasca_id')->where('nom', self::INCIDENT)))
+            ->delete();
+        $names = [...array_column(self::ACTIONS, 0), self::INJECT_ACTION, self::REPAIR_ACTION];
+        $actions = Action::where('bloc_id', $block->id)->whereIn('nom', $names)->delete();
         $checks = $task->checks()->delete();
 
-        $this->command?->info("Esborrat: {$checks} checks de «{$task->titol}», {$actions} accions i {$incidents} incidències del bloc {$block->numero}.");
+        $this->command?->info("Esborrat: {$checks} checks i {$incidents} incidències de «{$task->titol}», i {$actions} accions del tiquet al bloc {$block->numero}.");
     }
 
     /** @param  list<int>  $verify */
