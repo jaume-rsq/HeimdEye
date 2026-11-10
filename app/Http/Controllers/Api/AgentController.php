@@ -14,6 +14,7 @@ use App\Runner\AgentEditorTests;
 use App\Runner\AgentResult;
 use App\Runner\CheckResult;
 use App\Runner\ResultRecorder;
+use App\Support\IncidentMask;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -121,7 +122,7 @@ class AgentController
 
         $test->update(['estat' => 'enviada', 'recollit_a' => now(), 'instancia_id' => $instance->id]);
 
-        return $this->taskPayload('prova:'.$test->id, $test->payload_agent ?? []);
+        return $this->taskPayload('prova:'.$test->id, $test->payload_agent ?? [], 'prova de l\'editor');
     }
 
     /** Pròxima acció pendent d'aquest rol; la marca recollida i la lliga a la instància. */
@@ -141,7 +142,7 @@ class AgentController
 
         $task->update(['recollit_a' => now(), 'instancia_id' => $instance->id]);
 
-        return $this->taskPayload($task->id, $task->payload_agent ?? []);
+        return $this->taskPayload($task->id, $task->payload_agent ?? [], 'acció «'.IncidentMask::actionName($task->action).'»');
     }
 
     /** Pròxim check pendent d'aquest rol; el marca enviat i el lliga a la instància. */
@@ -161,7 +162,7 @@ class AgentController
 
         $feina->update(['estat' => 'enviada', 'recollit_a' => now(), 'instancia_id' => $instance->id]);
 
-        return $this->taskPayload('check:'.$feina->id, $feina->payload_agent ?? []);
+        return $this->taskPayload('check:'.$feina->id, $feina->payload_agent ?? [], 'check «'.IncidentMask::checkName($feina->check).'»');
     }
 
     /** Pròxima sessió de consola pendent d'aquest rol; la marca activa i l'obre. */
@@ -188,11 +189,15 @@ class AgentController
         return ['id' => 'console:'.$session->id, 'console' => true];
     }
 
-    /** @param  array<string, mixed>  $payload */
-    private function taskPayload(int|string $id, array $payload): array
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  string  $name  el que l'agent escriu al seu registre en començar i en acabar (neutre per a les incidències)
+     */
+    private function taskPayload(int|string $id, array $payload, string $name): array
     {
         return [
             'id' => $id,
+            'name' => $name,
             'code' => $payload['code'] ?? '',
             'env' => (object) ($payload['env'] ?? []),
             'timeout' => (int) ($payload['timeout'] ?? 60),

@@ -11,6 +11,7 @@ use App\Enums\Role;
 use App\Filament\Resources\Incidents\Pages\EditIncident;
 use App\Filament\Resources\Incidents\Pages\ListIncidents;
 use App\Filament\Resources\Incidents\Pages\ManageIncidentAssignments;
+use App\Filament\Student\Pages\MyProgress;
 use App\Models\Action;
 use App\Models\ActionRun;
 use App\Models\AgentTask;
@@ -24,6 +25,7 @@ use App\Models\User;
 use App\Runner\CheckResult;
 use App\Runner\Incidents\IncidentLauncher;
 use App\Runner\ResultRecorder;
+use Filament\Facades\Filament;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Artisan;
 use Livewire\Livewire;
@@ -247,6 +249,61 @@ class IncidentsTest extends TestCase
         $row = IncidentStudent::sole();
         $this->assertSame(IncidentStatus::Error, $row->estat);
         $this->assertNotEmpty($row->missatge);
+    }
+
+    public function test_bulk_repair_runs_the_repair_action_for_the_selected_faults(): void
+    {
+        $teacher = User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]);
+        $this->actingAs($teacher);
+        $incident = $this->incident(2);
+        [$a, $b] = $this->students(2)->all();
+        app(IncidentLauncher::class)->launch($incident, [$a->id => [$incident->options[0]->id], $b->id => [$incident->options[1]->id]], 'manual', 1, null, null);
+        $this->finishActions();
+        IncidentStudent::query()->update(['estat' => IncidentStatus::Oberta]);
+        $rows = IncidentStudent::orderBy('id')->get();
+        $before = ActionRun::count();
+
+        Livewire::test(ManageIncidentAssignments::class, ['record' => $incident->id])
+            ->callTableBulkAction('repararTots', $rows)
+            ->assertNotified('2 reparacions a la cua');
+
+        $this->assertSame([IncidentStatus::Reparada, IncidentStatus::Reparada], IncidentStudent::orderBy('id')->pluck('estat')->all());
+        $this->assertSame($before + 2, ActionRun::count());
+        $this->assertSame(['Desfer'], ActionRun::latest('id')->limit(2)->get()->map(fn (ActionRun $r) => $r->action->nom)->unique()->values()->all());
+    }
+
+    public function test_the_student_sees_only_their_faults_with_a_neutral_name(): void
+    {
+        $incident = $this->incident(3);
+        [$a] = $this->students(1)->all();
+        app(IncidentLauncher::class)->launch($incident, [$a->id => [$incident->options[1]->id]], 'manual', 1, null, null);
+        $this->finishActions();
+        $check = $incident->options[1]->check;
+        $this->recordCheck($check, $a, CheckStatus::Fail);
+
+        $user = User::create(['nom' => 'Alumne', 'email' => 'alumne@example.com', 'rol' => Role::Student, 'es_actiu' => true]);
+        $a->update(['usuari_id' => $user->id]);
+        $this->actingAs($user);
+        Filament::setCurrentPanel(Filament::getPanel('alumne'));
+
+        Livewire::test(MyProgress::class, ['tasca' => $check->tasca_id])
+            ->assertSee('Incidència · Web caiguda')
+            ->assertDontSee('Check 0')
+            ->assertDontSee('Check 1')
+            ->assertDontSee('Check 2')
+            ->call('mountAction', 'info', ['check' => $check->id])
+            ->assertDontSee('Check 1');
+    }
+
+    public function test_the_agent_gets_a_neutral_name_for_incident_work(): void
+    {
+        $incident = $this->incident(1);
+        $student = $this->students(1)->first();
+        $headers = ['Authorization' => 'Bearer '.$student->regenerateAgentToken()];
+        $this->postJson('/api/agent/register', ['hostname' => 'web'], $headers)->assertOk();
+        app(IncidentLauncher::class)->launch($incident, [$student->id => [$incident->options[0]->id]], 'manual', 1, null, null);
+
+        $this->getJson('/api/agent/poll?hostname=web', $headers)->assertOk()->assertJsonPath('task.name', 'acció «Incidència»');
     }
 
     public function test_panel_pages_render_and_close_works(): void

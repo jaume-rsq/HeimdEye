@@ -5,6 +5,8 @@ namespace App\Filament\Student\Pages;
 use App\Filament\Pages\StudentTracking;
 use App\Models\AcademicYear;
 use App\Models\Check;
+use App\Models\IncidentOption;
+use App\Models\IncidentStudent;
 use App\Models\Module;
 use App\Models\Student;
 use App\Models\User;
@@ -71,6 +73,87 @@ class MyProgress extends StudentTracking
     public function students(): Collection
     {
         return collect([$this->ownStudent()])->filter()->values();
+    }
+
+    /**
+     * El mateix seguiment, però sense delatar les incidències: un check de resolució (p. ex. «nginx en
+     * marxa») diria a l'alumne quina avaria té. Si l'alumne té aquella avaria, el veu amb el nom de la
+     * incidència (el símptoma) i sense missatges ni sortida; si no, no el veu.
+     */
+    #[Computed]
+    public function progress(): array
+    {
+        $blocks = parent::progress();
+        $resolution = IncidentOption::whereNotNull('check_id')->distinct()->pluck('check_id')->flip();
+        if ($blocks === [] || $resolution->isEmpty()) {
+            return $blocks;
+        }
+
+        $labels = $this->incidentLabels();
+        foreach ($blocks as $b => $block) {
+            foreach ($block['tasks'] as $t => $task) {
+                $rows = collect($task['rows'])
+                    ->filter(fn (array $r) => ! $resolution->has($r['check']->id) || $labels->has($r['check']->id))
+                    ->map(fn (array $r) => $resolution->has($r['check']->id) ? self::masked($r, $labels->get($r['check']->id)) : $r)
+                    ->values();
+                $blocks[$b]['tasks'][$t] = [...$task, 'rows' => $rows->all(), 'total' => $rows->count(), 'assolits' => $rows->where('assolit', true)->count()];
+            }
+            $blocks[$b]['tasks'] = array_values(array_filter($blocks[$b]['tasks'], fn (array $t) => $t['rows'] !== []));
+        }
+
+        return array_values(array_filter($blocks, fn (array $b) => $b['tasks'] !== []));
+    }
+
+    /** check de resolució => «Incidència · <nom de la incidència> (avaria N)», de les avaries que ha rebut l'alumne. */
+    private function incidentLabels(): Collection
+    {
+        $labels = collect();
+        IncidentStudent::where('alumne_id', $this->ownStudent()?->id)
+            ->with(['option', 'incident'])->orderBy('id')->get()
+            ->filter(fn (IncidentStudent $r) => $r->option?->check_id)
+            ->groupBy('incidencia_id')
+            ->each(fn (Collection $rows) => $rows->values()->each(fn (IncidentStudent $r, int $i) => $labels->put(
+                $r->option->check_id,
+                'Incidència · '.$r->incident->nom.($rows->count() > 1 ? ' (avaria '.($i + 1).')' : ''),
+            )));
+
+        return $labels;
+    }
+
+    /** @param  array<string, mixed>  $row */
+    private static function masked(array $row, string $label): array
+    {
+        $check = clone $row['check'];
+        $check->nom = $label;
+        $check->descripcio = null;
+        $check->info = null;
+        $quiet = function ($run) {
+            if ($run === null) {
+                return null;
+            }
+            $run = clone $run;
+            $run->missatge = null;
+
+            return $run;
+        };
+
+        return [
+            ...$row,
+            'check' => $check,
+            'emmascarat' => true,
+            'darrera' => $quiet($row['darrera']),
+            'omesa' => $quiet($row['omesa']),
+            'sortida' => null,
+            'canvis' => array_map(fn (array $c) => [...$c, 'missatge' => null], $row['canvis']),
+        ];
+    }
+
+    /** Ni la info ni el codi d'un check de resolució (dirien quina és l'avaria). */
+    protected function visibleCheck(array $arguments): ?Check
+    {
+        $check = parent::visibleCheck($arguments);
+
+        return $check && IncidentOption::where('check_id', $check->id)->exists() ? null : $check;
     }
 
     public function canEdit(Check $check): bool
