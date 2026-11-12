@@ -4,7 +4,8 @@
         .he-con-bar { display: flex; gap: .5rem; align-items: end; flex-wrap: wrap; margin-bottom: 1rem; }
         .he-con-bar label { display: flex; flex-direction: column; gap: .25rem; font-size: .8rem; font-weight: 600; }
         .he-con-sel { padding: .45rem .6rem; border-radius: .5rem; border: 1px solid rgba(128,128,128,.4); background: rgba(128,128,128,.05); min-width: 18rem; }
-        .he-con-term { background: #0b0f1a; color: #d6deeb; border-radius: .6rem; padding: .9rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; line-height: 1.5; height: 26rem; overflow-y: auto; white-space: pre-wrap; word-break: break-word; }
+        .he-con-term { background: #0b0f1a; color: #d6deeb; border-radius: .6rem; padding: .9rem 1rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .82rem; line-height: 1.5; height: 26rem; overflow-y: auto; }
+        .he-con-line { white-space: pre-wrap; word-break: break-word; }
         .he-con-in { color: #7fdbca; }
         .he-con-out { color: #d6deeb; }
         .he-con-empty { opacity: .5; }
@@ -24,10 +25,12 @@
                 @endforeach
             </select>
         </label>
-        <x-filament::button wire:click="obrir" icon="heroicon-o-play" :disabled="! $instancia">
-            Obrir consola
-        </x-filament::button>
-        @if ($sessioId && ! $tancada)
+        {{-- «Obrir consola» només si no hi ha cap sessió oberta; «Tancar» només si n'hi ha una. --}}
+        @if (! ($sessioId && ! $tancada))
+            <x-filament::button wire:click="obrir" icon="heroicon-o-play" :disabled="! $instancia">
+                Obrir consola
+            </x-filament::button>
+        @else
             <x-filament::button color="danger" wire:click="tancar" icon="heroicon-o-x-mark">
                 Tancar
             </x-filament::button>
@@ -50,11 +53,12 @@
                 @endif
             </div>
 
+            {{-- Línies en blocs (no «pre» al contenidor) perquè la sagnia del Blade no desplaci el text. --}}
             <div class="he-con-term" id="he-con-term" x-data x-init="$nextTick(() => $el.scrollTop = $el.scrollHeight)" x-effect="$nextTick(() => $el.scrollTop = $el.scrollHeight)">
                 @forelse ($linies as $linia)
-                    @if ($linia['tipus'] === 'entrada')<span class="he-con-in">$ {{ $linia['text'] }}</span>@else<span class="he-con-out">{{ $linia['text'] }}</span>@endif
+                    <div class="he-con-line {{ $linia['tipus'] === 'entrada' ? 'he-con-in' : 'he-con-out' }}">{{ $linia['tipus'] === 'entrada' ? '$ ' : '' }}{{ rtrim($linia['text'], "\n") }}</div>
                 @empty
-                    <span class="he-con-empty">Esperant que l'agent obri el bash a la instància…</span>
+                    <div class="he-con-empty">Esperant que l'agent obri el bash a la instància…</div>
                 @endforelse
             </div>
 
