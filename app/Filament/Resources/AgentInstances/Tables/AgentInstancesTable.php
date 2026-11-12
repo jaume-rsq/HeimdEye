@@ -7,6 +7,7 @@ use App\Filament\Pages\AgentConsolePage;
 use App\Models\AcademicYear;
 use App\Models\AgentInstance;
 use App\Models\Check;
+use App\Models\ConsoleMessage;
 use App\Models\Group;
 use App\Models\Module;
 use App\Models\Student;
@@ -30,6 +31,15 @@ use InvalidArgumentException;
  */
 class AgentInstancesTable
 {
+    /**
+     * Ordre que atura l'agent de la instància, detectant com corre: si és un servei de systemd
+     * (té unitat) el deshabilita i l'atura (si no, Restart=always el tornaria a aixecar); si no,
+     * mata el procés de l'agent. No hi ha cap hostname al codi: s'envia a la instància concreta.
+     */
+    private const STOP_COMMAND = 'if systemctl cat heimdeye-agent >/dev/null 2>&1; then '
+        .'sudo systemctl disable --now heimdeye-agent 2>/dev/null || systemctl disable --now heimdeye-agent; '
+        .'else pkill -x heimdeye-agent 2>/dev/null || kill "$PPID" 2>/dev/null; fi';
+
     public static function configure(Table $table): Table
     {
         $currentYear = AcademicYear::where('es_actual', true)->value('id');
@@ -147,6 +157,35 @@ class AgentInstancesTable
                             ->success()
                             ->title('Check a la cua')
                             ->body("{$check->nom} per a {$student->nom_complet}. El resultat surt a l'historial del check quan l'agent l'executa.")
+                            ->send();
+                    }),
+                // Atura l'agent de la instància (només si està activa). Envia l'ordre pel mateix canal
+                // de la consola, adreçada a aquesta instància, així no cal cap hostname al codi.
+                Action::make('aturar')
+                    ->label('Aturar agent')
+                    ->icon(Heroicon::OutlinedStop)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading(fn (AgentInstance $record) => 'Aturar l\'agent de '.$record->hostname)
+                    ->modalDescription('S\'envia una ordre a la instància que detecta si l\'agent corre com a servei o com a executable i l\'atura. Si és servei, també el deshabilita perquè no torni a arrencar sol.')
+                    ->modalSubmitActionLabel('Aturar')
+                    ->disabled(fn (AgentInstance $record) => ! $record->isActive())
+                    ->tooltip(fn (AgentInstance $record) => $record->isActive()
+                        ? null
+                        : 'La instància no està activa ara mateix.')
+                    ->action(function (AgentInstance $record) {
+                        $session = AgentConsolePage::openFor($record->loadMissing('student'));
+                        ConsoleMessage::create([
+                            'sessio_id' => $session->id,
+                            'direccio' => 'entrada',
+                            'contingut' => self::STOP_COMMAND."\n",
+                        ]);
+                        $session->update(['darrera_activitat' => now()]);
+
+                        Notification::make()
+                            ->success()
+                            ->title('Ordre d\'aturada enviada')
+                            ->body("L'agent de {$record->hostname} l'executarà al proper batec; la instància passarà a inactiva en pocs minuts.")
                             ->send();
                     }),
                 // Només per a professor/admin (no surt a la pàgina de l'alumne): treu la instància de

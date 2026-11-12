@@ -100,6 +100,29 @@ class AgentInstancesTableTest extends TestCase
         $this->assertModelMissing($this->instance);
     }
 
+    public function test_stopping_an_agent_sends_a_stop_command_through_a_console_session(): void
+    {
+        Livewire::test(ListAgentInstances::class)
+            ->callTableAction('aturar', $this->instance);
+
+        $session = ConsoleSession::where('instancia_id', $this->instance->id)->sole();
+        $this->assertDatabaseHas('missatges_consola', [
+            'sessio_id' => $session->id,
+            'direccio' => 'entrada',
+        ]);
+        $message = $session->messages()->where('direccio', 'entrada')->latest('id')->first();
+        $this->assertStringContainsString('systemctl disable --now heimdeye-agent', $message->contingut);
+        $this->assertStringContainsString('pkill -x heimdeye-agent', $message->contingut);
+    }
+
+    public function test_stopping_is_disabled_for_an_inactive_instance(): void
+    {
+        $this->instance->update(['estat' => 'inactiva']);
+
+        Livewire::test(ListAgentInstances::class)
+            ->assertTableActionDisabled('aturar', $this->instance);
+    }
+
     private function agentCheck(): Check
     {
         $module = Module::where('codi', '9991')->sole();
