@@ -92,6 +92,14 @@ class AgentInstancesTableTest extends TestCase
         ]);
     }
 
+    public function test_a_teacher_can_delete_an_instance_from_the_list(): void
+    {
+        Livewire::test(ListAgentInstances::class)
+            ->callTableAction('delete', $this->instance);
+
+        $this->assertModelMissing($this->instance);
+    }
+
     private function agentCheck(): Check
     {
         $module = Module::where('codi', '9991')->sole();
