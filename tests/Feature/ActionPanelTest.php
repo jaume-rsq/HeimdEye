@@ -77,7 +77,8 @@ class ActionPanelTest extends TestCase
         $this->actingAs($student)->get('/admin/accions')->assertRedirect('/alumne');
     }
 
-    public function test_cloudflare_mode_logs_in_by_the_jwt_email(): void
+    /** Activa el mode cloudflare amb una clau falsa i retorna una funció que signa JWT. */
+    private function fakeCloudflareAccess(): \Closure
     {
         $key = openssl_pkey_new(['private_key_bits' => 2048, 'private_key_type' => OPENSSL_KEYTYPE_RSA]);
         openssl_pkey_export($key, $private);
@@ -90,16 +91,36 @@ class ActionPanelTest extends TestCase
             'heimdeye.auth.mode' => 'cloudflare',
             'heimdeye.auth.cloudflare' => ['team_domain' => 'equip.cloudflareaccess.com', 'aud' => 'aud123'],
         ]);
-        $token = fn (string $email, string $aud = 'aud123') => JWT::encode(
+
+        return fn (string $email, string $aud = 'aud123') => JWT::encode(
             ['aud' => [$aud], 'iss' => 'https://equip.cloudflareaccess.com', 'email' => $email, 'exp' => time() + 60],
             $private, 'RS256', 'k1',
         );
+    }
+
+    public function test_cloudflare_mode_logs_in_by_the_jwt_email(): void
+    {
+        $token = $this->fakeCloudflareAccess();
 
         $this->get('/admin/accions')->assertUnauthorized();
         $this->get('/admin/accions', ['Cf-Access-Jwt-Assertion' => $token('PROF@example.com', 'altra')])->assertUnauthorized();
         $this->get('/admin/accions', ['Cf-Access-Jwt-Assertion' => $token('desconegut@example.com')])->assertForbidden();
         $this->get('/admin/accions', ['Cf-Access-Jwt-Assertion' => $token('PROF@example.com')])->assertOk();
         $this->assertAuthenticatedAs($this->teacher);
+    }
+
+    public function test_logout_also_ends_the_cloudflare_access_session(): void
+    {
+        $token = $this->fakeCloudflareAccess();
+
+        // Si només es tanqués la sessió de Laravel, el JWT d'Access tornaria a entrar el mateix usuari.
+        $this->actingAs($this->teacher)
+            ->post('/admin/logout', [], ['Cf-Access-Jwt-Assertion' => $token('prof@example.com')])
+            ->assertRedirect('/cdn-cgi/access/logout');
+        $this->assertGuest();
+
+        config(['heimdeye.auth.mode' => 'local']);
+        $this->actingAs($this->teacher)->post('/admin/logout')->assertRedirect('/admin/login');
     }
 
     public function test_overview_uses_the_latest_real_run_of_each_active_student(): void

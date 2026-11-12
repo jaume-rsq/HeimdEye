@@ -209,3 +209,4 @@ toca ([Security Events](https://developers.cloudflare.com/waf/analytics/security
 | 403 «L'usuari … no té accés» | Ha passat Access però no és a la taula d'usuaris de HeimdEye, o està desactivat. |
 | «Page expired» (419) al login | `SESSION_SECURE_COOKIE=true` però entres per `http://`. |
 | Google diu «Access blocked» | L'app de Google és en mode *Testing* i l'usuari no és de prova. |
+| Després de «Tanca la sessió» torna a entrar el mateix compte | Tancar la sessió porta a `/cdn-cgi/access/logout`, que acaba la sessió d'Access. Si Google té un sol compte obert al navegador, l'agafa sense preguntar: tanca'l a Google o fes servir una finestra d'incògnit per a l'altre compte. |
