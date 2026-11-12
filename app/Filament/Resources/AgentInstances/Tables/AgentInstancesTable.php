@@ -12,6 +12,7 @@ use App\Models\Module;
 use App\Models\Student;
 use App\Runner\CheckRunner;
 use Filament\Actions\Action;
+use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Notifications\Notification;
 use Filament\Support\Icons\Heroicon;
@@ -148,6 +149,15 @@ class AgentInstancesTable
                             ->body("{$check->nom} per a {$student->nom_complet}. El resultat surt a l'historial del check quan l'agent l'executa.")
                             ->send();
                     }),
+                // Només per a professor/admin (no surt a la pàgina de l'alumne): treu la instància de
+                // la llista. Si l'agent encara polsa, es tornarà a registrar al següent batec.
+                DeleteAction::make()
+                    ->label('Esborrar')
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->iconButton()
+                    ->modalHeading(fn (AgentInstance $record) => 'Esborrar la instància '.$record->hostname)
+                    ->modalDescription('Treu la instància de la llista. Si l\'agent encara s\'està executant, es tornarà a registrar al següent batec: atura\'l a la màquina per fer-la fora del tot.')
+                    ->successNotificationTitle('Instància esborrada'),
             ]);
     }
 
