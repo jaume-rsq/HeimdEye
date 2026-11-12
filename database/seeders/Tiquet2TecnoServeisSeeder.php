@@ -307,7 +307,7 @@ class Tiquet2TecnoServeisSeeder extends Seeder
         case "$HE_PARAM_AVARIA" in
           0) need "el web (Name *web)" "$WEB"; mou_port "$(sg_of "$WEB")" 80 8080 ;;
           1) need "el web (Name *web)" "$WEB"
-             rcmd "$WEB" "sed -i 's/listen 80 default_server;/listen 127.0.0.1:80 default_server;/' /etc/nginx/sites-enabled/default && nginx -s reload" || exit 1 ;;
+             rcmd "$WEB" "sed -i 's/listen 80 default_server;/listen 127.0.0.1:80 default_server;/' /etc/nginx/sites-enabled/default && { ! systemctl is-active -q nginx || nginx -s reload; }" || exit 1 ;;
           2) need "el web (Name *web)" "$WEB"; rcmd "$WEB" "systemctl stop nginx" || exit 1 ;;
           3|4) [ "$HE_PARAM_AVARIA" = 3 ] && s=public-a || s=private-a
              A=$(acl_of "$s"); need "la NACL de $s" "$A"
@@ -332,7 +332,7 @@ class Tiquet2TecnoServeisSeeder extends Seeder
         case "$HE_PARAM_AVARIA" in
           0) need "el web (Name *web)" "$WEB"; mou_port "$(sg_of "$WEB")" 8080 80 ;;
           1) need "el web (Name *web)" "$WEB"
-             rcmd "$WEB" "sed -i 's/listen 127.0.0.1:80 default_server;/listen 80 default_server;/' /etc/nginx/sites-enabled/default && nginx -s reload" || exit 1 ;;
+             rcmd "$WEB" "sed -i 's/listen 127.0.0.1:80 default_server;/listen 80 default_server;/' /etc/nginx/sites-enabled/default && { ! systemctl is-active -q nginx || nginx -s reload; }" || exit 1 ;;
           2) need "el web (Name *web)" "$WEB"; rcmd "$WEB" "systemctl start nginx" || exit 1 ;;
           3|4) [ "$HE_PARAM_AVARIA" = 3 ] && s=public-a || s=private-a
              A=$(acl_of "$s"); need "la NACL de $s" "$A"

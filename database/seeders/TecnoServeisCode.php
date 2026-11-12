@@ -104,8 +104,18 @@ final class TecnoServeisCode
                     --parameters "$(python3 -c 'import json, sys; print(json.dumps({"commands": [sys.argv[1]]}))' "$2")" \
                     --query Command.CommandId --output text) || return 1
               aws ssm wait command-executed --command-id "$c" --instance-id "$1" 2>/dev/null || true
-              aws ssm get-command-invocation --command-id "$c" --instance-id "$1" --query StandardOutputContent --output text
-              [ "$(aws ssm get-command-invocation --command-id "$c" --instance-id "$1" --query ResponseCode --output text)" = 0 ]
+              # La sortida, i si falla, també l'error i l'estat (a stderr: no es barreja amb el que es captura).
+              aws ssm get-command-invocation --command-id "$c" --instance-id "$1" --output json | python3 -c '
+            import json, sys
+            r = json.load(sys.stdin)
+            out, err = r.get("StandardOutputContent", ""), r.get("StandardErrorContent", "")
+            if out:
+                print(out.rstrip("\n"))
+            if r.get("ResponseCode") != 0:
+                if err:
+                    print(err.rstrip("\n"), file=sys.stderr)
+                print("La comanda a %s ha acabat amb %s (codi %s)" % (sys.argv[1], r.get("Status"), r.get("ResponseCode")), file=sys.stderr)
+                sys.exit(1)' "$1"
             }
             SH],
         'tolera' => ['/(?<![\w-])tolera(?![\w-])/', <<<'SH'

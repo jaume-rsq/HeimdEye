@@ -90,6 +90,8 @@ class AgentController
             'duration_ms' => ['nullable', 'integer'],
             'timed_out' => ['nullable', 'boolean'],
         ]);
+        // Si ha fallat, el codi de sortida queda a la sortida (encara que l'script no hagi escrit res).
+        $validated['output'] = AgentResult::withExit((string) ($validated['output'] ?? ''), (int) $validated['exit_code'], (bool) ($validated['timed_out'] ?? false));
 
         // L'identificador d'un check és "check:<id>"; el d'una prova de l'editor, "prova:<id>"; el
         // d'una acció és el seu id enter.
@@ -122,7 +124,7 @@ class AgentController
 
         $test->update(['estat' => 'enviada', 'recollit_a' => now(), 'instancia_id' => $instance->id]);
 
-        return $this->taskPayload('prova:'.$test->id, $test->payload_agent ?? [], 'prova de l\'editor');
+        return $this->taskPayload('prova:'.$test->id, $test->payload_agent ?? [], 'prova de l\'editor', true);
     }
 
     /** Pròxima acció pendent d'aquest rol; la marca recollida i la lliga a la instància. */
@@ -142,7 +144,8 @@ class AgentController
 
         $task->update(['recollit_a' => now(), 'instancia_id' => $instance->id]);
 
-        return $this->taskPayload($task->id, $task->payload_agent ?? [], 'acció «'.IncidentMask::actionName($task->action).'»');
+        return $this->taskPayload($task->id, $task->payload_agent ?? [], 'acció «'.IncidentMask::actionName($task->action).'»',
+            ! ($task->action && IncidentMask::isIncidentAction($task->action)));
     }
 
     /** Pròxim check pendent d'aquest rol; el marca enviat i el lliga a la instància. */
@@ -162,7 +165,8 @@ class AgentController
 
         $feina->update(['estat' => 'enviada', 'recollit_a' => now(), 'instancia_id' => $instance->id]);
 
-        return $this->taskPayload('check:'.$feina->id, $feina->payload_agent ?? [], 'check «'.IncidentMask::checkName($feina->check).'»');
+        return $this->taskPayload('check:'.$feina->id, $feina->payload_agent ?? [], 'check «'.IncidentMask::checkName($feina->check).'»',
+            ! IncidentMask::isResolutionCheck($feina->check_id));
     }
 
     /** Pròxima sessió de consola pendent d'aquest rol; la marca activa i l'obre. */
@@ -193,11 +197,16 @@ class AgentController
      * @param  array<string, mixed>  $payload
      * @param  string  $name  el que l'agent escriu al seu registre en començar i en acabar (neutre per a les incidències)
      */
-    private function taskPayload(int|string $id, array $payload, string $name): array
+    /**
+     * @param  bool  $showOutput  si l'agent pot mostrar la sortida d'una feina que falla al seu terminal
+     *                            (no en la feina d'incidències: l'alumne veuria l'avaria)
+     */
+    private function taskPayload(int|string $id, array $payload, string $name, bool $showOutput): array
     {
         return [
             'id' => $id,
             'name' => $name,
+            'show_output' => $showOutput,
             'code' => $payload['code'] ?? '',
             'env' => (object) ($payload['env'] ?? []),
             'timeout' => (int) ($payload['timeout'] ?? 60),

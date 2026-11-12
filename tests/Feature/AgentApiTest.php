@@ -105,6 +105,7 @@ class AgentApiTest extends TestCase
         $this->assertNotNull($taskId);
         $this->assertStringContainsString('pve=', $poll->json('task.code'));
         $this->assertSame('acció «'.$action->nom.'»', $poll->json('task.name'));
+        $this->assertTrue($poll->json('task.show_output'));
         $this->assertSame('198.51.100.19', $poll->json('task.env.HE_IP_PVE'));
 
         // Recollida: ja no la torna a donar.
@@ -131,6 +132,19 @@ class AgentApiTest extends TestCase
             $taskId = $this->getJson('/api/agent/poll?hostname=web', $headers)->json('task.id');
             $this->postJson('/api/agent/result', ['task_id' => $taskId, 'exit_code' => $case['exit'], 'output' => $case['output']], $headers)->assertOk();
             $this->assertSame($case['status'], ActionRun::find($taskId)->estat);
+        }
+    }
+
+    public function test_a_failure_keeps_the_exit_code_in_the_output(): void
+    {
+        $student = $this->student();
+        $headers = ['Authorization' => 'Bearer '.$student->regenerateAgentToken()];
+
+        foreach ([['', 'Sense sortida [codi de sortida 1]'], ["error de sed\n", "error de sed\n[codi de sortida 1]"]] as [$output, $expected]) {
+            app(ActionRunner::class)->launch($this->agentAction(), collect([$student]));
+            $taskId = $this->getJson('/api/agent/poll?hostname=web', $headers)->json('task.id');
+            $this->postJson('/api/agent/result', ['task_id' => $taskId, 'exit_code' => 1, 'output' => $output], $headers)->assertOk();
+            $this->assertSame($expected, ActionRun::find($taskId)->sortida);
         }
     }
 

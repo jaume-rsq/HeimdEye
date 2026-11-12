@@ -54,3 +54,13 @@ func TestResolveUser(t *testing.T) {
 		})
 	}
 }
+
+func TestTailKeepsTheLastNonEmptyLines(t *testing.T) {
+	got := tail("a\n\nb\nc\n\n", 2)
+	if len(got) != 2 || got[0] != "b" || got[1] != "c" {
+		t.Fatalf("tail = %q", got)
+	}
+	if len(tail("", 3)) != 0 {
+		t.Fatal("tail d'una sortida buida no és buit")
+	}
+}

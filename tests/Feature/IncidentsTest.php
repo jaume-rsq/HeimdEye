@@ -307,7 +307,8 @@ class IncidentsTest extends TestCase
         $this->postJson('/api/agent/register', ['hostname' => 'web'], $headers)->assertOk();
         app(IncidentLauncher::class)->launch($incident, [$student->id => [$incident->options[0]->id]], 'manual', 1, null, null);
 
-        $this->getJson('/api/agent/poll?hostname=web', $headers)->assertOk()->assertJsonPath('task.name', 'acció «Incidència»');
+        $this->getJson('/api/agent/poll?hostname=web', $headers)->assertOk()->assertJsonPath('task.name', 'acció «Incidència»')
+            ->assertJsonPath('task.show_output', false); // l'agent no n'ensenya la sortida a l'alumne
     }
 
     public function test_panel_pages_render_and_close_works(): void
