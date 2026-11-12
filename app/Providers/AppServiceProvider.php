@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Responses\LogoutResponse;
 use App\Models\AcademicYear;
 use App\Models\Action;
 use App\Models\ActionRun;
@@ -18,6 +19,7 @@ use App\Policies\ActionPolicy;
 use App\Policies\DemoHiddenPolicy;
 use App\Policies\DemoReadOnlyPolicy;
 use App\Runner\Incidents\IncidentTracker;
+use Filament\Auth\Http\Responses\Contracts\LogoutResponse as LogoutResponseContract;
 use Filament\Support\Enums\Width;
 use Filament\Tables\Table;
 use Illuminate\Http\Middleware\TrustProxies;
@@ -31,7 +33,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        // Amb Cloudflare Access, tancar la sessió també tanca la d'Access (vegeu LogoutResponse).
+        $this->app->bind(LogoutResponseContract::class, LogoutResponse::class);
     }
 
     /**
