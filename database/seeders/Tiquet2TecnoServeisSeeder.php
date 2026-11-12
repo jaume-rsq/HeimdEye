@@ -468,7 +468,7 @@ class Tiquet2TecnoServeisSeeder extends Seeder
 
         $actions = [];
         foreach (self::actionSpecs() as $spec) {
-            $actions[$spec['nom']] = self::createAction($module, $block, $spec, array_map(fn (string $n) => $checks[$n]->id, $spec['verifica']));
+            $actions[$spec['nom']] = self::createAction($module, $block, $task, $spec, array_map(fn (string $n) => $checks[$n]->id, $spec['verifica']));
         }
         $inject = $actions[self::INJECT_ACTION];
         $repair = $actions[self::REPAIR_ACTION];
@@ -518,11 +518,12 @@ class Tiquet2TecnoServeisSeeder extends Seeder
      * @param  array{nom: string, descripcio: string, codi: string, es_incidencia: bool, posicio: int, temps_max_seg: int, parametres: ?array}  $spec
      * @param  list<int>  $verify  ids dels checks de verificació
      */
-    public static function createAction(Module $module, Block $block, array $spec, array $verify): Action
+    public static function createAction(Module $module, Block $block, Task $task, array $spec, array $verify): Action
     {
         $action = $module->actions()->create([
             'nom' => $spec['nom'],
             'bloc_id' => $block->id,
+            'tasca_id' => $task->id,
             'descripcio' => $spec['descripcio'],
             'executor' => Executor::Agent,
             'es_incidencia' => $spec['es_incidencia'],

@@ -81,6 +81,7 @@ class TecnoServeisCodiSeederTest extends TestCase
         $missing = $actions->firstWhere('nom', 'T2: tancar el que sobra als Security Groups');
         $missing->delete();
         $actions = $actions->except($missing->id);
+        Action::whereKey($actions->modelKeys())->update(['tasca_id' => null]); // com abans del camp de tasca
 
         $this->seed(TecnoServeisCodiSeeder::class);
         $this->seed(TecnoServeisCodiSeeder::class); // ja està al dia: no fa res
@@ -90,6 +91,7 @@ class TecnoServeisCodiSeederTest extends TestCase
         $this->assertSame(1, $recreated->versions()->count());
         $this->assertCount(3, $recreated->currentVersion->checks_verificacio);
         $this->assertSame(11, Action::where('bloc_id', $this->block->id)->count()); // 10 del seeder i «Una altra»
+        $this->assertSame(10, Action::where('tasca_id', $this->t2->id)->count()); // «Una altra» no és del seeder
 
         $this->assertSame(1, $untouched->versions()->count());
         $this->assertSame(1, $other->versions()->count());

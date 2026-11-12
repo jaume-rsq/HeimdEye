@@ -6,6 +6,7 @@ use App\Models\AcademicYear;
 use App\Models\Action;
 use App\Models\Block;
 use App\Models\Module;
+use App\Models\Task;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
 use RuntimeException;
@@ -60,7 +61,7 @@ class TecnoServeisCodiSeeder extends Seeder
 
         $t2task = $block->tasks()->where('titol', env('HEIMDEYE_INCIDENCIA_TASCA', 'Tiquet 2'))->first();
         if ($t2task !== null) {
-            $this->syncActions($module, $block, $t2task->checks()->pluck('id', 'nom')->all());
+            $this->syncActions($module, $block, $t2task, $t2task->checks()->pluck('id', 'nom')->all());
         }
     }
 
@@ -70,19 +71,19 @@ class TecnoServeisCodiSeeder extends Seeder
      *
      * @param  array<string, int>  $checkIds  checks de la tasca «Tiquet 2», pel nom
      */
-    private function syncActions(Module $module, Block $block, array $checkIds): void
+    private function syncActions(Module $module, Block $block, Task $task, array $checkIds): void
     {
         $created = $updated = 0;
         foreach (Tiquet2TecnoServeisSeeder::actionSpecs() as $spec) {
             $verify = array_values(array_filter(array_map(fn (string $n) => $checkIds[$n] ?? null, $spec['verifica'])));
             $action = Action::where('bloc_id', $block->id)->where('nom', $spec['nom'])->with('currentVersion')->first();
             if ($action === null) {
-                Tiquet2TecnoServeisSeeder::createAction($module, $block, $spec, $verify);
+                Tiquet2TecnoServeisSeeder::createAction($module, $block, $task, $spec, $verify);
                 $created++;
 
                 continue;
             }
-            $action->update(['descripcio' => $spec['descripcio'], 'posicio' => $spec['posicio']]);
+            $action->update(['descripcio' => $spec['descripcio'], 'posicio' => $spec['posicio'], 'tasca_id' => $task->id]);
 
             $current = $action->currentVersion;
             $wanted = ['codi' => $spec['codi'], 'parametres' => $spec['parametres'], 'temps_max_seg' => $spec['temps_max_seg'], 'checks_verificacio' => $verify ?: null];
