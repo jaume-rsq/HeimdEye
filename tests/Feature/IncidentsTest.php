@@ -17,6 +17,7 @@ use App\Models\ActionRun;
 use App\Models\AgentTask;
 use App\Models\Check;
 use App\Models\Incident;
+use App\Models\IncidentLaunch;
 use App\Models\IncidentStudent;
 use App\Models\Module;
 use App\Models\RunBatch;
@@ -274,6 +275,29 @@ class IncidentsTest extends TestCase
         $this->assertSame([IncidentStatus::Reparada, IncidentStatus::Reparada], IncidentStudent::orderBy('id')->pluck('estat')->all());
         $this->assertSame($before + 2, ActionRun::count());
         $this->assertSame(['Desfer'], ActionRun::latest('id')->limit(2)->get()->map(fn (ActionRun $r) => $r->action->nom)->unique()->values()->all());
+    }
+
+    public function test_delete_removes_the_rows_and_launches_left_empty(): void
+    {
+        $teacher = User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]);
+        $this->actingAs($teacher);
+        $incident = $this->incident(2);
+        [$a, $b] = $this->students(2)->all();
+        app(IncidentLauncher::class)->launch($incident, [$a->id => [$incident->options[0]->id], $b->id => [$incident->options[1]->id]], 'manual', 1, null, null);
+        app(IncidentLauncher::class)->launch($incident, [$a->id => [$incident->options[1]->id]], 'manual', 1, null, null);
+        $this->finishActions();
+        [$first, $second, $third] = IncidentStudent::orderBy('id')->get()->all();
+        $runs = ActionRun::count();
+
+        Livewire::test(ManageIncidentAssignments::class, ['record' => $incident->id])
+            ->callTableAction('esborrar', $third)
+            ->assertNotified('1 avaries esborrades')
+            ->callTableBulkAction('esborrarTots', [$first])
+            ->assertNotified('1 avaries esborrades');
+
+        $this->assertSame([$second->id], IncidentStudent::pluck('id')->all());
+        $this->assertSame([$second->llancament_id], IncidentLaunch::pluck('id')->all()); // el buit fora, el que té files es queda
+        $this->assertSame($runs, ActionRun::count()); // l'historial d'execucions no es toca
     }
 
     public function test_the_student_sees_only_their_faults_with_a_neutral_name(): void
