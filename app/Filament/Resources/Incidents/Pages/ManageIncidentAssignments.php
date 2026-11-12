@@ -7,6 +7,7 @@ use App\Filament\Actions\LaunchIncident;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Incidents\IncidentResource;
 use App\Models\Incident;
+use App\Models\IncidentLaunch;
 use App\Models\IncidentStudent;
 use App\Models\Student;
 use App\Runner\Incidents\IncidentLauncher;
@@ -29,7 +30,7 @@ use Livewire\Attributes\Url;
 
 /**
  * Seguiment d'una incidència: una fila per alumne i avaria, amb l'estat (es refresca sol), quan
- * s'ha injectat i quant ha trigat a resoldre-la, i els botons per comprovar, reparar o tancar.
+ * s'ha injectat i quant ha trigat a resoldre-la, i els botons per comprovar, reparar, tancar o esborrar.
  *
  * @property Incident $record
  */
@@ -44,6 +45,8 @@ class ManageIncidentAssignments extends ManageRelatedRecords
     /** Filtre inicial pel llançament que s'acaba de fer. */
     #[Url]
     public ?int $llancament = null;
+
+    private const DELETE_WARNING = 'S\'esborra el registre (estat, temps, historial d\'avaries de l\'alumne), però no es toca l\'equip: si l\'avaria hi és injectada, es queda. Si cal, repara-la abans.';
 
     public function getTitle(): string|Htmlable
     {
@@ -157,6 +160,15 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                     ->visible(fn (IncidentStudent $record) => $record->estat->isActive())
                     ->requiresConfirmation()
                     ->action(fn (IncidentStudent $record) => self::close(collect([$record]))),
+                Action::make('esborrar')
+                    ->label('Esborrar')
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->color('danger')
+                    ->iconButton()
+                    ->tooltip('Esborrar aquesta fila del seguiment')
+                    ->requiresConfirmation()
+                    ->modalDescription(self::DELETE_WARNING)
+                    ->action(fn (IncidentStudent $record) => self::delete(collect([$record]))),
             ])
             ->toolbarActions([
                 BulkAction::make('comprovarTots')
@@ -174,6 +186,13 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                     ->icon(Heroicon::OutlinedXMark)
                     ->requiresConfirmation()
                     ->action(fn (Collection $records) => self::close($records)),
+                BulkAction::make('esborrarTots')
+                    ->label('Esborrar')
+                    ->icon(Heroicon::OutlinedTrash)
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalDescription(self::DELETE_WARNING)
+                    ->action(fn (Collection $records) => self::delete($records)),
             ]);
     }
 
@@ -211,6 +230,21 @@ class ManageIncidentAssignments extends ManageRelatedRecords
             ->title("{$n} reparacions a la cua")
             ->body($errors ? implode("\n", $errors) : null)
             ->send();
+    }
+
+    /**
+     * Esborra les files (per netejar proves o llançaments que han fallat) i els llançaments que
+     * es queden sense cap fila. Les execucions de l'acció i dels checks es queden a l'historial.
+     *
+     * @param  \Illuminate\Support\Collection<int, IncidentStudent>  $records
+     */
+    private static function delete($records): void
+    {
+        $launchIds = $records->pluck('llancament_id')->unique()->all();
+        $n = IncidentStudent::whereKey($records->pluck('id')->all())->delete();
+        IncidentLaunch::whereKey($launchIds)->whereDoesntHave('assignments')->delete();
+
+        Notification::make()->success()->title("{$n} avaries esborrades")->send();
     }
 
     /** @param  \Illuminate\Support\Collection<int, IncidentStudent>  $records */
