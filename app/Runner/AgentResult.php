@@ -53,6 +53,17 @@ final class AgentResult
         return null;
     }
 
+    /** Si la feina ha fallat, hi afegeix el codi de sortida al final (o és tota la sortida si no n'hi havia). */
+    public static function withExit(string $output, int $exit, bool $timedOut): string
+    {
+        if ($exit === 0 || $timedOut) {
+            return $output;
+        }
+        $line = "[codi de sortida {$exit}]";
+
+        return trim($output) === '' ? "Sense sortida {$line}" : rtrim($output)."\n{$line}";
+    }
+
     /** @param  list<string>  $mask */
     public static function maskedOutput(string $output, array $mask): ?string
     {

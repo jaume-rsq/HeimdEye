@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-const version = "1.4.0"
+const version = "1.5.0"
 
 type config struct {
 	url      string
@@ -126,6 +126,11 @@ func run(cfg config) error {
 			fmt.Fprintln(os.Stderr, "result:", err)
 		} else {
 			fmt.Printf("feina %s: %s, executada (exit %d)\n", string(task.ID), task.label(), exit)
+			if exit != 0 && task.ShowOutput {
+				for _, line := range tail(output, 10) {
+					fmt.Printf("    | %s\n", line)
+				}
+			}
 		}
 	}
 	return nil
@@ -141,6 +146,23 @@ type task struct {
 	Env     map[string]string `json:"env"`
 	Timeout int               `json:"timeout"`
 	Console bool              `json:"console"`
+	// ShowOutput: si falla, l'agent n'escriu les darreres línies al seu terminal. HeimdEye no ho
+	// envia per a la feina d'incidències (l'alumne veuria l'avaria).
+	ShowOutput bool `json:"show_output"`
+}
+
+// tail retorna les n darreres línies no buides de la sortida.
+func tail(output string, n int) []string {
+	var lines []string
+	for _, l := range strings.Split(strings.TrimRight(output, "\n"), "\n") {
+		if strings.TrimSpace(l) != "" {
+			lines = append(lines, l)
+		}
+	}
+	if len(lines) > n {
+		lines = lines[len(lines)-n:]
+	}
+	return lines
 }
 
 // label és el nom que HeimdEye dona a la feina (acció o check); els servidors antics no l'envien.
