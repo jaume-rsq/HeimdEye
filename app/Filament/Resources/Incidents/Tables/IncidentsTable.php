@@ -14,6 +14,7 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\HtmlString;
 
 class IncidentsTable
 {
@@ -31,12 +32,16 @@ class IncidentsTable
             ->emptyStateHeading('Encara no hi ha cap incidència')
             ->emptyStateDescription('Una incidència és una avaria feta a propòsit als equips dels alumnes: una acció d\'avaria, un check que diu quan està resolta i, si vols, una acció de reparació.')
             ->columns([
-                // Columna estreta: el nom ocupa com a molt 3 línies (i el símptoma 2); la resta, al tooltip.
+                // Columna estreta: el nom i el símptoma ocupen com a molt 3 línies cadascun, tallats pel
+                // navegador segons l'amplada real (no per caràcters); el text sencer, al tooltip.
                 TextColumn::make('nom')->searchable()->sortable()->weight('bold')
                     ->wrap()
                     ->lineClamp(3)
                     ->tooltip(fn (Incident $record) => $record->nom."\n\n".$record->simptoma)
-                    ->description(fn (Incident $record) => str($record->simptoma)->limit(70))
+                    ->description(fn (Incident $record) => new HtmlString(
+                        '<span style="display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: normal">'
+                        .e($record->simptoma).'</span>'
+                    ))
                     ->extraCellAttributes(['style' => 'min-width: 14rem; max-width: 22rem']),
                 TextColumn::make('module.codi')->label('Mòdul')->tooltip(fn (Incident $record) => $record->module?->nom),
                 TextColumn::make('block.numero')->label('Bloc')->placeholder('—'),
