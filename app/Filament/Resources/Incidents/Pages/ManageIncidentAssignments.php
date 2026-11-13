@@ -21,7 +21,6 @@ use Filament\Resources\Pages\ManageRelatedRecords;
 use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Enums\FiltersLayout;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
@@ -162,9 +161,7 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                     ->label('Avaria')
                     ->options(fn () => $this->getOwnerRecord()->options()->pluck('nom', 'id'))
                     ->multiple(),
-            ], layout: FiltersLayout::AboveContent)
-            ->filtersFormColumns(['default' => 1, 'md' => 2, 'xl' => 4])
-            ->deferFilters(false)
+            ])
             ->recordActions([
                 Action::make('accio')
                     ->label('Execució')
