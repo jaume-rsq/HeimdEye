@@ -358,7 +358,7 @@ class IncidentsTest extends TestCase
         $this->assertSame($teacher->id, $row->fresh()->tancat_per);
     }
 
-    public function test_follow_up_filters_by_student_status_instance_and_fault_and_sorts(): void
+    public function test_follow_up_filters_by_student_fault_status_and_resolved_and_sorts(): void
     {
         $this->actingAs(User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]));
         $incident = $this->incident(2);
@@ -383,7 +383,8 @@ class IncidentsTest extends TestCase
         $page()->assertCanSeeTableRecords([$rowA, $rowB])->assertSee('web')
             ->filterTable('alumne_id', [$b->id])->assertCanSeeTableRecords([$rowB])->assertCanNotSeeTableRecords([$rowA]);
         $page()->filterTable('estat', [IncidentStatus::Resolta->value])->assertCanSeeTableRecords([$rowA])->assertCanNotSeeTableRecords([$rowB]);
-        $page()->filterTable('instancia', ['web'])->assertCanSeeTableRecords([$rowA])->assertCanNotSeeTableRecords([$rowB]);
+        $page()->filterTable('resolta', true)->assertCanSeeTableRecords([$rowA])->assertCanNotSeeTableRecords([$rowB]);
+        $page()->filterTable('resolta', false)->assertCanSeeTableRecords([$rowB])->assertCanNotSeeTableRecords([$rowA]);
         $page()->filterTable('opcio_id', [$o2->id])->assertCanSeeTableRecords([$rowB])->assertCanNotSeeTableRecords([$rowA]);
 
         foreach (['launch.created_at', 'student.usuari', 'instancia', 'nom_opcio', 'estat', 'data_injeccio', 'data_resolucio', 'temps', 'launch.data_limit'] as $column) {
@@ -392,6 +393,24 @@ class IncidentsTest extends TestCase
         $page()->sortTable('student.usuari')->assertCanSeeTableRecords([$rowA, $rowB], inOrder: true)
             ->sortTable('student.usuari', 'desc')->assertCanSeeTableRecords([$rowB, $rowA], inOrder: true);
         $page()->sortTable('temps')->assertCanSeeTableRecords([$rowA, $rowB], inOrder: true);
+    }
+
+    public function test_the_list_filters_by_equip_and_sorts_by_every_column(): void
+    {
+        $this->actingAs(User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]));
+        $web = $this->incident(1); // equip «web»
+        $aws = Incident::create(['modul_id' => $this->module->id, 'nom' => 'SG tancat', 'equip' => 'aws', 'simptoma' => 'x']);
+
+        Livewire::test(ListIncidents::class)
+            ->resetTableFilters()
+            ->filterTable('equip', ['aws'])
+            ->assertCanSeeTableRecords([$aws])
+            ->assertCanNotSeeTableRecords([$web]);
+
+        foreach (['nom', 'module.codi', 'block.numero', 'task.titol', 'equip', 'options_count', 'obertes_count', 'resoltes_count'] as $column) {
+            Livewire::test(ListIncidents::class)->sortTable($column)->assertOk()->sortTable($column, 'desc')->assertOk();
+        }
+        Livewire::test(ListIncidents::class)->resetTableFilters()->sortTable('equip')->assertCanSeeTableRecords([$aws, $web], inOrder: true);
     }
 
     public function test_the_list_filters_by_block_and_task(): void

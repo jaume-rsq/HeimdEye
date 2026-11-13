@@ -22,6 +22,7 @@ use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
@@ -141,26 +142,21 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                         ->mapWithKeys(fn (Student $s) => [$s->id => sprintf('%02d · %s', $s->num_taula, $s->nom_complet ?: $s->usuari)]))
                     ->searchable()
                     ->multiple(),
-                SelectFilter::make('estat')
-                    ->options(IncidentStatus::class)
-                    ->multiple(),
-                // Per hostname de la instància d'agent que l'ha executada (aws, web...).
-                SelectFilter::make('instancia')
-                    ->label('Instància')
-                    ->options(fn () => self::instanceQuery(false)
-                        ->whereIn('execucions_accio.execucio_id', $this->getOwnerRecord()->assignments()->select('execucio_id'))
-                        ->distinct()
-                        ->orderBy('instancies_agent.hostname')
-                        ->pluck('instancies_agent.hostname', 'instancies_agent.hostname'))
-                    ->multiple()
-                    ->query(fn (Builder $query, array $data) => $query->when(
-                        $data['values'] ?? [],
-                        fn (Builder $q, array $hosts) => $q->whereExists(self::instanceQuery()->whereIn('instancies_agent.hostname', $hosts)->toBase()),
-                    )),
                 SelectFilter::make('opcio_id')
                     ->label('Avaria')
                     ->options(fn () => $this->getOwnerRecord()->options()->pluck('nom', 'id'))
                     ->multiple(),
+                SelectFilter::make('estat')
+                    ->options(IncidentStatus::class)
+                    ->multiple(),
+                TernaryFilter::make('resolta')
+                    ->label('Resolta')
+                    ->trueLabel('Sí')
+                    ->falseLabel('No')
+                    ->queries(
+                        true: fn (Builder $q) => $q->whereNotNull('data_resolucio'),
+                        false: fn (Builder $q) => $q->whereNull('data_resolucio'),
+                    ),
             ])
             ->recordActions([
                 Action::make('accio')
