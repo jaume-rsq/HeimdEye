@@ -158,10 +158,16 @@ class StudentImporter
 
         DB::transaction(function () use ($module, $rows, $plan, $deactivateMissing, $groupId) {
             foreach ([...$plan['nous'], ...array_column($plan['canvis'], 'data')] as $data) {
-                $user = User::updateOrCreate(
-                    ['email' => $data['email']],
-                    ['nom' => $data['nom_complet'], 'rol' => Role::Student],
-                );
+                // Un usuari que ja existeix conserva el rol: un professor que surt a la llista
+                // (com a alumne de prova) no ha de perdre l'accés al panell.
+                $user = User::firstOrNew(['email' => $data['email']]);
+                if (! $user->exists) {
+                    $user->rol = Role::Student;
+                }
+                if ($user->rol === Role::Student) {
+                    $user->nom = $data['nom_complet'];
+                }
+                $user->save();
                 $student = Student::updateOrCreate(
                     ['curs_id' => $module->curs_id, 'usuari' => $data['usuari']],
                     [

@@ -72,8 +72,10 @@ class ActionsTable
                 TextColumn::make('descripcio')
                     ->label('Descripció')
                     ->wrap()
+                    ->lineClamp(2)
+                    ->tooltip(fn (ActionModel $record) => $record->descripcio)
                     ->grow()
-                    ->extraAttributes(['style' => 'min-width: 22rem']),
+                    ->extraAttributes(['style' => 'min-width: 16rem']),
                 TextColumn::make('executor')
                     ->badge()
                     ->color('gray'),

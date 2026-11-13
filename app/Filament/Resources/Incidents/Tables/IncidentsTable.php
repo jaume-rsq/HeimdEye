@@ -28,6 +28,8 @@ class IncidentsTable
                     'assignments as resoltes_count' => fn (Builder $q) => $q->where('estat', IncidentStatus::Resolta),
                 ]))
             ->defaultSort('posicio')
+            ->emptyStateHeading('Encara no hi ha cap incidència')
+            ->emptyStateDescription('Una incidència és una avaria feta a propòsit als equips dels alumnes: una acció d\'avaria, un check que diu quan està resolta i, si vols, una acció de reparació.')
             ->columns([
                 // Columna estreta: el nom ocupa com a molt 3 línies (i el símptoma 2); la resta, al tooltip.
                 TextColumn::make('nom')->searchable()->sortable()->weight('bold')

@@ -41,7 +41,6 @@ class AnsibleExecutor implements Executor
         return new CheckResult(
             match ($summary['status']) {
                 ActionStatus::Ok => CheckStatus::Pass,
-                ActionStatus::Changed => CheckStatus::Error,
                 ActionStatus::Failed => CheckStatus::Fail,
                 ActionStatus::Unavailable => CheckStatus::Unavailable,
                 ActionStatus::Timeout => CheckStatus::Timeout,

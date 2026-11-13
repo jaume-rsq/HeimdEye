@@ -104,7 +104,7 @@ class CheckRunner
         }
 
         if ($check->executor === ExecutorType::Agent) {
-            return CheckResult::error('Els checks d\'agent no es poden provar des de l\'editor: s\'executen a la instància de l\'alumne quan l\'agent els recull. Llança\'ls des de la tasca o el check.');
+            return CheckResult::error('Els checks d\'agent no s\'executen des del servidor: s\'executen a la instància de l\'alumne quan l\'agent els recull. Llança\'ls des de la tasca o el check.');
         }
 
         $executor = self::executor($check->executor);

@@ -25,8 +25,8 @@ final readonly class CheckResult
     {
         return new self(
             $this->status,
-            Masker::mask($this->message, $secrets),
-            Masker::mask($this->output, $secrets),
+            Masker::maskTruncated($this->message, $secrets),
+            Masker::maskTruncated($this->output, $secrets),
             $this->exitCode,
             $this->durationMs,
         );
