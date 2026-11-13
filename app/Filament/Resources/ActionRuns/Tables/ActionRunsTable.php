@@ -69,11 +69,11 @@ class ActionRunsTable
                     ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('data_inici')
                     ->label('Inici')
-                    ->dateTime('d/m/y H:i:s')
+                    ->dateTime('d/m/Y H:i:s')
                     ->sortable(),
                 TextColumn::make('data_fi')
                     ->label('Fi')
-                    ->dateTime('d/m/y H:i:s')
+                    ->dateTime('d/m/Y H:i:s')
                     ->description(fn (ActionRun $record) => $record->data_inici && $record->data_fi
                         ? $record->data_inici->diffInSeconds($record->data_fi).' s'
                         : null),

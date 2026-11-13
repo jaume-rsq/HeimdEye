@@ -122,6 +122,9 @@
                                     </div>
                                 @endforeach
                             </div>
+                            @if ($cardBlocks->count() > 4)
+                                <div class="sub" style="margin-top: -.4rem">{{ $cardBlocks->count() }} blocs, els més recents a dalt: desplaça la llista per veure'ls tots.</div>
+                            @endif
                             <div class="sub">Darrer assoliment: {{ $row['darrer_assoliment']?->format('d/m/Y H:i') ?? '—' }}</div>
                             <div class="sub" style="margin-top: -.4rem">Darrera execució: {{ $card['darrera_execucio'] ? \Illuminate\Support\Carbon::parse($card['darrera_execucio'])->format('d/m/Y H:i') : '—' }}</div>
                         @else

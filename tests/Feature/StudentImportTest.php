@@ -118,6 +118,23 @@ class StudentImportTest extends TestCase
         $this->assertSame(['es_actiu' => ['no', 'sí']], $plan['canvis'][0]['diferencies']);
     }
 
+    public function test_a_teacher_in_the_list_keeps_the_role(): void
+    {
+        $teacher = User::create(['email' => 'profe@example.com', 'nom' => 'Professor de prova', 'rol' => Role::Admin, 'es_actiu' => true]);
+        $text = $this->csv(function (array $rows) {
+            $rows[] = ['xarxa' => '10.9.0.0/24', 'taula' => '0', 'alumne' => 'Taula del professor', 'email' => 'profe@example.com', 'alum' => 'profe'];
+
+            return $rows;
+        });
+
+        $this->importer->apply($this->module, $this->importer->parse($text));
+
+        $teacher->refresh();
+        $this->assertSame(Role::Admin, $teacher->rol);
+        $this->assertSame('Professor de prova', $teacher->nom);
+        $this->assertSame($teacher->id, Student::where('usuari', 'profe')->firstOrFail()->usuari_id);
+    }
+
     public function test_own_variables_are_kept(): void
     {
         $student = $this->module->students()->orderBy('num_taula')->first();

@@ -10,11 +10,13 @@ use App\Models\Check;
 use App\Models\Module;
 use App\Models\RunBatch;
 use App\Models\Student;
+use App\Runner\CheckResult;
 use App\Runner\CheckRunner;
 use App\Runner\ResultRecorder;
 use Illuminate\Console\Command;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Throwable;
 
 class RunChecks extends Command
 {
@@ -61,7 +63,12 @@ class RunChecks extends Command
                     }
 
                     // A mà no hi ha reintents: el resultat es desa tal com surt.
-                    $result = $runner->run($check, $student, $check->currentVersion);
+                    try {
+                        $result = $runner->run($check, $student, $check->currentVersion);
+                    } catch (Throwable $e) {
+                        report($e);
+                        $result = CheckResult::error("No s'ha pogut executar: ".($e->getMessage() ?: 'error desconegut'));
+                    }
                     if ($batch) {
                         $recorder->record($batch, $check, $student, $result, $check->currentVersion);
                     }

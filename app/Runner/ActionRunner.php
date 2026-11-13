@@ -169,7 +169,7 @@ class ActionRunner
     public function preview(Action $action, ActionVersion $version, Collection $students, array $hostTypes = [], array $params = [], bool $checkMode = false): array
     {
         if ($action->executor === Executor::Agent) {
-            throw new InvalidArgumentException('Les accions d\'agent no es poden provar des de l\'editor: s\'executen a la instància de l\'alumne quan l\'agent les recull.');
+            throw new InvalidArgumentException('Les accions d\'agent no es poden previsualitzar al servidor: s\'executen a la instància de l\'alumne quan l\'agent les recull.');
         }
         $params = $this->prepare($action, $version, $hostTypes, $params, $checkMode);
 

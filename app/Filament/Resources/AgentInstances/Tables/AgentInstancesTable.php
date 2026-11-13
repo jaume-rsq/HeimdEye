@@ -101,7 +101,7 @@ class AgentInstancesTable
                 TextColumn::make('darrer_batec')
                     ->label('Darrer batec')
                     ->since()
-                    ->dateTimeTooltip('d/m/y H:i:s')
+                    ->dateTimeTooltip('d/m/Y H:i:s')
                     ->placeholder('mai')
                     ->sortable(),
             ])

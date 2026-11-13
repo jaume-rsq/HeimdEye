@@ -48,7 +48,7 @@ class CheckRunsTable
                     ->searchable(['nom_complet', 'usuari']),
                 TextColumn::make('data_execucio')
                     ->label('Data')
-                    ->dateTime('d/m/y H:i:s')
+                    ->dateTime('d/m/Y H:i:s')
                     ->sortable(),
                 TextColumn::make('estat')
                     ->badge(),
