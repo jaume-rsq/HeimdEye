@@ -67,6 +67,10 @@ Així la comanda copiada de la fitxa no s'ha d'editar.
 - `--user <usuari>`: força un altre usuari del sistema.
 - `--user root`: força que corri com a root (p. ex. en una instància on cal root per a les accions).
 
+El codi s'executa amb un PATH fix: `~/.local/bin`, `~/bin`, els directoris del sistema i `/snap/bin`
+(des de la 1.5.1). Una eina instal·lada en un altre lloc no es troba encara que a la terminal sí;
+en aquest cas, fes-ne un enllaç: `sudo ln -s "$(command -v aws)" /usr/local/bin/aws`.
+
 Les credencials del Learner Lab són temporals: l'agent ha de treballar mentre la sessió d'AWS és
 activa; si han caducat, les crides `aws` fallen.
 

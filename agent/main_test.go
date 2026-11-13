@@ -64,3 +64,18 @@ func TestTailKeepsTheLastNonEmptyLines(t *testing.T) {
 		t.Fatal("tail d'una sortida buida no és buit")
 	}
 }
+
+func TestBasePathFindsSnapAndUserTools(t *testing.T) {
+	env := basePath("/home/alumne")
+	if len(env) != 2 || env[1] != "HOME=/home/alumne" {
+		t.Fatalf("env inesperat: %v", env)
+	}
+	for _, dir := range []string{"/home/alumne/.local/bin", "/home/alumne/bin", "/usr/bin", "/snap/bin"} {
+		if !strings.Contains(env[0], dir) {
+			t.Errorf("al PATH hi falta %s: %s", dir, env[0])
+		}
+	}
+	if env := basePath(""); len(env) != 1 || strings.Contains(env[0], ".local") {
+		t.Errorf("sense HOME no hi ha d'haver dirs d'usuari: %v", env)
+	}
+}

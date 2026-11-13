@@ -30,7 +30,7 @@ import (
 	"time"
 )
 
-const version = "1.5.0"
+const version = "1.5.1"
 
 type config struct {
 	url      string
@@ -498,13 +498,18 @@ func copyFile(src, dst string, mode os.FileMode) error {
 	return out.Chmod(mode)
 }
 
-// baseEnv dona només PATH i HOME; la resta de variables venen de HeimdEye.
+// baseEnv dona només PATH i HOME; la resta de variables venen de HeimdEye. El PATH inclou
+// /snap/bin i ~/.local/bin, ~/bin: hi van eines com l'AWS CLI instal·lada amb snap o amb pip.
 func baseEnv() []string {
-	env := []string{"PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"}
-	if home := os.Getenv("HOME"); home != "" {
-		env = append(env, "HOME="+home)
+	return basePath(os.Getenv("HOME"))
+}
+
+func basePath(home string) []string {
+	path := "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/snap/bin"
+	if home == "" {
+		return []string{"PATH=" + path}
 	}
-	return env
+	return []string{"PATH=" + home + "/.local/bin:" + home + "/bin:" + path, "HOME=" + home}
 }
 
 func flatten(m map[string]string) []string {
