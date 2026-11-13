@@ -6,6 +6,7 @@ use App\Enums\IncidentStatus;
 use App\Filament\Actions\LaunchIncident;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Filament\Resources\Incidents\IncidentResource;
+use App\Models\ActionRun;
 use App\Models\Incident;
 use App\Models\IncidentLaunch;
 use App\Models\IncidentStudent;
@@ -21,10 +22,12 @@ use Filament\Support\Enums\Width;
 use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Contracts\Support\Htmlable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\DB;
 use InvalidArgumentException;
 use Livewire\Attributes\Url;
 
@@ -68,6 +71,7 @@ class ManageIncidentAssignments extends ManageRelatedRecords
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query
                 ->with(['student', 'launch', 'option.check', 'option.repairAction'])
+                ->addSelect(['instancia' => self::instanceQuery()->select('instancies_agent.hostname')->limit(1)])
                 ->when($this->llancament, fn (Builder $q, int $id) => $q->where('llancament_id', $id)))
             ->defaultSort('id', 'desc')
             ->poll('10s')
@@ -75,34 +79,59 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                 TextColumn::make('launch.created_at')
                     ->label('Llançada')
                     ->dateTime('d/m H:i')
-                    ->sortable(),
+                    ->sortable(query: fn (Builder $query, string $direction) => $query
+                        ->orderBy('llancament_id', $direction)
+                        ->orderBy('incidencies_alumne.id', $direction)),
                 TextColumn::make('student.usuari')
                     ->label('Alumne')
                     ->description(fn (IncidentStudent $record) => $record->student?->nom_complet)
-                    ->searchable(),
-                TextColumn::make('nom_opcio')->label('Avaria'),
+                    ->searchable()
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy(
+                        Student::select('num_taula')->whereColumn('alumnes.id', 'incidencies_alumne.alumne_id')->limit(1),
+                        $direction,
+                    )),
+                TextColumn::make('instancia')
+                    ->label('Instància')
+                    ->tooltip('Instància d\'agent que ha executat l\'avaria')
+                    ->placeholder('—')
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy('instancia', $direction)),
+                TextColumn::make('nom_opcio')
+                    ->label('Avaria')
+                    ->searchable()
+                    ->sortable(),
                 TextColumn::make('estat')
                     ->badge()
-                    ->tooltip(fn (IncidentStudent $record) => $record->missatge),
+                    ->tooltip(fn (IncidentStudent $record) => $record->missatge)
+                    ->sortable(),
                 TextColumn::make('data_injeccio')
                     ->label('Injectada')
                     ->dateTime('d/m H:i')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->sortable(),
                 TextColumn::make('data_resolucio')
                     ->label('Resolta')
                     ->dateTime('d/m H:i')
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    ->sortable(),
                 TextColumn::make('temps')
                     ->label('Ha trigat')
                     ->state(fn (IncidentStudent $record) => ($s = $record->resolutionSeconds()) === null ? null
                         : CarbonInterval::seconds($s)->cascade()->forHumans(['short' => true, 'parts' => 2]))
-                    ->placeholder('—'),
+                    ->placeholder('—')
+                    // Les que no estan resoltes, sempre al final.
+                    ->sortable(query: fn (Builder $query, string $direction) => $query
+                        ->orderByRaw('case when data_resolucio is null or data_injeccio is null then 1 else 0 end')
+                        ->orderByRaw(self::durationSql().' '.($direction === 'desc' ? 'desc' : 'asc'))),
                 TextColumn::make('launch.data_limit')
                     ->label('Termini')
                     ->dateTime('d/m H:i')
                     ->color(fn (IncidentStudent $record) => $record->estat->isActive() && $record->launch?->data_limit?->isPast() ? 'danger' : null)
                     ->placeholder('—')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->sortable(query: fn (Builder $query, string $direction) => $query->orderBy(
+                        IncidentLaunch::select('data_limit')->whereColumn('llancaments_incidencia.id', 'incidencies_alumne.llancament_id')->limit(1),
+                        $direction,
+                    )),
             ])
             ->filters([
                 // Els alumnes que han rebut alguna avaria d'aquesta incidència.
@@ -113,9 +142,21 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                         ->mapWithKeys(fn (Student $s) => [$s->id => sprintf('%02d · %s', $s->num_taula, $s->nom_complet ?: $s->usuari)]))
                     ->searchable()
                     ->multiple(),
+                SelectFilter::make('opcio_id')
+                    ->label('Avaria')
+                    ->options(fn () => $this->getOwnerRecord()->options()->pluck('nom', 'id'))
+                    ->multiple(),
                 SelectFilter::make('estat')
                     ->options(IncidentStatus::class)
                     ->multiple(),
+                TernaryFilter::make('resolta')
+                    ->label('Resolta')
+                    ->trueLabel('Sí')
+                    ->falseLabel('No')
+                    ->queries(
+                        true: fn (Builder $q) => $q->whereNotNull('data_resolucio'),
+                        false: fn (Builder $q) => $q->whereNull('data_resolucio'),
+                    ),
             ])
             ->recordActions([
                 Action::make('accio')
@@ -194,6 +235,27 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                     ->modalDescription(self::DELETE_WARNING)
                     ->action(fn (Collection $records) => self::delete($records)),
             ]);
+    }
+
+    /**
+     * Execucions de l'acció d'avaria amb la instància d'agent que les ha recollit. Correlacionada
+     * amb la fila (mateix lot i alumne) per a la columna i el filtre; sense, per llistar-les totes.
+     */
+    private static function instanceQuery(bool $correlated = true): Builder
+    {
+        return ActionRun::query()
+            ->join('instancies_agent', 'instancies_agent.id', '=', 'execucions_accio.instancia_id')
+            ->when($correlated, fn (Builder $q) => $q
+                ->whereColumn('execucions_accio.execucio_id', 'incidencies_alumne.execucio_id')
+                ->whereColumn('execucions_accio.alumne_id', 'incidencies_alumne.alumne_id'));
+    }
+
+    /** Segons entre la injecció i la resolució, en SQL (PostgreSQL en producció, SQLite als tests). */
+    private static function durationSql(): string
+    {
+        return DB::connection()->getDriverName() === 'pgsql'
+            ? 'extract(epoch from (data_resolucio - data_injeccio))'
+            : '(julianday(data_resolucio) - julianday(data_injeccio))';
     }
 
     /** @param  \Illuminate\Support\Collection<int, IncidentStudent>  $records */

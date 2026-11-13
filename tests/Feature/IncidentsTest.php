@@ -14,6 +14,7 @@ use App\Filament\Resources\Incidents\Pages\ManageIncidentAssignments;
 use App\Filament\Student\Pages\MyProgress;
 use App\Models\Action;
 use App\Models\ActionRun;
+use App\Models\AgentInstance;
 use App\Models\AgentTask;
 use App\Models\Check;
 use App\Models\Incident;
@@ -355,6 +356,61 @@ class IncidentsTest extends TestCase
 
         $this->assertSame(IncidentStatus::Tancada, $row->fresh()->estat);
         $this->assertSame($teacher->id, $row->fresh()->tancat_per);
+    }
+
+    public function test_follow_up_filters_by_student_fault_status_and_resolved_and_sorts(): void
+    {
+        $this->actingAs(User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]));
+        $incident = $this->incident(2);
+        [$a, $b] = $this->students(2)->all();
+        [$o1, $o2] = $incident->options->all();
+        app(IncidentLauncher::class)->launch($incident, [$a->id => [$o1->id], $b->id => [$o2->id]], 'manual', 1, null, null);
+
+        // L'avaria d'$a la recull la seva instància «web»; la de $b caduca sense instància.
+        $instance = AgentInstance::create(['alumne_id' => $a->id, 'hostname' => 'web', 'estat' => 'activa', 'darrer_batec' => now(), 'registrat_a' => now()]);
+        ActionRun::where('alumne_id', $a->id)->update(['instancia_id' => $instance->id]);
+        ActionRun::where('alumne_id', $a->id)->sole()->update(['estat' => ActionStatus::Ok, 'recollit_a' => now(), 'data_fi' => now()]);
+        ActionRun::where('alumne_id', $b->id)->sole()->update(['estat' => ActionStatus::Caducada, 'data_fi' => now()]);
+        $rowA = IncidentStudent::where('alumne_id', $a->id)->sole();
+        $rowB = IncidentStudent::where('alumne_id', $b->id)->sole();
+        $this->recordCheck($o1->check, $a, CheckStatus::Fail);
+        $this->recordCheck($o1->check, $a, CheckStatus::Pass);
+        $this->assertSame(IncidentStatus::Resolta, $rowA->fresh()->estat);
+
+        // Els filtres es recorden a la sessió: cada prova comença sense cap.
+        $page = fn () => Livewire::test(ManageIncidentAssignments::class, ['record' => $incident->id])->resetTableFilters();
+
+        $page()->assertCanSeeTableRecords([$rowA, $rowB])->assertSee('web')
+            ->filterTable('alumne_id', [$b->id])->assertCanSeeTableRecords([$rowB])->assertCanNotSeeTableRecords([$rowA]);
+        $page()->filterTable('estat', [IncidentStatus::Resolta->value])->assertCanSeeTableRecords([$rowA])->assertCanNotSeeTableRecords([$rowB]);
+        $page()->filterTable('resolta', true)->assertCanSeeTableRecords([$rowA])->assertCanNotSeeTableRecords([$rowB]);
+        $page()->filterTable('resolta', false)->assertCanSeeTableRecords([$rowB])->assertCanNotSeeTableRecords([$rowA]);
+        $page()->filterTable('opcio_id', [$o2->id])->assertCanSeeTableRecords([$rowB])->assertCanNotSeeTableRecords([$rowA]);
+
+        foreach (['launch.created_at', 'student.usuari', 'instancia', 'nom_opcio', 'estat', 'data_injeccio', 'data_resolucio', 'temps', 'launch.data_limit'] as $column) {
+            $page()->sortTable($column)->assertOk()->sortTable($column, 'desc')->assertOk();
+        }
+        $page()->sortTable('student.usuari')->assertCanSeeTableRecords([$rowA, $rowB], inOrder: true)
+            ->sortTable('student.usuari', 'desc')->assertCanSeeTableRecords([$rowB, $rowA], inOrder: true);
+        $page()->sortTable('temps')->assertCanSeeTableRecords([$rowA, $rowB], inOrder: true);
+    }
+
+    public function test_the_list_filters_by_equip_and_sorts_by_every_column(): void
+    {
+        $this->actingAs(User::create(['nom' => 'Prof', 'email' => 'prof@example.com', 'password' => 'secret', 'rol' => Role::Teacher, 'es_actiu' => true]));
+        $web = $this->incident(1); // equip «web»
+        $aws = Incident::create(['modul_id' => $this->module->id, 'nom' => 'SG tancat', 'equip' => 'aws', 'simptoma' => 'x']);
+
+        Livewire::test(ListIncidents::class)
+            ->resetTableFilters()
+            ->filterTable('equip', ['aws'])
+            ->assertCanSeeTableRecords([$aws])
+            ->assertCanNotSeeTableRecords([$web]);
+
+        foreach (['nom', 'module.codi', 'block.numero', 'task.titol', 'equip', 'options_count', 'obertes_count', 'resoltes_count'] as $column) {
+            Livewire::test(ListIncidents::class)->sortTable($column)->assertOk()->sortTable($column, 'desc')->assertOk();
+        }
+        Livewire::test(ListIncidents::class)->resetTableFilters()->sortTable('equip')->assertCanSeeTableRecords([$aws, $web], inOrder: true);
     }
 
     public function test_the_list_filters_by_block_and_task(): void
