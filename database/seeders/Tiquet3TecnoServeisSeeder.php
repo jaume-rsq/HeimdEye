@@ -127,7 +127,7 @@ class Tiquet3TecnoServeisSeeder extends Seeder
             for e in empleat1 empleat2; do
               cat /etc/freeradius/3.0/users /etc/freeradius/3.0/mods-config/files/authorize 2>/dev/null | grep -q "^$e[[:space:]]" || echo "FALTA $e"
             done
-            r=$(radtest empleat1 "fals-$$" 127.0.0.1 0 testing123 2>&1 | grep -oE 'Access-(Accept|Reject)' | head -1)
+            r=$(radtest empleat1 "fals-$$" 127.0.0.1 0 testing123 2>&1 | grep -oE '(got|Received) Access-(Accept|Reject)' | head -1 | awk '{print $2}')
             echo "RESPOSTA ${r:-cap}"
             true
             EOS
@@ -143,14 +143,15 @@ class Tiquet3TecnoServeisSeeder extends Seeder
         ['R4: SSH amb RADIUS al web', 'Al web, el mateix que al gateway: sshd amb PAM i pam_radius_auth, les tres opcions a «yes» i els comptes dels empleats.',
             "**Objectiu:** que el web també validi els empleats contra RADIUS, amb el secret del seu propi client.\n\n**Per què:** és un segon punt d'entrada; si es queda amb contrasenyes locals, l'autenticació única no serveix.",
             null, CheckKind::Required, 1],
-        ['R5: Internet només veu el tcp/80 i el udp/51820', 'Els Security Groups només tenen oberts a 0.0.0.0/0 el tcp/80 i el udp/51820 (i el tcp/443 si fas servir wstunnel). El 22 i el 8080 no. Comprova-ho amb `aws ec2 describe-security-groups`.',
+        ['R5: Internet només veu el tcp/80 i el udp/51820', 'Els Security Groups només tenen oberts a 0.0.0.0/0 el tcp/80 i el udp/51820 (o el tcp/80 i el tcp/443 si fas servir wstunnel en lloc del udp/51820). El 22 i el 8080 no. Comprova-ho amb `aws ec2 describe-security-groups`.',
             "**Objectiu:** que la VPN sigui l'única entrada nova des d'Internet.\n\n**Per què:** el 22 i el 8080 oberts a Internet farien inútil la VPN.",
             <<<'SH'
             any=$(regles_internet)
             case "$any" in
               "tcp/80/80 udp/51820/51820") echo "Internet només veu tcp/80 i udp/51820" ;;
               "tcp/443/443 tcp/80/80 udp/51820/51820") echo "Internet veu tcp/80, udp/51820 i el tcp/443 de wstunnel" ;;
-              *) echo "Regles obertes a 0.0.0.0/0: ${any:-cap} (han de ser tcp/80 i udp/51820, i opcionalment el tcp/443)"; exit 1 ;;
+              "tcp/443/443 tcp/80/80") echo "Internet veu tcp/80 i el tcp/443 de wstunnel (WireGuard només a 127.0.0.1)" ;;
+              *) echo "Regles obertes a 0.0.0.0/0: ${any:-cap} (han de ser tcp/80 i udp/51820, o bé tcp/80 i tcp/443 si fas servir wstunnel)"; exit 1 ;;
             esac
             SH, CheckKind::Required, 1],
         ['R5: nftables del T3 (drop, 22 i 8080 només per wg0)', 'Al gateway, nftables té política drop, el 22 i el 8080 només s\'accepten per wg0, i el 8080 no es publica amb DNAT. Comprova-ho dins del gateway: `sudo nft list ruleset`.',
