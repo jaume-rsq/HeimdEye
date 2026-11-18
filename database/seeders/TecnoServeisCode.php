@@ -39,6 +39,9 @@ final class TecnoServeisCode
             read -r WEB WEB_IP _ <<< "$(inst web)"
             read -r GW GW_IP GW_PUB <<< "$(inst gateway)"
             SH],
+        'auth' => ['/\$\{?AUTH/', <<<'SH'
+            read -r AUTH AUTH_IP AUTH_PUB <<< "$(inst auth)"
+            SH],
         'need' => ['/(?<![\w-])need(?![\w-])/', <<<'SH'
             need() { [ -n "$2" ] && [ "$2" != None ] || { echo "No trobo $1 a la VPC $VPC ($VNAME)"; exit 1; }; }
             SH],
@@ -308,6 +311,18 @@ final class TecnoServeisCode
               echo "Flow log de la VPC cap a $lg"
             }
             SH],
+        'vpn_activa' => ['/(?<![\w-])vpn_activa(?![\w-])/', <<<'SH'
+            # El gateway respon al ping per la VPN (el túnel del WSL és aixecat)?
+            vpn_activa() { ping -c 2 -W 2 "10.200.$X.1" >/dev/null 2>&1; }
+            SH],
+        'regles_internet' => ['/(?<![\w-])regles_internet(?![\w-])/', <<<'SH'
+            # Regles d'entrada de qualsevol Security Group de la VPC obertes a 0.0.0.0/0, com a «proto/port/port», ordenades.
+            regles_internet() {
+              aws ec2 describe-security-groups --filters "Name=vpc-id,Values=$VPC" \
+                --query "SecurityGroups[].IpPermissions[?IpRanges[?CidrIp=='0.0.0.0/0']].[IpProtocol,FromPort,ToPort]" \
+                --output text | tr '\t' '/' | sort -u | xargs
+            }
+            SH],
         'obert' => ['/(?<![\w-])obert\s+"/', <<<'SH'
             # Prova si el port tcp $2 de $1 accepta connexions (2 s).
             obert() { timeout 2 bash -c "</dev/tcp/$1/$2" 2>/dev/null; }
@@ -318,13 +333,15 @@ final class TecnoServeisCode
     ];
 
     /** El codi complet: capçalera, les peces que calen (i les que aquestes necessiten) i el cos. */
-    public static function build(string $body): string
+    /** @param  array<string, array{0: string, 1: string}>  $extra  peces addicionals (mateix format que PIECES) */
+    public static function build(string $body, array $extra = []): string
     {
+        $pieces = self::PIECES + $extra;
         $used = [];
         $text = $body;
         do {
             $added = false;
-            foreach (self::PIECES as $name => [$trigger, $code]) {
+            foreach ($pieces as $name => [$trigger, $code]) {
                 if (! isset($used[$name]) && preg_match($trigger, $text)) {
                     $used[$name] = true;
                     $text .= "\n".$code;
@@ -334,7 +351,7 @@ final class TecnoServeisCode
         } while ($added);
 
         $parts = [self::HEADER];
-        foreach (self::PIECES as $name => [, $code]) {
+        foreach ($pieces as $name => [, $code]) {
             if (isset($used[$name])) {
                 $parts[] = $code;
             }
