@@ -216,6 +216,27 @@ class Block04ProxySeeder extends Seeder
             [ "$same" = 0 ] || { echo "www i app serveixen la mateixa pàgina per HTTPS"; exit 1; }
             echo "https://www.$DOM i https://app.$DOM serveixen pàgines diferents"
             SH],
+        ['Q5a: Certificat de staging obtingut des del WSL', 'Al WSL hi ha un certificat de l\'entorn de proves (staging) de Let\'s Encrypt per a <alumne>.julioantonio.cat i *.<alumne>.julioantonio.cat, encara vigent, i el CNAME _acme-challenge apunta a acme-dns. Comprova-ho: `openssl x509 -in ~/certbot/conf/live/<alumne>-staging/fullchain.pem -noout -issuer -dates -ext subjectAltName` i `dig +short CNAME _acme-challenge.<alumne>.julioantonio.cat`.',
+            "**Objectiu:** haver practicat tot el procés de la validació DNS-01 a l'entorn de proves abans de demanar el certificat real.\n\n**Per què:** staging no té els límits d'emissió de producció, que són compartits per tota la classe; equivocar-se allà no costa res, equivocar-se a producció pot bloquejar els companys durant una setmana.",
+            <<<'SH'
+            command -v openssl >/dev/null || { echo "Falta openssl en aquest equip"; exit 1; }
+            command -v dig >/dev/null || { echo "Falta dig (sudo apt install -y dnsutils)"; exit 1; }
+            [ -n "${HE_USUARI:-}" ] || { echo "Falta HE_USUARI (el vostre subdomini de julioantonio.cat)"; exit 1; }
+            DOM=$HE_USUARI.julioantonio.cat
+            cn=$(dig +short CNAME "_acme-challenge.$DOM" +time=3 +tries=1 | sed 's/\.$//')
+            [[ "$cn" == *.acme.julioantonio.cat ]] || { echo "_acme-challenge.$DOM no té el CNAME cap a acme.julioantonio.cat (surt '${cn:-res}')"; exit 1; }
+            f=""
+            for h in "$HOME" /home/*; do
+              [ -e "$h/certbot/conf/live/$HE_USUARI-staging/fullchain.pem" ] && { f=$h/certbot/conf/live/$HE_USUARI-staging/fullchain.pem; break; }
+            done
+            [ -n "$f" ] || { echo "No trobo el certificat de staging (--cert-name $HE_USUARI-staging) a ~/certbot/conf/live: feu el pas 4 de la guia al WSL"; exit 1; }
+            [ -r "$f" ] || { echo "No puc llegir $f (l'heu demanat amb sudo? feu-ho amb el vostre usuari)"; exit 1; }
+            crt=$(openssl x509 -in "$f" -noout -issuer -ext subjectAltName 2>/dev/null)
+            [[ "$crt" == *STAGING* || "$crt" == *"Fake LE"* ]] || { echo "El certificat de $f no és de l'entorn de proves (staging): $(grep -i issuer <<< "$crt")"; exit 1; }
+            [[ "$crt" == *"DNS:$DOM"* && "$crt" == *"DNS:*.$DOM"* ]] || { echo "El certificat de staging no cobreix $DOM i *.$DOM"; exit 1; }
+            openssl x509 -in "$f" -noout -checkend 0 >/dev/null || { echo "El certificat de staging ha caducat"; exit 1; }
+            echo "Certificat de staging vàlid per a $DOM i *.$DOM, i el CNAME apunta a acme-dns"
+            SH],
         ['Q5: El certificat és real i cobreix el wildcard', 'curl sense -k valida el certificat de www.<alumne>.julioantonio.cat, l\'emissor és Let\'s Encrypt de producció i cobre <alumne>.julioantonio.cat i *.<alumne>.julioantonio.cat. Comprova-ho: `echo | openssl s_client -connect www.<alumne>.julioantonio.cat:443 -servername www.<alumne>.julioantonio.cat | openssl x509 -noout -issuer -ext subjectAltName`.',
             "**Objectiu:** un únic certificat de confiança per a tots els noms de l'empresa.\n\n**Per què:** un certificat de staging o que no cobreix el wildcard fa que els navegadors avisin; el wildcard evita demanar-ne un per cada virtualhost, amb els límits d'emissió compartits.",
             <<<'SH'
@@ -239,13 +260,23 @@ class Block04ProxySeeder extends Seeder
             SH],
     ];
 
+    /** Checks que no necessiten l'AWS CLI ni la VPC (només miren el WSL i el DNS): porten només `# hosts: aws`. */
+    private const WITHOUT_AWS = ['Q5a: Certificat de staging obtingut des del WSL'];
+
+    private static function code(string $name, string $body): string
+    {
+        return in_array($name, self::WITHOUT_AWS, true)
+            ? "# hosts: aws\n".$body
+            : TecnoServeisCode::build($body, self::EXTRA);
+    }
+
     /** @return array<string, array{ticket: int, code: string}> el codi de cada check, pel nom */
     public static function codes(): array
     {
         $codes = [];
         foreach ([1 => self::TICKET_1, 2 => self::TICKET_2] as $ticket => $checks) {
             foreach ($checks as [$name, , , $body]) {
-                $codes[$name] = ['ticket' => $ticket, 'code' => TecnoServeisCode::build($body, self::EXTRA)];
+                $codes[$name] = ['ticket' => $ticket, 'code' => self::code($name, $body)];
             }
         }
 
@@ -277,7 +308,7 @@ class Block04ProxySeeder extends Seeder
             // L'enunciat el pot haver editat el professor: només es posa en crear la tasca.
             $task = $block->tasks()->firstOrCreate(['titol' => $title], ['enunciat' => $statement, 'posicio' => $n]);
             foreach ($checks as $i => [$name, $description, $info, $body]) {
-                $this->check($task, $i + 1, $name, $description, $info, TecnoServeisCode::build($body, self::EXTRA), $from);
+                $this->check($task, $i + 1, $name, $description, $info, self::code($name, $body), $from);
             }
             $this->command?->info("«{$title}»: {$task->checks()->count()} checks, actius des del {$from}.");
         }

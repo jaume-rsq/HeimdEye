@@ -42,7 +42,7 @@ class Block04ProxySeederTest extends TestCase
         $t1 = $block->tasks()->where('titol', 'Tiquet 1')->sole()->checks;
         $t2 = $block->tasks()->where('titol', 'Tiquet 2')->sole()->checks;
         $this->assertCount(12, $t1);
-        $this->assertCount(5, $t2);
+        $this->assertCount(6, $t2);
         foreach ($t1->concat($t2) as $check) {
             $this->assertSame(Executor::Agent, $check->executor, $check->nom);
             $this->assertSame(CheckKind::Required, $check->tipus, $check->nom);
@@ -79,6 +79,6 @@ class Block04ProxySeederTest extends TestCase
         $this->assertSame(2, $check->versions()->count());
         $this->assertSame(2, $check->currentVersion->versio);
         $this->assertSame(1, $check->punts, 'el seeder torna a posar els punts previstos');
-        $this->assertSame(17, Check::whereIn('tasca_id', Block::where('numero', 4)->sole()->tasks()->pluck('id'))->count());
+        $this->assertSame(18, Check::whereIn('tasca_id', Block::where('numero', 4)->sole()->tasks()->pluck('id'))->count());
     }
 }
