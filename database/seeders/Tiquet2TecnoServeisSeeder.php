@@ -48,6 +48,15 @@ class Tiquet2TecnoServeisSeeder extends Seeder
 
     public const INCIDENT = 'La web de TecnoServeis no respon';
 
+    /** Checks que han canviat de nom (el nom antic => el nou): TecnoServeisCodiSeeder els reanomena sense perdre'n els resultats. */
+    public const RENAMED = ['F6: Flow Logs de la VPC a CloudWatch' => 'F6: Flow Logs de la VPC a S3'];
+
+    /** @return array<string, string> la informació (objectiu i justificació) de cada check, pel nom */
+    public static function infos(): array
+    {
+        return array_column(self::CHECKS, 2, 0);
+    }
+
     private const INJECT_ACTION = 'TecnoServeis: injectar avaria';
 
     private const REPAIR_ACTION = 'TecnoServeis: desfer avaria';
@@ -135,10 +144,10 @@ class Tiquet2TecnoServeisSeeder extends Seeder
             'pas_nftables', ['F1: El web es veu des d\'Internet', 'F4: El web no surt per altres ports', 'F7: nftables amb política drop', 'F7: nftables publica el web (DNAT i SNAT)', 'F8: Session Manager continua funcionant'], 300],
         ['T2: NACL pròpies', 'Crea (o reaprofita) les NACL <NomCognom>-nacl-public i -nacl-private amb les regles de la solució de referència, incloses les tornades, i les associa a les quatre subxarxes.',
             'pas_nacl', ['F5: Les subxarxes tenen NACL pròpies', 'F1: El web es veu des d\'Internet', 'F3: El web surt a Internet per https', 'F4: El web no surt per altres ports', 'F8: Session Manager continua funcionant'], 300],
-        ['T2: Flow Logs de la VPC', 'Crea el grup de logs /tecnoserveis/<NomCognom>/flowlogs i un flow log de tota la VPC (tot el trànsit) amb LabRole, si la VPC encara no en té.',
-            'pas_flowlogs', ['F6: Flow Logs de la VPC a CloudWatch'], 120],
+        ['T2: Flow Logs de la VPC', 'Crea el bucket S3 tecnoserveis-<nomcognom>-flowlogs-<compte> i un flow log de tota la VPC (tot el trànsit) cap a aquest bucket, si la VPC encara no en té cap cap a S3. (Al Learner Lab CloudWatch Logs no funciona.)',
+            'pas_flowlogs', ['F6: Flow Logs de la VPC a S3'], 120],
         ['T2: muntar tot el tiquet 2', 'Fa els cinc passos en ordre: obrir el 80 del gateway, tancar el que sobra als Security Groups, nftables, NACL i Flow Logs. No canvia les IP de les instàncies (R2): per a això hi ha «T2: recrear una instància amb la IP fixa».',
-            "pas_publicar\npas_tancar\npas_nftables\npas_nacl\npas_flowlogs", ['F1: El web es veu des d\'Internet', 'F2: El gateway només exposa el port 80', 'F3: El web surt a Internet per https', 'F4: El web no surt per altres ports', 'F5: Les subxarxes tenen NACL pròpies', 'F6: Flow Logs de la VPC a CloudWatch', 'F7: nftables amb política drop', 'F8: Session Manager continua funcionant', 'Política: només el tcp/80 és obert a Internet', 'Política: cap Security Group amb el 22'], 600],
+            "pas_publicar\npas_tancar\npas_nftables\npas_nacl\npas_flowlogs", ['F1: El web es veu des d\'Internet', 'F2: El gateway només exposa el port 80', 'F3: El web surt a Internet per https', 'F4: El web no surt per altres ports', 'F5: Les subxarxes tenen NACL pròpies', 'F6: Flow Logs de la VPC a S3', 'F7: nftables amb política drop', 'F8: Session Manager continua funcionant', 'Política: només el tcp/80 és obert a Internet', 'Política: cap Security Group amb el 22'], 600],
         ['T2: escaneig de prova', 'Prova des de l\'agent uns quants ports tancats de la IP pública del gateway, perquè quedin denegats als Flow Logs (REJECT) i al registre d\'nftables (F6 i F7). Els Flow Logs poden trigar uns minuts.',
             <<<'SH'
             need "la IP pública del gateway" "$GW_PUB"
@@ -208,25 +217,41 @@ class Tiquet2TecnoServeisSeeder extends Seeder
             [ "${acl[public-a]}" != "${acl[private-a]}" ] || { echo "Les públiques i les privades fan servir la mateixa NACL"; exit 1; }
             echo "NACL pública ${acl[public-a]} i privada ${acl[private-a]}"
             SH],
-        ['F6: Flow Logs de la VPC a CloudWatch', 'La VPC té un flow log actiu de tot el trànsit cap a CloudWatch Logs. Comprova-ho: `aws ec2 describe-flow-logs`.',
-            "**Objectiu:** registrar les metadades de tot el trànsit de la VPC.\n\n**Per què:** sense registres no es pot saber qui ho intenta ni què es bloqueja, ni investigar un incident.",
+        ['F6: Flow Logs de la VPC a S3', 'La VPC té un flow log actiu de tot el trànsit cap a un bucket d\'S3 (al Learner Lab CloudWatch Logs no funciona). Comprova-ho: `aws ec2 describe-flow-logs`.',
+            "**Objectiu:** registrar les metadades de tot el trànsit de la VPC.\n\n**Per què:** sense registres no es pot saber qui ho intenta ni què es bloqueja, ni investigar un incident. A S3 no cal cap rol: CloudWatch Logs falla al Learner Lab perquè LabRole no té la relació de confiança que cal.",
             <<<'SH'
-            read -r st tt dt lg <<< "$(aws ec2 describe-flow-logs --filter "Name=resource-id,Values=$VPC" \
-              --query 'FlowLogs[0].[FlowLogStatus,TrafficType,LogDestinationType,LogGroupName]' --output text)"
-            [ "$st" = ACTIVE ] || { echo "La VPC no té cap flow log actiu"; exit 1; }
+            fl=$(aws ec2 describe-flow-logs --filter "Name=resource-id,Values=$VPC" \
+              --query 'FlowLogs[].[FlowLogStatus,TrafficType,LogDestinationType,LogDestination]' --output text)
+            [ -n "$fl" ] || { echo "La VPC no té cap flow log"; exit 1; }
+            l=$(awk '$1=="ACTIVE" && $3=="s3"' <<< "$fl" | head -n 1)
+            if [ -z "$l" ]; then
+              if grep -q cloud-watch-logs <<< "$fl"; then
+                echo "El flow log va a CloudWatch Logs, que no funciona al Learner Lab: envieu-lo a un bucket S3"
+              else
+                echo "No hi ha cap flow log actiu cap a S3"
+              fi
+              exit 1
+            fi
+            read -r _ tt _ dest <<< "$l"
             [ "$tt" = ALL ] || { echo "El flow log registra $tt, no tot el trànsit (ALL)"; exit 1; }
-            [ "$dt" = cloud-watch-logs ] || { echo "El flow log va a $dt, no a CloudWatch Logs"; exit 1; }
-            echo "Flow log actiu (ALL) cap a $lg"
+            echo "Flow log actiu (ALL) cap a $dest"
             SH],
-        ['F6: Els Flow Logs registren REJECT', 'Al grup de logs del flow log hi ha línies REJECT de les últimes 24 hores (el vostre escaneig). Comprova-ho: `aws logs filter-log-events --log-group-name <grup> --filter-pattern REJECT`.',
+        ['F6: Els Flow Logs registren REJECT', 'Als fitxers del bucket del flow log hi ha línies REJECT (el vostre escaneig; també hi surten IP alienes). Els fitxers triguen uns 5-10 minuts a arribar. Comprova-ho: `aws s3 cp s3://<bucket>/<fitxer> - | zcat | grep REJECT`.',
             "**Objectiu:** trobar el trànsit denegat als Flow Logs.\n\n**Per què:** un registre que mai no es consulta no serveix; cal saber-hi trobar un escaneig.",
             <<<'SH'
-            lg=$(aws ec2 describe-flow-logs --filter "Name=resource-id,Values=$VPC" --query 'FlowLogs[0].LogGroupName' --output text)
-            need "el grup de logs del flow log" "$lg"
-            n=$(aws logs filter-log-events --log-group-name "$lg" --filter-pattern REJECT \
-                  --start-time $(( ($(date +%s) - 86400) * 1000 )) --max-items 50 --query 'length(events)' --output text 2>/dev/null | head -1)
-            [ "${n:-0}" -gt 0 ] 2>/dev/null || { echo "Cap REJECT a $lg les últimes 24 h: feu un escaneig i espereu uns minuts"; exit 1; }
-            echo "$n línies REJECT a $lg"
+            dest=$(aws ec2 describe-flow-logs --filter "Name=resource-id,Values=$VPC" \
+              --query "FlowLogs[?FlowLogStatus=='ACTIVE' && LogDestinationType=='s3'] | [0].LogDestination" --output text)
+            need "el bucket S3 del flow log" "$dest"
+            bucket=${dest#arn:aws:s3:::}; prefix=""
+            case $bucket in */*) prefix=${bucket#*/}; bucket=${bucket%%/*} ;; esac
+            keys=$(aws s3api list-objects-v2 --bucket "$bucket" --prefix "$prefix" --query 'Contents[?Size>`0`].[LastModified,Key]' --output text 2>/dev/null \
+              | awk 'NF==2 {print $1, $2}' | sort -r | head -n 60 | cut -d' ' -f2)
+            [ -n "$keys" ] || { echo "El bucket $bucket encara no té cap fitxer de flow logs: espereu 5-10 minuts"; exit 1; }
+            for k in $keys; do
+              r=$(aws s3 cp "s3://$bucket/$k" - 2>/dev/null | gzip -dc 2>/dev/null | awk '$13=="REJECT"' | head -n 1)
+              [ -z "$r" ] || { echo "REJECT als Flow Logs (s3://$bucket/$k): $r"; exit 0; }
+            done
+            echo "Cap REJECT als darrers fitxers del bucket $bucket: feu un escaneig i espereu 5-10 minuts"; exit 1
             SH],
         ['F7: nftables amb política drop', 'Al gateway, les cadenes input i forward d\'nftables tenen política drop. Comprova-ho dins del gateway: `sudo nft list ruleset`.',
             "**Objectiu:** que el tallafocs del gateway denegui per defecte.\n\n**Per què:** amb política drop, el que no s'ha previst queda tancat; amb accept, el que s'oblida queda obert.",

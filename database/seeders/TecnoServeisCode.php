@@ -126,7 +126,7 @@ final class TecnoServeisCode
             tolera() {
               local out
               out=$("$@" 2>&1) && return 0
-              grep -qE 'Duplicate|NotFound|AlreadyExists' <<< "$out" && return 0
+              grep -qE 'Duplicate|NotFound|AlreadyExists|AlreadyOwnedByYou' <<< "$out" && return 0
               echo "$out"; return 1
             }
             SH],
@@ -297,18 +297,17 @@ final class TecnoServeisCode
             }
             SH],
         'pas_flowlogs' => ['/(?<![\w-])pas_flowlogs(?![\w-])/', <<<'SH'
-            pas_flowlogs() {  # Flow Logs de tota la VPC cap a CloudWatch Logs, amb LabRole
-              local lg acct
-              lg=/tecnoserveis/$NC/flowlogs
-              if [ "$(aws ec2 describe-flow-logs --filter "Name=resource-id,Values=$VPC" --query 'length(FlowLogs)' --output text)" != 0 ]; then
-                echo "La VPC ja té flow log"; return
+            pas_flowlogs() {  # Flow Logs de tota la VPC cap a un bucket S3 (al Learner Lab CloudWatch Logs no funciona)
+              local b acct
+              if [ "$(aws ec2 describe-flow-logs --filter "Name=resource-id,Values=$VPC" --query "length(FlowLogs[?LogDestinationType=='s3'])" --output text)" != 0 ]; then
+                echo "La VPC ja té un flow log cap a S3"; return
               fi
-              tolera aws logs create-log-group --log-group-name "$lg" || exit 1
               acct=$(aws sts get-caller-identity --query Account --output text) || exit 1
+              b=$(tr 'A-Z' 'a-z' <<< "tecnoserveis-$NC-flowlogs-$acct")
+              tolera aws s3 mb "s3://$b" || exit 1
               aws ec2 create-flow-logs --resource-type VPC --resource-ids "$VPC" --traffic-type ALL \
-                --log-destination-type cloud-watch-logs --log-group-name "$lg" \
-                --deliver-logs-permission-arn "arn:aws:iam::$acct:role/LabRole" --max-aggregation-interval 60 >/dev/null || exit 1
-              echo "Flow log de la VPC cap a $lg"
+                --log-destination-type s3 --log-destination "arn:aws:s3:::$b" --max-aggregation-interval 60 >/dev/null || exit 1
+              echo "Flow log de la VPC cap a s3://$b"
             }
             SH],
         'vpn_activa' => ['/(?<![\w-])vpn_activa(?![\w-])/', <<<'SH'

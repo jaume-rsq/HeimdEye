@@ -107,4 +107,29 @@ class TecnoServeisCodiSeederTest extends TestCase
         $this->assertSame($all->currentVersion->checks_verificacio, $all->fresh()->currentVersion->checks_verificacio);
         $this->assertCount(10, $all->fresh()->currentVersion->checks_verificacio);
     }
+
+    public function test_the_flow_log_checks_use_s3_and_the_old_name_is_renamed_keeping_the_check(): void
+    {
+        $this->seed(Tiquet2TecnoServeisSeeder::class);
+        $f6 = $this->t2->checks()->where('nom', 'F6: Flow Logs de la VPC a S3')->sole();
+        $f6->update(['nom' => 'F6: Flow Logs de la VPC a CloudWatch']); // com estava abans
+        $f6->currentVersion->update(['codi' => "# hosts: aws\n# cloud-watch-logs"]);
+
+        $this->seed(TecnoServeisCodiSeeder::class);
+        $this->seed(TecnoServeisCodiSeeder::class); // ja està al dia
+
+        $renamed = $f6->fresh();
+        $this->assertSame('F6: Flow Logs de la VPC a S3', $renamed->nom); // el mateix check, amb els seus resultats
+        $this->assertSame(1, $this->t2->checks()->where('nom', 'like', 'F6: Flow Logs de la VPC%')->count());
+        $this->assertSame(2, $renamed->versions()->count());
+        $this->assertStringContainsString('LogDestinationType', $renamed->currentVersion->codi);
+
+        foreach (Tiquet2TecnoServeisSeeder::codes()['checks'] + Tiquet2TecnoServeisSeeder::codes()['accions'] as $name => $code) {
+            if (str_contains($name, 'Flow Logs') || str_contains($name, 'REJECT')) {
+                $this->assertStringNotContainsString('cloud-watch-logs create', $code, $name);
+                $this->assertStringNotContainsString('aws logs', $code, $name);
+            }
+        }
+        $this->assertStringContainsString('--log-destination-type s3', Tiquet2TecnoServeisSeeder::codes()['accions']['T2: Flow Logs de la VPC']);
+    }
 }

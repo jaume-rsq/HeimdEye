@@ -49,6 +49,7 @@ class TecnoServeisCodiSeeder extends Seeder
 
                 continue;
             }
+            $this->rename($task);
             $checks = $task->checks()->with('currentVersion')->get();
             $this->update($checks, $codes, "checks de «{$title}»");
             foreach ($checks as $check) {
@@ -62,6 +63,23 @@ class TecnoServeisCodiSeeder extends Seeder
         $t2task = $block->tasks()->where('titol', env('HEIMDEYE_INCIDENCIA_TASCA', 'Tiquet 2'))->first();
         if ($t2task !== null) {
             $this->syncActions($module, $block, $t2task, $t2task->checks()->pluck('id', 'nom')->all());
+        }
+    }
+
+    /** Reanomena els checks del tiquet 2 que han canviat de nom (amb la informació nova), conservant-ne les execucions. */
+    private function rename(Task $task): void
+    {
+        if ($task->titol !== env('HEIMDEYE_INCIDENCIA_TASCA', 'Tiquet 2')) {
+            return;
+        }
+        $infos = Tiquet2TecnoServeisSeeder::infos();
+        foreach (Tiquet2TecnoServeisSeeder::RENAMED as $old => $new) {
+            $check = $task->checks()->where('nom', $old)->first();
+            if ($check === null || $task->checks()->where('nom', $new)->exists()) {
+                continue;
+            }
+            $check->update(['nom' => $new, 'info' => $infos[$new] ?? $check->info]);
+            $this->command?->info("Check reanomenat: «{$old}» → «{$new}».");
         }
     }
 
