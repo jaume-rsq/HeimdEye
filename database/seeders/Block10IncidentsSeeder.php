@@ -9,8 +9,8 @@ use App\Models\Block;
 use App\Models\Incident;
 use App\Models\Module;
 use App\Models\Task;
-use RuntimeException;
 use Illuminate\Database\Seeder;
+use RuntimeException;
 
 /**
  * Bloc 10, pas 21: la sessió d'incidències del divendres 27/11 (una hora). Dotze avaries (I01-I12),
