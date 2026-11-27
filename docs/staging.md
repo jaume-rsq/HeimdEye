@@ -54,7 +54,7 @@ enllà del pas 4.
    `systemctl enable --now heimdeye-queue@{1..2} heimdeye-deploy.timer` (**sense** `heimdeye-schedule.timer`).
    Drop-in del timer: `systemctl edit heimdeye-deploy.service` amb
    `[Service]` + `Environment=HEIMDEYE_PR_LABEL=staging`.
-6. **Cloudflare** (no ho pot fer Claude Code sense connector; Jaume o el connector de Cloudflare):
+6. **Cloudflare** (Claude Code hi té accés):
    ruta del túnel `heimdeye-staging.julioantonio.cat` → `http://<IP del contenidor>:8080` i una aplicació
    d'Access pròpia (només Jaume), seguint [cloudflare.md](cloudflare.md). Posa el seu `AUD` al `.env` i
    `php artisan config:cache`.
