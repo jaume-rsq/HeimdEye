@@ -8,7 +8,6 @@ use App\Filament\Support\ScopeFilters;
 use App\Models\Check;
 use App\Models\CheckRun;
 use App\Models\RunBatch;
-use App\Models\Student;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Support\Enums\Width;
@@ -73,11 +72,13 @@ class CheckRunsTable
                 // Curs, grup i mòdul primer, com a totes les llistes (a l'historial d'un check, només el grup).
                 ScopeFilters::course('curs',
                     fn (Builder $q, int $id) => $q->whereHas('check.task.block.module', fn (Builder $m) => $m->where('curs_id', $id)),
-                    children: ['grup', 'modul'])
+                    children: ['grup', 'modul', 'alumne_id'])
                     ->visible($check === null),
-                ScopeFilters::group('grup', 'curs', fn (Builder $q, int $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id))),
+                ScopeFilters::group('grup', 'curs', fn (Builder $q, int $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id)),
+                    children: $check === null ? ['modul', 'alumne_id'] : ['alumne_id']),
                 ScopeFilters::module('modul', 'curs',
-                    fn (Builder $q, int $id) => $q->whereHas('check.task.block', fn (Builder $b) => $b->where('modul_id', $id)))
+                    fn (Builder $q, int $id) => $q->whereHas('check.task.block', fn (Builder $b) => $b->where('modul_id', $id)),
+                    children: ['alumne_id'], group: 'grup')
                     ->visible($check === null),
                 SelectFilter::make('check_id')
                     ->label('Check')
@@ -89,13 +90,7 @@ class CheckRunsTable
                     ->label('Versió')
                     ->options(fn () => $check?->versions()->orderByDesc('versio')->pluck('versio', 'id')->map(fn ($v) => "v{$v}") ?? [])
                     ->visible($check !== null),
-                SelectFilter::make('alumne_id')
-                    ->label('Alumne')
-                    ->options(fn () => Student::where('es_actiu', true)
-                        ->when($check, fn (Builder $q) => $q->whereHas('modules', fn (Builder $m) => $m->whereKey($check->module->id)))
-                        ->orderBy('num_taula')->get()
-                        ->mapWithKeys(fn (Student $s) => [$s->id => sprintf('%02d · %s', $s->num_taula, $s->nom_complet)]))
-                    ->searchable(),
+                ScopeFilters::student('alumne_id', 'curs', 'grup', 'modul', $check?->module?->id),
                 SelectFilter::make('estat')
                     ->options(CheckStatus::class)
                     ->multiple(),

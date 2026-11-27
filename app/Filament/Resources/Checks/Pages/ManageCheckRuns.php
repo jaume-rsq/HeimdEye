@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Checks\Pages;
 
 use App\Filament\Actions\LaunchCheck;
+use App\Filament\Concerns\KeepsScopeFiltersCoherent;
 use App\Filament\Resources\CheckRuns\Tables\CheckRunsTable;
 use App\Filament\Resources\Checks\CheckResource;
 use App\Models\Check;
@@ -25,6 +26,8 @@ use Illuminate\Contracts\Support\Htmlable;
  */
 class ManageCheckRuns extends ManageRelatedRecords
 {
+    use KeepsScopeFiltersCoherent;
+
     protected static string $resource = CheckResource::class;
 
     protected static string $relationship = 'runs';

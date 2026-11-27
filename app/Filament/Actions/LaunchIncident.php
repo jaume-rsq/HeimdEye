@@ -103,7 +103,7 @@ class LaunchIncident
                     DateTimePicker::make('data_limit')
                         ->label('Termini')
                         ->seconds(false)
-                        ->helperText('Opcional. Només informatiu: en acabar, no es repara res sol.'),
+                        ->helperText('Opcional. Passat el termini, l\'alumne ja no la pot verificar. No es repara res sol.'),
                 ])
                 ->afterValidation(function (Get $get, Set $set) use ($record) {
                     $students = Student::whereKey(array_map('intval', $get('alumnes') ?? []))->orderBy('num_taula')->get();

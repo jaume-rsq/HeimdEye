@@ -23,7 +23,8 @@ class ScopeFields
         return Select::make('curs_id')
             ->label('Curs')
             ->options(fn () => AcademicYear::orderBy('es_biblioteca')->orderByDesc('data_inici')->pluck('nom', 'id'))
-            ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
+            // En crear, el curs que s'ha triat a les llistes o al seguiment; si no, l'actual.
+            ->default(fn () => self::remembered('curs') ?? AcademicYear::where('es_actual', true)->value('id'))
             ->live()
             ->dehydrated(false)
             ->afterStateUpdated(function (Set $set) use ($resets) {
@@ -47,6 +48,7 @@ class ScopeFields
                 ->when($get('curs_id'), fn ($q, $year) => $q->where('curs_id', $year))
                 ->orderBy('codi')->orderBy('nom')->get()
                 ->mapWithKeys(fn (Module $m) => [$m->id => $m->label()]))
+            ->default(fn () => self::remembered('modul'))
             ->searchable()
             ->required()
             ->live()
@@ -84,5 +86,13 @@ class ScopeFields
                         ->send();
                 }
             });
+    }
+
+    /** El curs o el mòdul triat per darrer cop (llistes, leaderboard, seguiment, inventari). */
+    private static function remembered(string $key): ?int
+    {
+        $value = session('heimdeye.ambit', [])[$key] ?? null;
+
+        return is_int($value) ? $value : null;
     }
 }

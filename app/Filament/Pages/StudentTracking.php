@@ -320,7 +320,7 @@ class StudentTracking extends Page
             $board = app(Leaderboard::class)->build($module, groupId: $group);
             $row = collect($board['rows'])->firstWhere('student.id', $this->alumne);
             $last = $this->student()->runs()
-                ->whereIn('check_id', Check::whereIn('tasca_id', $module->tasks()->select('tasques.id'))->select('id'))
+                ->whereIn('check_id', Check::whereIn('tasca_id', $module->tasks()->select('tasques.id'))->withoutIncidents()->select('id'))
                 ->max('data_execucio');
 
             return ['module' => $module, 'board' => $board, 'row' => $row, 'alumnes' => count($board['rows']), 'darrera_execucio' => $last];
@@ -342,7 +342,7 @@ class StudentTracking extends Page
 
         return app(StudentProgress::class)->build($this->student(), $this->module(), [
             'bloc' => $this->bloc, 'tasca' => $this->tasca, 'estat' => $this->estat, 'obligatoris' => $this->obligatoris,
-        ]);
+        ], studentView: $this->readonly());
     }
 
     /** Ordena per una columna; un segon clic en canvia el sentit. Posició torna a l'ordre agrupat. */
@@ -463,8 +463,17 @@ class StudentTracking extends Page
             ->when($checkId, fn ($q) => $q->whereKey($checkId))
             ->when($taskId, fn ($q) => $q->where('tasca_id', $taskId))
             ->when($blockId, fn ($q) => $q->whereIn('tasca_id', Task::where('bloc_id', $blockId)->select('id')))
+            // Una tasca, un bloc o el mòdul sencer: sense els d'incidència, que es llancen d'un en un.
+            ->when(! $checkId, fn ($q) => $q->withoutIncidents())
             ->with('currentVersion')
             ->get();
+
+        if ($checks->isEmpty() && ! $checkId) {
+            Notification::make()->warning()->title('No hi ha cap check per verificar')
+                ->body('Els checks d\'incidència es verifiquen d\'un en un.')->send();
+
+            return;
+        }
 
         $queued = 0;
         $errors = [];
@@ -473,7 +482,7 @@ class StudentTracking extends Page
                 $this->pending[] = app(CheckRunner::class)->launch($check, collect([$student]), Auth::user())->id;
                 $queued++;
             } catch (InvalidArgumentException $e) {
-                $errors[] = "{$check->nom}: {$e->getMessage()}";
+                $errors[] = $this->verifyError($check, $e);
             }
         }
 
@@ -483,6 +492,18 @@ class StudentTracking extends Page
             ->body($errors ? implode("\n", $errors) : 'La pàgina es posa al dia sola a mesura que acaben.')
             ->send();
         unset($this->table, $this->progress, $this->cards);
+    }
+
+    /** El text de l'avís quan un check no es pot llançar. */
+    protected function verifyError(Check $check, InvalidArgumentException $e): string
+    {
+        return "{$check->nom}: {$e->getMessage()}";
+    }
+
+    /** Minuts que l'alumne ha d'esperar entre dues verificacions d'aquest check (per als textos). */
+    public function verifyEveryMinutes(Check $check): int
+    {
+        return 0;
     }
 
     /** Cada pocs segons mentre hi ha verificacions en marxa: torna a llegir els resultats. */
@@ -621,6 +642,6 @@ class StudentTracking extends Page
     /** @return Collection<int, Check> */
     private function blockChecks(?Block $block): Collection
     {
-        return $block ? Check::whereIn('tasca_id', $block->tasks()->reorder()->select('id'))->with('task.block')->get() : collect();
+        return $block ? Check::whereIn('tasca_id', $block->tasks()->reorder()->select('id'))->withoutIncidents()->with('task.block')->get() : collect();
     }
 }

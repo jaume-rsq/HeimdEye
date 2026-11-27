@@ -4,6 +4,7 @@ namespace App\Support;
 
 use App\Enums\CheckKind;
 use App\Enums\CheckStatus;
+use App\Enums\IncidentStatus;
 use App\Models\Block;
 use App\Models\Check;
 use App\Models\CheckRun;
@@ -22,10 +23,13 @@ class StudentProgress
 {
     /**
      * @param  array{bloc?: ?int, tasca?: ?int, estat?: ?string, obligatoris?: bool}  $filters
-     *                                                                                          estat: pendents (no assolits), assolits o error (la darrera execució no va poder comprovar res)
-     * @return list<array{block: Block, resum: array<string, mixed>, tasks: list<array{task: Task, assolits: int, total: int, rows: list<array<string, mixed>>}>}>
+     *                                                                                          estat: pendents (no assolits), assolits o error (la darrera execució no va poder comprovar res);
+     *                                                                                          a les incidències, l'estat de l'avaria: en marxa, resolta o no injectada
+     * @param  bool  $studentView  per a l'alumne: només les avaries que ja pot veure i, dels seus checks,
+     *                             només les execucions fetes després d'injectar-les
+     * @return list<array{block: Block, resum: array<string, mixed>, tasks: list<array{task: Task, assolits: int, total: int, resoltes: int, avaries: int, rows: list<array<string, mixed>>}>}>
      */
-    public function build(Student $student, Module $module, array $filters = []): array
+    public function build(Student $student, Module $module, array $filters = [], bool $studentView = false): array
     {
         $checks = Check::query()
             ->whereIn('tasca_id', $module->tasks()->select('tasques.id'))
@@ -40,17 +44,31 @@ class StudentProgress
             ->get(['id', 'check_id', 'versio_check_id', 'estat', 'missatge', 'durada_ms', 'data_execucio'])
             ->groupBy('check_id');
 
-        $rows = $checks->map(function (Check $check) use ($states, $runs) {
+        $incidents = IncidentMask::assignments($student, visibleOnly: $studentView);
+
+        $rows = $checks->map(function (Check $check) use ($states, $runs, $incidents, $studentView) {
+            // L'avaria de l'alumne que es mira amb aquest check. A la vista del professor, només als
+            // checks d'incidència: un check normal que també serveix de resolució es veu com sempre.
+            $incident = $studentView || $check->isIncident() ? $incidents->get($check->id) : null;
+            $all = $runs->get($check->id, collect());
+            // Abans d'injectar l'avaria el check passava: no li diu res a l'alumne.
+            if ($studentView && $incident) {
+                $all = $all->filter(fn (CheckRun $run) => $incident->data_injeccio && $run->data_execucio >= $incident->data_injeccio)->values();
+            }
             /** @var Collection<int, CheckRun> $history */
             // Les omeses no canvien res per a l'alumne: ni són la darrera execució ni un canvi d'estat.
-            $history = $runs->get($check->id, collect())->reject(fn (CheckRun $run) => $run->estat === CheckStatus::Skipped)->values();
+            $history = $all->reject(fn (CheckRun $run) => $run->estat === CheckStatus::Skipped)->values();
             $state = $states->get($check->id);
 
             return [
                 'check' => $check,
                 'state' => $state,
-                'assolit' => $state?->isAchieved() ?? false,
-                'ara_no_passa' => $state?->isRegressed() ?? false,
+                'incidencia' => $incident,
+                // Un check d'incidència està resolt si ho està l'avaria, no perquè hagi passat algun cop.
+                'assolit' => $check->isIncident()
+                    ? $state?->estat_professor ?? $incident?->estat === IncidentStatus::Resolta
+                    : $state?->isAchieved() ?? false,
+                'ara_no_passa' => ! $check->isIncident() && ($state?->isRegressed() ?? false),
                 'corregit' => $state?->estat_professor !== null,
                 'compta' => Leaderboard::counts($check),
                 'punts' => Leaderboard::points($check, $state),
@@ -58,7 +76,7 @@ class StudentProgress
                 'a_temps' => $state?->data_primer_assoliment && $check->data_limit ? $state->data_primer_assoliment->lessThanOrEqualTo($check->data_limit) : null,
                 'darrera' => $history->last(),
                 // Una execució omesa posterior a la darrera: es mostra, però no canvia res.
-                'omesa' => self::laterSkipped($runs->get($check->id, collect()), $history->last()),
+                'omesa' => self::laterSkipped($all, $history->last()),
                 'execucions' => $history->count(),
                 'canvis' => self::withCorrection(self::changes($history), $state),
             ];
@@ -68,6 +86,10 @@ class StudentProgress
         $outputs = CheckRun::whereKey($rows->pluck('darrera')->filter()->map(fn ($run) => $run->id)->values()->all())->pluck('sortida', 'id');
         $rows = $rows->map(fn (array $r) => [...$r, 'sortida' => $r['darrera'] ? $outputs->get($r['darrera']->id) : null]);
 
+        // Un check d'incidència sense cap avaria de l'alumne no diu res: només surt si n'ha rebut una
+        // (o si s'ha intentat llançar i ha fallat).
+        $rows = $rows->reject(fn (array $r) => $r['check']->isIncident() && $r['incidencia'] === null);
+
         // El resum de cada bloc és de tots els seus checks, encara que els filtres n'amaguin alguns.
         $summaries = $rows->groupBy(fn (array $r) => $r['check']->task->bloc_id)->map(fn (Collection $r) => self::summary($r));
 
@@ -75,10 +97,15 @@ class StudentProgress
             ($filters['bloc'] ?? null) && $r['check']->task->bloc_id !== (int) $filters['bloc'] => false,
             ($filters['tasca'] ?? null) && $r['check']->tasca_id !== (int) $filters['tasca'] => false,
             ($filters['obligatoris'] ?? false) && $r['check']->tipus !== CheckKind::Required => false,
+            // Les files d'incidència es filtren per l'estat de l'avaria: pendents = en marxa (pendent,
+            // comprovant o oberta), assolits = resolta i error = no s'ha pogut injectar. Les tancades
+            // i les reparades pel professor només surten sense filtre.
             default => match ($filters['estat'] ?? null) {
-                'pendents' => ! $r['assolit'],
+                'pendents' => $r['incidencia'] ? $r['incidencia']->estat->isActive() : ! $r['assolit'],
                 'assolits' => $r['assolit'],
-                'error' => $r['darrera'] !== null && ! in_array($r['darrera']->estat, [CheckStatus::Pass, CheckStatus::Fail], true),
+                'error' => $r['incidencia']
+                    ? in_array($r['incidencia']->estat, [IncidentStatus::Error, IncidentStatus::NoEfectiva, IncidentStatus::Caducada], true)
+                    : $r['darrera'] !== null && ! in_array($r['darrera']->estat, [CheckStatus::Pass, CheckStatus::Fail], true),
                 default => true,
             },
         });
@@ -90,8 +117,7 @@ class StudentProgress
                 'tasks' => $blockRows->groupBy(fn (array $r) => $r['check']->tasca_id)
                     ->map(fn (Collection $taskRows) => [
                         'task' => $taskRows->first()['check']->task,
-                        'assolits' => $taskRows->where('assolit', true)->count(),
-                        'total' => $taskRows->count(),
+                        ...self::taskCounts($taskRows),
                         'rows' => $taskRows->values()->all(),
                     ])
                     ->sortBy(fn (array $t) => [$t['task']->posicio, $t['task']->id])
@@ -99,6 +125,26 @@ class StudentProgress
             ])
             ->sortBy(fn (array $b) => [$b['block']->posicio, $b['block']->numero, $b['block']->id])
             ->values()->all();
+    }
+
+    /**
+     * Recompte d'una tasca: els checks assolits (sense els d'incidència) i, a part, les avaries
+     * rebudes i les resoltes.
+     *
+     * @param  Collection<int, array<string, mixed>>  $rows
+     * @return array{assolits: int, total: int, resoltes: int, avaries: int}
+     */
+    public static function taskCounts(Collection $rows): array
+    {
+        $checks = $rows->reject(fn (array $r) => $r['check']->isIncident() || ($r['emmascarat'] ?? false));
+        $faults = $rows->filter(fn (array $r) => $r['incidencia'] !== null);
+
+        return [
+            'assolits' => $checks->where('assolit', true)->count(),
+            'total' => $checks->count(),
+            'resoltes' => $faults->filter(fn (array $r) => $r['incidencia']->estat === IncidentStatus::Resolta)->count(),
+            'avaries' => $faults->count(),
+        ];
     }
 
     /**

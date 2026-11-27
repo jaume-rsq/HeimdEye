@@ -7,6 +7,7 @@ use App\Models\HostType;
 use App\Models\Module;
 use App\Models\Secret;
 use App\Models\Student;
+use App\Models\Variable;
 use App\Runner\SecretRefs;
 use App\Runner\TempFiles;
 use App\Support\VariableResolver;
@@ -46,6 +47,7 @@ class InventoryBuilder
         foreach ($hostTypes->filter->isUnique() as $type) {
             $name = $this->resolver->render($type->nom_host, $globals);
             $children[$type->grup_ansible]['hosts'][$name] = $this->hostVars($module, $type, $globals);
+            $this->alsoByName($children, $type, $name);
             $this->hostMap[$name] = null;
         }
 
@@ -58,6 +60,7 @@ class InventoryBuilder
             foreach ($hostTypes->reject->isUnique() as $type) {
                 $name = $this->resolver->render($type->nom_host, $vars);
                 $children[$type->grup_ansible]['hosts'][$name] = $this->hostVars($module, $type, $vars);
+                $this->alsoByName($children, $type, $name);
                 $children[$group]['hosts'][$name] = (object) [];
                 $this->hostMap[$name] = $student->id;
             }
@@ -66,6 +69,17 @@ class InventoryBuilder
         $children['alumnes'] = ['children' => $studentGroups ?: (object) []];
 
         return ['all' => ['vars' => $globals ?: (object) [], 'children' => $children]];
+    }
+
+    /**
+     * El "hosts:" d'un play pot dir el grup Ansible o el nom del tipus d'equip (com "# hosts:"): si
+     * són diferents, l'equip també és al grup amb el nom del tipus (les variables ja són a l'altre).
+     */
+    private function alsoByName(array &$children, HostType $type, string $host): void
+    {
+        if ($type->nom !== $type->grup_ansible && preg_match(Variable::KEY_RULE, $type->nom) && ! in_array($type->nom, ['all', 'alumnes'], true)) {
+            $children[$type->nom]['hosts'][$host] = (object) [];
+        }
     }
 
     /** @return array<string, ?int> */

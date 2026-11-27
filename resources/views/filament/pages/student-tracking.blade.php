@@ -156,9 +156,9 @@
                     <span class="lbl">Estat</span>
                     <select wire:model.live="estat" aria-label="Estat">
                         <option value="">Tots</option>
+                        <option value="assolits">Assolits o resolts</option>
                         <option value="pendents">Pendents</option>
-                        <option value="assolits">Assolits</option>
-                        <option value="error">Amb error a la darrera execució</option>
+                        <option value="error">Errors</option>
                     </select>
                     <div class="last">
                     <label style="display: flex; gap: .35rem; align-items: center"><input type="checkbox" wire:model.live="obligatoris" /> Només obligatoris</label>
@@ -247,11 +247,11 @@
                                         <tbody x-show="! closed[{{ $blockId }}]">
                                             <tr class="grp">
                                                 <td class="pos">{{ $group['block']->numero }}.{{ $t['task']->posicio }}</td>
-                                                <td colspan="4">{{ $t['task']->titol }} <span class="sub">· {{ $t['assolits'] }}/{{ $t['total'] }} assolits</span></td>
+                                                <td colspan="4">{{ $t['task']->titol }} <span class="sub">@if ($t['total'] || ! $t['avaries'])· {{ $t['assolits'] }}/{{ $t['total'] }} assolits @endif @if ($t['avaries'])· {{ $t['resoltes'] }}/{{ $t['avaries'] }} incidències resoltes @endif</span></td>
                                                 <td style="text-align: right">
-                                                    @unless ($readonly)
+                                                    @if (! $readonly && collect($t['rows'])->contains(fn (array $r) => ! $r['check']->isIncident()))
                                                         <button type="button" class="he-btn" wire:click="verify(null, {{ $t['task']->id }})">Verificar la tasca</button>
-                                                    @endunless
+                                                    @endif
                                                 </td>
                                             </tr>
                                         </tbody>
@@ -261,18 +261,29 @@
                                                 $check = $r['check'];
                                                 $state = $r['state'];
                                                 $last = $r['darrera'];
+                                                // Una fila d'incidència mostra l'estat de l'avaria, no «Assolit».
+                                                $fault = $r['incidencia'];
+                                                $isFault = $check->isIncident() || ($r['emmascarat'] ?? false);
                                             @endphp
                                             <tbody class="chk" x-data="{ open: false }" x-show="! closed[{{ $blockId }}]" wire:key="chk-{{ $check->id }}">
                                                 {{-- Línia 1: el check i el seu estat per a l'alumne --}}
                                                 <tr class="row-main l1" x-on:click="open = ! open">
-                                                    <td class="pos">{{ $check->positionLabel() }}</td>
+                                                    <td class="pos">{{ ($r['emmascarat'] ?? false) ? '' : $check->positionLabel() }}</td>
                                                     <td style="min-width: 16rem">
                                                         <strong>{{ $check->nom }}</strong>
-                                                        <span class="sub" style="white-space: nowrap">· {{ $check->tipus->value }} · {{ $check->punts }} {{ $check->punts == 1 ? 'punt' : 'punts' }}{{ $r['compta'] ? '' : ' · no compta encara' }}</span>
+                                                        @unless ($isFault)
+                                                            <span class="sub" style="white-space: nowrap">· {{ $check->tipus->label() }} · {{ $check->punts }} {{ $check->punts == 1 ? 'punt' : 'punts' }}{{ $r['compta'] ? '' : ' · no compta encara' }}</span>
+                                                        @elseif (! ($r['emmascarat'] ?? false))
+                                                            <span class="sub" style="white-space: nowrap">· {{ \App\Enums\CheckKind::Incident->label() }}</span>
+                                                        @endunless
                                                     </td>
                                                     <td style="white-space: nowrap">
-                                                        <span class="chip" style="background: {{ $r['assolit'] ? 'rgb(22,163,74)' : 'rgb(107,114,128)' }}">{{ $r['assolit'] ? 'Assolit' : 'No assolit' }}</span>
-                                                        @if ($r['ara_no_passa'])
+                                                        @if ($isFault)
+                                                            <span class="chip" style="background: {{ match ($fault?->estat) { \App\Enums\IncidentStatus::Resolta => 'rgb(22,163,74)', \App\Enums\IncidentStatus::Oberta => 'rgb(220,38,38)', default => 'rgb(107,114,128)' } }}">{{ $fault === null ? 'No rebuda' : ($readonly ? $fault->estat->studentLabel() : \Illuminate\Support\Str::ucfirst($fault->estat->getLabel())) }}</span>
+                                                        @else
+                                                            <span class="chip" style="background: {{ $r['assolit'] ? 'rgb(22,163,74)' : 'rgb(107,114,128)' }}">{{ $r['assolit'] ? 'Assolit' : 'No assolit' }}</span>
+                                                        @endif
+                                                        @if ($r['ara_no_passa'] && ! ($r['emmascarat'] ?? false))
                                                             <span class="chip" style="background: rgb(234,88,12)" title="L'ha assolit i conserva els punts, però la darrera execució ({{ $state->estat_actual->value }}) no passa">ara no passa</span>
                                                         @endif
                                                         @if ($r['corregit'])
@@ -280,12 +291,12 @@
                                                         @endif
                                                     </td>
                                                     <td style="white-space: nowrap">
-                                                        {{ $state?->data_primer_assoliment?->format('d/m/Y H:i') ?? '—' }}
-                                                        @if ($r['a_temps'] !== null)
+                                                        {{ ($isFault ? $fault?->data_resolucio : $state?->data_primer_assoliment)?->format('d/m/Y H:i') ?? '—' }}
+                                                        @if (! $isFault && $r['a_temps'] !== null)
                                                             <span class="sub">· {{ $r['a_temps'] ? 'a temps (+'.$check->bonus_puntualitat_pct.'%)' : 'tard' }}</span>
                                                         @endif
                                                     </td>
-                                                    <td style="text-align: right"><strong>{{ $fmt($r['punts']) }}</strong></td>
+                                                    <td style="text-align: right"><strong>{{ $check->isIncident() ? '—' : $fmt($r['punts']) }}</strong></td>
                                                     <td style="text-align: right; white-space: nowrap" x-on:click.stop>
                                                         <span style="display: inline-flex; gap: .15rem; align-items: center; vertical-align: middle">
                                                             @unless ($r['emmascarat'] ?? false)
@@ -293,10 +304,11 @@
                                                             @endunless
                                                             @if ($this->canVerify($check))
                                                                 @php($wait = $this->verifyWaitMinutes($check))
+                                                                @php($every = $this->verifyEveryMinutes($check))
                                                                 @if ($wait)
                                                                     <x-filament::icon-button icon="heroicon-o-play" color="gray" size="sm" label="Verificar" :tooltip="'Podràs tornar a verificar-lo d\'aquí a '.$wait.' min'" disabled />
                                                                 @elseif ($readonly)
-                                                                    <x-filament::icon-button icon="heroicon-o-play" color="primary" size="sm" label="Verificar" tooltip="Verificar ara (un cop cada 10 minuts)" wire:click="verify({{ $check->id }})" wire:confirm="Abans de verificar, comprova tu mateix que funciona: només ho podràs tornar a provar d'aquí a 10 minuts. Verificar ara?" />
+                                                                    <x-filament::icon-button icon="heroicon-o-play" color="primary" size="sm" label="Verificar" :tooltip="'Verificar ara (un cop cada '.$every.' '.($every === 1 ? 'minut' : 'minuts').')'" wire:click="verify({{ $check->id }})" wire:confirm="Abans de verificar, comprova tu mateix que funciona: només ho podràs tornar a provar d'aquí a {{ $every }} {{ $every === 1 ? 'minut' : 'minuts' }}. Verificar ara?" />
                                                                 @else
                                                                     <x-filament::icon-button icon="heroicon-o-play" color="primary" size="sm" label="Verificar" tooltip="Verificar ara per a aquest alumne" wire:click="verify({{ $check->id }})" />
                                                                 @endif
@@ -336,6 +348,18 @@
                                                         @endif
                                                     </td>
                                                 </tr>
+                                                {{-- El símptoma i el termini de l'avaria --}}
+                                                @if ($fault)
+                                                    <tr class="l3">
+                                                        <td></td>
+                                                        <td colspan="5">
+                                                            <span class="sub">Símptoma:</span> <span style="white-space: pre-line">{{ $fault->symptom() }}</span>
+                                                            @if ($limit = $fault->launch?->data_limit)
+                                                                <span class="sub">· Termini: {{ $limit->format('d/m/Y H:i') }}{{ $fault->deadlinePassed() ? ' (acabat)' : '' }}</span>
+                                                            @endif
+                                                        </td>
+                                                    </tr>
+                                                @endif
                                                 {{-- Línia 3: el comentari del professor, si n'hi ha --}}
                                                 @if (filled($state?->comentari_professor))
                                                     <tr class="l3">

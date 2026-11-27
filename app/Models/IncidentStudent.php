@@ -74,6 +74,23 @@ class IncidentStudent extends Model
         return $query->whereIn('estat', IncidentStatus::activeValues());
     }
 
+    /** El símptoma que llegeix l'alumne: el de l'opció que ha rebut o, si no en té, el de la incidència. */
+    public function symptom(): ?string
+    {
+        return $this->option?->simptoma ?: $this->incident?->simptoma;
+    }
+
+    public function deadlinePassed(): bool
+    {
+        return (bool) $this->launch?->data_limit?->isPast();
+    }
+
+    /** L'alumne la pot verificar mentre la té oberta i, si el llançament té termini, fins llavors. */
+    public function isVerifiableByStudent(): bool
+    {
+        return $this->estat === IncidentStatus::Oberta && ! $this->deadlinePassed();
+    }
+
     /** Temps entre la injecció i la resolució, en segons. */
     public function resolutionSeconds(): ?int
     {

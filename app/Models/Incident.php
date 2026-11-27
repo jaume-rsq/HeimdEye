@@ -14,7 +14,7 @@ class Incident extends Model
 {
     protected $table = 'incidencies';
 
-    protected $fillable = ['modul_id', 'bloc_id', 'tasca_id', 'nom', 'equip', 'simptoma', 'notes', 'posicio'];
+    protected $fillable = ['modul_id', 'bloc_id', 'tasca_id', 'nom', 'equip', 'simptoma', 'minuts_verificacio', 'notes', 'posicio'];
 
     public function module(): BelongsTo
     {

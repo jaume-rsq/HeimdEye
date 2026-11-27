@@ -175,5 +175,7 @@ class DomainModelTest extends TestCase
         $this->assertArrayNotHasKey('heimdeye_ssh_pubkey_file', (array) $inventory['all']['vars']);
         $files->cleanup();
         $this->assertSame('198.51.100.18', $inventory['all']['children']['estacio_windows']['hosts']['estacio01']['ansible_host']);
+        // El play també pot dir el nom del tipus d'equip (estacio), com a "# hosts:".
+        $this->assertArrayHasKey('estacio01', $inventory['all']['children']['estacio']['hosts']);
     }
 }

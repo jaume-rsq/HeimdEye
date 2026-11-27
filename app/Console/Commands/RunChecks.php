@@ -120,10 +120,11 @@ class RunChecks extends Command
                 ->when($this->option('block'), fn (Builder $q, $number) => $q->where('numero', $number)));
 
         // Els checks d'agent no entren al escombrat automàtic (ni nocturn): necessiten una
-        // instància efímera connectada i es llancen a mà des de HeimdEye. Amb --check es respecten.
+        // instància efímera connectada i es llancen a mà des de HeimdEye. Els d'incidència tampoc:
+        // els llança el seguiment de la incidència. Amb --check es respecten.
         return $this->option('check')
             ? $query->whereIn('id', $this->option('check'))->get()
-            : $query->where('executor', '!=', Executor::Agent)->activeOn()->get();
+            : $query->where('executor', '!=', Executor::Agent)->withoutIncidents()->activeOn()->get();
     }
 
     /** @return Collection<int, Student> */

@@ -2,7 +2,7 @@
 titol: Inventari i variables
 ordre: 50
 per: [professors]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-28
 ---
 
 # Inventari i variables
@@ -19,6 +19,21 @@ Menú **Inventari**, amb un selector de mòdul i pestanyes:
 
 Variables, equips i secrets tenen un nivell: global, curs o mòdul. Mana el més concret. Una
 variable pròpia d'un alumne fa una excepció només per a ell.
+
+## Grups i `# hosts:`
+
+Els **grups** són els tipus d'equip de la pestanya **Equips** (pve, router, dns...). No es
+defineixen enlloc més: crear un tipus d'equip és crear un grup.
+
+- `# hosts: pve` (executor ssh) vol dir: l'equip de tipus `pve` de cada alumne. Amb
+  `# hosts: pve, router` s'executa a tots dos, un rere l'altre.
+- El `hosts:` d'un play d'Ansible funciona igual: `- hosts: pve`.
+- Cada tipus d'equip té un **Nom** i un **Grup Ansible** (p. ex. `router` i `vm_router`). Tots dos
+  serveixen, a `# hosts:` i a Ansible. Si no hi ha cap motiu per fer-los diferents, posa'ls iguals.
+- Un equip **únic** (p. ex. el servidor Zabbix) és el mateix per a tots els alumnes.
+- Ansible també fa un grup per alumne (`taula01`, `taula02`...) amb tots els seus equips, i el grup
+  `alumnes` amb tots els alumnes. `all` no es pot fer servir: cal dir els grups concrets.
+- HeimdEye no deixa desar codi amb un grup que el mòdul no té.
 
 ## Plantilles
 

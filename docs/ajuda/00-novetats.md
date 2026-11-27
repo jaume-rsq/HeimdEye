@@ -2,13 +2,34 @@
 titol: Novetats
 ordre: 0
 per: [professors]
-actualitzat: 2026-11-06
+actualitzat: 2026-11-28
 ---
 
 # Novetats
 
 Darrers canvis de HeimdEye, el més nou primer. Les pàgines d'ajuda que han
 canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esquerra.
+
+## 28/11/2026
+
+- **Desplegables encadenats coherents**: a totes les llistes, canviar o treure el curs, el grup, el
+  mòdul o el bloc buida els que en depenen. Amb un grup triat, només surten els mòduls i els
+  alumnes d'aquell grup.
+- **Es recorda el curs, el grup i el mòdul** entre les llistes (checks, accions, incidències,
+  alumnes, històrics), el leaderboard, el seguiment i l'inventari. Un check, una acció o una
+  incidència nous comencen amb el curs i el mòdul que tenies triats.
+- **Grups i `# hosts:`**: nou apartat a l'ajuda de l'[Inventari](?doc=inventari). Els plays
+  d'Ansible també accepten el nom del tipus d'equip (`router`) a més del grup (`vm_router`).
+
+## 27/11/2026
+
+- **Checks de tipus «incidència»**: no puntuen, no surten als recomptes ni al leaderboard i no
+  s'executen a la nit. L'alumne només els veu quan ha rebut l'avaria. Vegeu [Checks](?doc=checks).
+- **Incidències**: cada opció pot tenir el seu **símptoma**, que l'alumne llegeix al seu
+  seguiment, i cada incidència, els **minuts entre verificacions** (buit: 10).
+- L'alumne pot **verificar** l'avaria que té oberta, fins al termini del llançament si n'hi ha.
+- **Bloc 12**: nou seeder amb la sessió d'incidències de correu (cinc casos amb sis variants cada
+  un). S'ha d'executar a mà i no llança res.
 
 ## 06/11/2026
 

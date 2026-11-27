@@ -591,8 +591,10 @@ amb el seu compte de Google; en local, pel formulari de `/alumne/login`. Un alum
 la darrera execució, el comentari del professor i les icones Info (ⓘ) i Verificar (▶). No hi ha
 selector d'alumne, Corregir ni editar, i el servidor els rebutja encara que es cridin a mà.
 
-L'alumne pot **verificar** un check (`MyProgress::verify`): només un check actiu cada vegada, només
-per a ell i el mateix check com a molt un cop cada 10 minuts (`MyProgress::VERIFY_EVERY`). Abans,
+L'alumne pot **verificar** un check (`MyProgress::verify`): només un check cada vegada (actiu, o el
+d'una avaria que té oberta: vegeu [Incidències](#incidències)), només per a ell i el mateix check com
+a molt un cop cada 10 minuts (`MyProgress::VERIFY_EVERY`; cada incidència pot fixar un altre
+interval). Abans,
 el navegador li demana que comprovi primer que funciona; mentre espera, la icona surt grisa amb els
 minuts que falten. El compte és al `RateLimiter` de Laravel (memòria cau, clau per alumne i check):
 no afegeix cap taula ni camp, caduca sol i no se'l salta canviant de navegador o de sessió. El
@@ -665,7 +667,9 @@ perquè la resolguin. Fa servir les accions per trencar i els checks per saber s
 arreglada; HeimdEye en deixa constància per alumne.
 
 - **Definició** (menú Accions → Incidències, `/admin/incidencies`): nom, mòdul, bloc, tasca
-  (opcional: un bloc pot tenir incidències diferents per tasca), equip, el **símptoma** que llegirà l'alumne i les notes del professor. Cada **opció** és una acció
+  (opcional: un bloc pot tenir incidències diferents per tasca), equip, el **símptoma** que llegirà l'alumne, els **minuts entre verificacions**
+  (`minuts_verificacio`; buit: 10) i les notes del professor. Una incidència pot ser una categoria
+  (p. ex. DNS) amb moltes opcions. Cada **opció** és una acció, amb el seu símptoma opcional (buit: el de la incidència),
   (millor marcada com a «acció d'avaria», `accions.es_incidencia`) amb valors per als seus
   paràmetres, el **check de resolució**, una acció de **reparació** opcional (rep els mateixos
   paràmetres) i un **pes** per al sorteig. Una mateixa acció amb un paràmetre diferent pot fer
@@ -680,14 +684,29 @@ arreglada; HeimdEye en deixa constància per alumne.
 - **Seguiment** (`incidencies_alumne`, `App\Runner\Incidents\IncidentTracker`):
   `pendent` mentre s'executa l'acció → `verificant` quan acaba bé (es llança el check, que
   ha de fallar) → `oberta` → `resolta` quan qualsevol execució del check passa després de la
-  injecció (la de l'alumne, la del professor o la nocturna), amb el temps que ha trigat.
+  injecció (la de l'alumne, la del professor o, si el check no és de tipus incidència, la nocturna),
+  amb el temps que ha trigat.
   Desviacions: `error` (l'acció ha fallat o no es pot llançar), `no_efectiva` (el check ja
   passava), `caducada` (l'agent no l'ha recollida), `tancada` i `reparada` (professor).
 - A la pàgina de seguiment (es refresca sola): Comprovar (llança el check), Reparar (acció de
   reparació), Tancar (sense reparar res), i l'historial de l'acció amb la sortida.
-- No donen punts. Si el check de resolució és d'un bloc normal, l'avaria no treu punts
-  assolits (només surt «ara no passa»); si és només per a la incidència, posa'l desactivat i
-  amb 0 punts.
+- No donen punts. El check de resolució és millor que sigui de tipus **incidència**
+  (`CheckKind::Incident`): no puntua ni surt a cap recompte (bloc, mòdul, tasca ni leaderboard),
+  no té dates, i no s'executa a la ronda nocturna ni amb «Verificar» d'una tasca, un bloc o el
+  mòdul. El llança el seguiment de la incidència, o algú d'un en un. Si és un check normal d'un
+  bloc, es continua comportant com sempre (i l'avaria no treu punts assolits, només surt
+  «ara no passa»).
+- **L'alumne** no veu cap check de resolució fins que ha rebut l'avaria (estat `verificant`,
+  `oberta`, `resolta`, `tancada` o `reparada`; mai `pendent`, `error`, `caducada` ni
+  `no_efectiva`). Llavors hi veu el nom de la incidència, el símptoma, el termini si n'hi ha i
+  l'estat (Comprovant, Oberta, Resolta o Tancada), sense el nom del check, missatges, sortida ni
+  codi, i només les execucions fetes després d'injectar-la. El pot verificar mentre la té oberta
+  i, si el llançament té termini, fins que s'acaba.
+- Bloc 12 (correu): `php artisan db:seed --class=Block12IncidentsSeeder --force`, després del
+  `Block12CorreuSeeder`. Crea la tasca «Pas 15 · Incidències» amb cinc casos (servei, DNS, router,
+  Proxmox i seguretat) de sis variants cada un, amb els checks de tipus incidència i les accions
+  d'avaria i de reparació. Entra a l'LXC mail i a ns1 des del Proxmox (cal `qemu-guest-agent` a
+  ns1). No llança res i, un cop llançada la sessió, no es pot tornar a executar.
 - Exemple: `php artisan db:seed --class=Tiquet2TecnoServeisSeeder --force` (tiquet 2 del projecte
   AWS TecnoServeis). Crea els checks de les proves F1-F8 (més R2 i la política), les accions que
   munten el tiquet (SG del 80, tancar el que sobra als SG, nftables, NACL, Flow Logs, tot alhora,

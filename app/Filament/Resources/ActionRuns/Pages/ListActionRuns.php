@@ -2,11 +2,14 @@
 
 namespace App\Filament\Resources\ActionRuns\Pages;
 
+use App\Filament\Concerns\KeepsScopeFiltersCoherent;
 use App\Filament\Resources\ActionRuns\ActionRunResource;
 use Filament\Resources\Pages\ListRecords;
 
 class ListActionRuns extends ListRecords
 {
+    use KeepsScopeFiltersCoherent;
+
     protected static string $resource = ActionRunResource::class;
 
     protected static ?string $title = 'Històric d\'accions';
