@@ -154,14 +154,15 @@ class MyProgress extends StudentTracking
         return $student ? IncidentMask::assignments($student, visibleOnly: true) : collect();
     }
 
-    /** check de resolució => «Incidència · <nom de la incidència> (avaria N)», de les avaries que ha rebut l'alumne. */
+    /** check de resolució => «Incidència · <nom de la incidència> (avaria N) · <codi>», de les avaries que ha rebut l'alumne. */
     private function incidentLabels(): Collection
     {
         $labels = collect();
         $this->faults->sortBy('id')->groupBy('incidencia_id')
             ->each(fn (Collection $rows) => $rows->values()->each(fn (IncidentStudent $r, int $i) => $labels->put(
                 $r->option->check_id,
-                'Incidència · '.$r->incident->nom.($rows->count() > 1 ? ' (avaria '.($i + 1).')' : ''),
+                'Incidència · '.$r->incident->nom.($rows->count() > 1 ? ' (avaria '.($i + 1).')' : '')
+                    .(($code = $r->option->publicCode()) ? " · {$code}" : ''),
             )));
 
         return $labels;

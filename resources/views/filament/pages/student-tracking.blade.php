@@ -156,9 +156,9 @@
                     <span class="lbl">Estat</span>
                     <select wire:model.live="estat" aria-label="Estat">
                         <option value="">Tots</option>
-                        <option value="pendents">Pendents</option>
-                        <option value="assolits">Assolits</option>
-                        <option value="error">Amb error a la darrera execució</option>
+                        <option value="pendents">Pendents (incidències: obertes)</option>
+                        <option value="assolits">Assolits (incidències: resoltes)</option>
+                        <option value="error">Amb error a la darrera execució (incidències: no injectades)</option>
                     </select>
                     <div class="last">
                     <label style="display: flex; gap: .35rem; align-items: center"><input type="checkbox" wire:model.live="obligatoris" /> Només obligatoris</label>

@@ -44,7 +44,7 @@ class Block12IncidentsSeederTest extends TestCase
         $incidents = Incident::where('tasca_id', $task->id)->orderBy('posicio')->get();
 
         $this->assertSame(15, $block->tasks()->count());
-        $this->assertSame(['Cas 1 · Servidor de correu', 'Cas 2 · DNS', 'Cas 3 · Router', 'Cas 4 · Proxmox', 'Cas 5 · Seguretat'], $incidents->pluck('nom')->all());
+        $this->assertSame(['Servidor de correu', 'DNS', 'Router', 'Proxmox', 'Seguretat'], $incidents->pluck('nom')->all());
         // Cada cas té el text de la seva categoria; les notes no parlen de l'ordre i porten la causa de cada variant.
         $this->assertCount(5, $incidents->pluck('simptoma')->unique());
         $this->assertTrue($incidents->every(fn (Incident $i) => $i->minuts_verificacio === 2 && blank($i->equip) && filled($i->notes)));
@@ -98,7 +98,7 @@ class Block12IncidentsSeederTest extends TestCase
 
     public function test_it_does_not_touch_a_launched_session(): void
     {
-        $incident = Incident::where('nom', 'Cas 1 · Servidor de correu')->sole();
+        $incident = Incident::where('nom', 'Servidor de correu')->sole();
         $student = Student::whereHas('modules', fn ($q) => $q->where('moduls.codi', '9991'))->first();
         $this->assertNotNull($student);
         Queue::fake();

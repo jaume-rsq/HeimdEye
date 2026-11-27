@@ -39,6 +39,15 @@ class IncidentOption extends Model
         return $this->belongsTo(Action::class, 'accio_reparacio_id');
     }
 
+    /**
+     * El nom de l'opció, si és un codi («SRV-1»): l'alumne el pot veure per preguntar-ne. Un nom
+     * descriptiu («nginx aturat») no, perquè delataria la causa.
+     */
+    public function publicCode(): ?string
+    {
+        return preg_match('/^[A-Z][A-Z0-9]{1,5}-\d{1,2}$/', (string) $this->nom) === 1 ? $this->nom : null;
+    }
+
     /** @return array<string, string> */
     public function params(): array
     {

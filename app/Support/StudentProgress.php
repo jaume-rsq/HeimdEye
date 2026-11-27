@@ -23,7 +23,8 @@ class StudentProgress
 {
     /**
      * @param  array{bloc?: ?int, tasca?: ?int, estat?: ?string, obligatoris?: bool}  $filters
-     *                                                                                          estat: pendents (no assolits), assolits o error (la darrera execució no va poder comprovar res)
+     *                                                                                          estat: pendents (no assolits), assolits o error (la darrera execució no va poder comprovar res);
+     *                                                                                          a les incidències, l'estat de l'avaria: en marxa, resolta o no injectada
      * @param  bool  $studentView  per a l'alumne: només les avaries que ja pot veure i, dels seus checks,
      *                             només les execucions fetes després d'injectar-les
      * @return list<array{block: Block, resum: array<string, mixed>, tasks: list<array{task: Task, assolits: int, total: int, resoltes: int, avaries: int, rows: list<array<string, mixed>>}>}>
@@ -85,6 +86,10 @@ class StudentProgress
         $outputs = CheckRun::whereKey($rows->pluck('darrera')->filter()->map(fn ($run) => $run->id)->values()->all())->pluck('sortida', 'id');
         $rows = $rows->map(fn (array $r) => [...$r, 'sortida' => $r['darrera'] ? $outputs->get($r['darrera']->id) : null]);
 
+        // Un check d'incidència sense cap avaria de l'alumne no diu res: només surt si n'ha rebut una
+        // (o si s'ha intentat llançar i ha fallat).
+        $rows = $rows->reject(fn (array $r) => $r['check']->isIncident() && $r['incidencia'] === null);
+
         // El resum de cada bloc és de tots els seus checks, encara que els filtres n'amaguin alguns.
         $summaries = $rows->groupBy(fn (array $r) => $r['check']->task->bloc_id)->map(fn (Collection $r) => self::summary($r));
 
@@ -92,10 +97,14 @@ class StudentProgress
             ($filters['bloc'] ?? null) && $r['check']->task->bloc_id !== (int) $filters['bloc'] => false,
             ($filters['tasca'] ?? null) && $r['check']->tasca_id !== (int) $filters['tasca'] => false,
             ($filters['obligatoris'] ?? false) && $r['check']->tipus !== CheckKind::Required => false,
+            // Les files d'incidència es filtren per l'estat de l'avaria: pendents = en marxa (pendent,
+            // comprovant o oberta), assolits = resolta i error = no s'ha pogut injectar.
             default => match ($filters['estat'] ?? null) {
-                'pendents' => ! $r['assolit'],
+                'pendents' => $r['incidencia'] ? $r['incidencia']->estat->isActive() : ! $r['assolit'],
                 'assolits' => $r['assolit'],
-                'error' => $r['darrera'] !== null && ! in_array($r['darrera']->estat, [CheckStatus::Pass, CheckStatus::Fail], true),
+                'error' => $r['incidencia']
+                    ? in_array($r['incidencia']->estat, [IncidentStatus::Error, IncidentStatus::NoEfectiva, IncidentStatus::Caducada], true)
+                    : $r['darrera'] !== null && ! in_array($r['darrera']->estat, [CheckStatus::Pass, CheckStatus::Fail], true),
                 default => true,
             },
         });

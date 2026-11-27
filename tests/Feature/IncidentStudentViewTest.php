@@ -286,10 +286,37 @@ class IncidentStudentViewTest extends TestCase
 
         Livewire::test(StudentTracking::class, ['alumne' => $this->student->id, 'modul' => $this->module->id, 'tasca' => $this->check()->tasca_id])
             ->assertSee('Causa alfa')
-            ->assertSee('Causa beta')
-            ->assertSee('No rebuda')
+            ->assertDontSee('Causa beta') // no l'ha rebuda: no surt
             ->assertSee('Oberta')
             ->assertDontSee('Verificar la tasca');
+    }
+
+    public function test_the_state_filter_uses_the_state_of_the_fault(): void
+    {
+        $row = $this->open();
+        $this->asTeacher();
+        $page = fn (string $estat) => Livewire::test(StudentTracking::class, ['alumne' => $this->student->id, 'modul' => $this->module->id, 'estat' => $estat]);
+
+        $page('pendents')->assertSee('Causa alfa');
+        $page('assolits')->assertDontSee('Causa alfa');
+        $page('error')->assertDontSee('Causa alfa');
+
+        $row->update(['estat' => IncidentStatus::Error]);
+        $page('pendents')->assertDontSee('Causa alfa');
+        $page('error')->assertSee('Causa alfa');
+
+        $row->update(['estat' => IncidentStatus::Resolta]);
+        $page('assolits')->assertSee('Causa alfa');
+        $page('pendents')->assertDontSee('Causa alfa');
+    }
+
+    public function test_the_student_sees_the_code_of_the_option_but_not_a_descriptive_name(): void
+    {
+        $this->incident->options()->orderBy('posicio')->first()->update(['nom' => 'SRV-2']);
+        $this->open();
+        $this->asStudent();
+
+        $this->page()->assertSee('Incidència · Cas 1 · SRV-2');
     }
 
     public function test_the_check_editor_saves_an_incident_check(): void

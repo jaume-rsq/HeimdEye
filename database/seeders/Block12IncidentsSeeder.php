@@ -17,14 +17,15 @@ use RuntimeException;
  * Bloc 12, pas 15: la sessió d'incidències de correu (dues hores). La bateria de la guia del
  * professor: 30 avaries, 5 categories amb 6 variants.
  *
- * Una incidència de HeimdEye per categoria, amb el nom i el text de la categoria («Cas 1 · Servidor
- * de correu» … «Cas 5 · Seguretat»: diuen on és l'avaria, no quina és) i sis opcions, una per
+ * Una incidència de HeimdEye per categoria, amb el nom i el text de la categoria («Servidor de
+ * correu» … «Seguretat»: diuen on és l'avaria, no quina és) i sis opcions, una per
  * variant. Cada opció té el seu símptoma (el tiquet que llegeix l'alumne, mai la causa), l'acció
  * d'avaria de la categoria amb el paràmetre AVARIA, l'acció de reparació de la categoria (la mateixa
  * per a les sis: el paràmetre AVARIA diu què desfà) i un check de resolució propi, de tipus
  * «incidència»: no puntua, no surt als recomptes ni corre a la nit. L'alumne el pot verificar cada
- * 2 minuts. Ni el nom de l'opció («SRV-1») ni el del check («Incidència SRV-1») delaten la causa:
- * les causes són a les notes del professor i a la descripció de cada check.
+ * 2 minuts. Ni el nom de l'opció («SRV-1», que l'alumne també veu per poder-ne preguntar) ni el del
+ * check («Incidència SRV-1») delaten la causa: les causes són a les notes del professor i a la
+ * descripció de cada check.
  *
  * Per on entra cada codi (perquè una avaria de xarxa no tapi les altres):
  *  - PVE, DNS, SRV i SEG: ssh al Proxmox de l'alumne (grup pve; jaume amb «sudo -n»). A l'LXC mail
@@ -175,7 +176,7 @@ class Block12IncidentsSeeder extends Seeder
 
             $incident = Incident::create([
                 'modul_id' => $module->id, 'bloc_id' => $block->id, 'tasca_id' => $task->id,
-                'nom' => 'Cas '.($c + 1).' · '.$label,
+                'nom' => $label,
                 'simptoma' => "L'avaria és {$where}. Llegeix el tiquet, esbrina'n la causa i corregeix-la.",
                 'minuts_verificacio' => self::MINUTES,
                 'notes' => self::notes($category, $notes),
