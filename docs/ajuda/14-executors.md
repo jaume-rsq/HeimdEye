@@ -2,7 +2,7 @@
 titol: Executors i exemples
 ordre: 14
 per: [professors]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-28
 ---
 
 # Executors i exemples
@@ -81,6 +81,10 @@ les VM sovint).
 El mateix bash, però executat **dins de l'equip de l'alumne**, amb l'usuari de l'accés. La
 capçalera `# hosts:` és obligatòria i diu a quins tipus d'equip va (separats per comes). Serveix per
 mirar l'estat de dins: un servei, un fitxer, un paquet.
+
+Els noms que van a `# hosts:` (i al `hosts:` dels plays d'Ansible) són els tipus d'equip de
+**Inventari → Equips**: el nom (`router`) o el grup Ansible (`vm_router`). Vegeu «Grups i
+`# hosts:`» a l'ajuda de l'Inventari.
 
 **Check: el router de l'alumne respon (el ping fet des de dins el servidor Proxmox PVE).**
 

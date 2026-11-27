@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Students\Pages;
 
+use App\Filament\Concerns\KeepsScopeFiltersCoherent;
 use App\Filament\Resources\Students\StudentResource;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
@@ -10,6 +11,8 @@ use Filament\Support\Icons\Heroicon;
 
 class ListStudents extends ListRecords
 {
+    use KeepsScopeFiltersCoherent;
+
     protected static string $resource = StudentResource::class;
 
     protected function getHeaderActions(): array

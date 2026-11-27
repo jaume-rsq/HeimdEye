@@ -8,7 +8,6 @@ use App\Filament\Support\ScopeFilters;
 use App\Models\Action as ActionModel;
 use App\Models\ActionRun;
 use App\Models\RunBatch;
-use App\Models\Student;
 use Filament\Actions\Action;
 use Filament\Forms\Components\DatePicker;
 use Filament\Support\Enums\Width;
@@ -82,11 +81,13 @@ class ActionRunsTable
                 // Curs, grup i mòdul primer, com a totes les llistes (a l'historial d'una acció, només el grup).
                 ScopeFilters::course('curs',
                     fn (Builder $q, int $id) => $q->whereHas('action.module', fn (Builder $m) => $m->where('curs_id', $id)),
-                    children: ['grup', 'modul'])
+                    children: ['grup', 'modul', 'alumne_id'])
                     ->visible($action === null),
-                ScopeFilters::group('grup', 'curs', fn (Builder $q, int $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id))),
+                ScopeFilters::group('grup', 'curs', fn (Builder $q, int $id) => $q->whereHas('student', fn (Builder $s) => $s->where('grup_id', $id)),
+                    children: $action === null ? ['modul', 'alumne_id'] : ['alumne_id']),
                 ScopeFilters::module('modul', 'curs',
-                    fn (Builder $q, int $id) => $q->whereHas('action', fn (Builder $a) => $a->where('modul_id', $id)))
+                    fn (Builder $q, int $id) => $q->whereHas('action', fn (Builder $a) => $a->where('modul_id', $id)),
+                    children: ['alumne_id'], group: 'grup')
                     ->visible($action === null),
                 SelectFilter::make('accio_id')
                     ->label('Acció')
@@ -98,13 +99,7 @@ class ActionRunsTable
                     ->label('Versió')
                     ->options(fn () => $action?->versions()->orderByDesc('versio')->pluck('versio', 'id')->map(fn ($v) => "v{$v}") ?? [])
                     ->visible($action !== null && ! $simulation),
-                SelectFilter::make('alumne_id')
-                    ->label('Alumne')
-                    ->options(fn () => Student::where('es_actiu', true)
-                        ->when($action, fn (Builder $q) => $q->whereHas('modules', fn (Builder $m) => $m->whereKey($action->modul_id)))
-                        ->orderBy('num_taula')->get()
-                        ->mapWithKeys(fn (Student $s) => [$s->id => sprintf('%02d · %s', $s->num_taula, $s->nom_complet)]))
-                    ->searchable(),
+                ScopeFilters::student('alumne_id', 'curs', 'grup', 'modul', $action?->modul_id),
                 SelectFilter::make('estat')
                     ->options(ActionStatus::class)
                     ->multiple(),

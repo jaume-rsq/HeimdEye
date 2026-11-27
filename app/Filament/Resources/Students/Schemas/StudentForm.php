@@ -13,6 +13,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
+use Filament\Schemas\Components\Utilities\Set;
 use Filament\Schemas\Components\View;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Builder;
@@ -45,7 +46,8 @@ class StudentForm
                             ->relationship('academicYear', 'nom')
                             ->default(fn () => AcademicYear::where('es_actual', true)->value('id'))
                             ->required()
-                            ->live(),
+                            ->live()
+                            ->afterStateUpdated(fn (Set $set) => $set('grup_id', null)),
                         Select::make('cicle_id')->label('Cicle')->relationship('cycle', 'codi')->required(),
                         Select::make('grup_id')
                             ->label('Grup')

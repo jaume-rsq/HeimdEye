@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Actions\Pages;
 
 use App\Enums\Executor;
 use App\Filament\Actions\LaunchAction;
+use App\Filament\Concerns\KeepsScopeFiltersCoherent;
 use App\Filament\Resources\ActionRuns\Tables\ActionRunsTable;
 use App\Filament\Resources\Actions\ActionResource;
 use App\Models\Action;
@@ -31,6 +32,8 @@ use Livewire\Attributes\Url;
  */
 class ManageActionRuns extends ManageRelatedRecords
 {
+    use KeepsScopeFiltersCoherent;
+
     protected static string $resource = ActionResource::class;
 
     protected static string $relationship = 'runs';

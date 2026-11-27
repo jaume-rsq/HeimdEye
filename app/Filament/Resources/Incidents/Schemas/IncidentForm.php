@@ -2,10 +2,10 @@
 
 namespace App\Filament\Resources\Incidents\Schemas;
 
+use App\Filament\Support\ScopeFields;
 use App\Models\Action;
 use App\Models\Block;
 use App\Models\Check;
-use App\Models\Module;
 use App\Models\Task;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Repeater;
@@ -34,16 +34,11 @@ class IncidentForm
                     ->columns(2)
                     ->schema([
                         TextInput::make('nom')->required()->maxLength(255),
-                        Select::make('modul_id')
-                            ->label('Mòdul')
-                            ->options(fn () => Module::with('academicYear')->get()->mapWithKeys(fn (Module $m) => [$m->id => trim("{$m->codi} {$m->nom}")." ({$m->academicYear->nom})"]))
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(function (Set $set) {
-                                $set('bloc_id', null);
-                                $set('tasca_id', null);
-                            })
-                            ->disabledOn('edit'),
+                        ScopeFields::course(['bloc_id', 'tasca_id'])->disabledOn('edit'),
+                        ScopeFields::module(function (Set $set) {
+                            $set('bloc_id', null);
+                            $set('tasca_id', null);
+                        })->disabledOn('edit'),
                         Select::make('bloc_id')
                             ->label('Bloc')
                             ->options(fn (Get $get) => Block::where('modul_id', $get('modul_id'))->orderBy('numero')->get()
