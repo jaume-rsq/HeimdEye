@@ -98,7 +98,8 @@ class StudentProgress
             ($filters['tasca'] ?? null) && $r['check']->tasca_id !== (int) $filters['tasca'] => false,
             ($filters['obligatoris'] ?? false) && $r['check']->tipus !== CheckKind::Required => false,
             // Les files d'incidència es filtren per l'estat de l'avaria: pendents = en marxa (pendent,
-            // comprovant o oberta), assolits = resolta i error = no s'ha pogut injectar.
+            // comprovant o oberta), assolits = resolta i error = no s'ha pogut injectar. Les tancades
+            // i les reparades pel professor només surten sense filtre.
             default => match ($filters['estat'] ?? null) {
                 'pendents' => $r['incidencia'] ? $r['incidencia']->estat->isActive() : ! $r['assolit'],
                 'assolits' => $r['assolit'],

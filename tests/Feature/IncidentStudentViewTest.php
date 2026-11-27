@@ -308,6 +308,13 @@ class IncidentStudentViewTest extends TestCase
         $row->update(['estat' => IncidentStatus::Resolta]);
         $page('assolits')->assertSee('Causa alfa');
         $page('pendents')->assertDontSee('Causa alfa');
+
+        // Tancada pel professor: només sense filtre.
+        $row->update(['estat' => IncidentStatus::Tancada]);
+        foreach (['assolits', 'pendents', 'error'] as $estat) {
+            $page($estat)->assertDontSee('Causa alfa');
+        }
+        $page('')->assertSee('Causa alfa');
     }
 
     public function test_the_student_sees_the_code_of_the_option_but_not_a_descriptive_name(): void
