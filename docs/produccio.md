@@ -136,7 +136,7 @@ journalctl -u 'heimdeye-queue@*' -f                                  # workers
 ```
 
 `rollback.sh` no desfà migracions: per això convé que siguin compatibles amb la versió anterior.
-Si cal, la còpia es restaura amb `pg_restore --clean -d heimdeye <fitxer>`.
+Per restaurar la còpia: `rollback.sh --bd`. Per provar canvis abans de fusionar-los, vegeu [staging.md](staging.md).
 
 ## Recomanacions
 
