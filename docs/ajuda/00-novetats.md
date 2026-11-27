@@ -17,6 +17,8 @@ canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esq
 - **Incidències**: cada opció pot tenir el seu **símptoma**, que l'alumne llegeix al seu
   seguiment, i cada incidència, els **minuts entre verificacions** (buit: 10).
 - L'alumne pot **verificar** l'avaria que té oberta, fins al termini del llançament si n'hi ha.
+- **Bloc 12**: nou seeder amb la sessió d'incidències de correu (cinc casos amb sis variants cada
+  un). S'ha d'executar a mà i no llança res.
 
 ## 06/11/2026
 

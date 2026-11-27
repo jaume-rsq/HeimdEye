@@ -702,6 +702,11 @@ arreglada; HeimdEye en deixa constància per alumne.
   l'estat (Comprovant, Oberta, Resolta o Tancada), sense el nom del check, missatges, sortida ni
   codi, i només les execucions fetes després d'injectar-la. El pot verificar mentre la té oberta
   i, si el llançament té termini, fins que s'acaba.
+- Bloc 12 (correu): `php artisan db:seed --class=Block12IncidentsSeeder --force`, després del
+  `Block12CorreuSeeder`. Crea la tasca «Pas 15 · Incidències» amb cinc casos (servei, DNS, router,
+  Proxmox i seguretat) de sis variants cada un, amb els checks de tipus incidència i les accions
+  d'avaria i de reparació. Entra a l'LXC mail i a ns1 des del Proxmox (cal `qemu-guest-agent` a
+  ns1). No llança res i, un cop llançada la sessió, no es pot tornar a executar.
 - Exemple: `php artisan db:seed --class=Tiquet2TecnoServeisSeeder --force` (tiquet 2 del projecte
   AWS TecnoServeis). Crea els checks de les proves F1-F8 (més R2 i la política), les accions que
   munten el tiquet (SG del 80, tancar el que sobra als SG, nftables, NACL, Flow Logs, tot alhora,
