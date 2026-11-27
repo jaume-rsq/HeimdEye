@@ -7,11 +7,14 @@
 #            SKIP_CI=1 no mira el CI; SKIP_GUARD=1 no mira la cua ni la ronda nocturna.
 #            HEIMDEYE_REPO: usuari/repositori de GitHub, o una ruta local amb un repositori git
 #            (les demos, sense Internet: lab/lab.sh hi copia el codi).
+#            HEIMDEYE_PR_LABEL: (staging) en lloc de la branca, desplega el darrer commit del PR obert
+#            que tingui aquesta etiqueta (p. ex. "staging"). Sense PR amb l'etiqueta, no fa res.
 set -euo pipefail
 
 BASE=${HEIMDEYE_BASE:-/var/www/heimdeye}
 REPO=${HEIMDEYE_REPO:-jaume-rsq/HeimdEye}
 BRANCH=${HEIMDEYE_BRANCH:-main}
+PR_LABEL=${HEIMDEYE_PR_LABEL:-}
 REQUIRED_CHECKS=${HEIMDEYE_REQUIRED_CHECKS:-"tests-sqlite tests-pgsql"}
 HEALTH_URL=${HEIMDEYE_HEALTH_URL:-http://127.0.0.1:8080/up}
 PHP_FPM=${HEIMDEYE_PHP_FPM:-php8.5-fpm}
@@ -27,7 +30,23 @@ cd "$BASE"
 exec 9>"$BASE/deploy.lock"
 flock -n 9 || { log "Ja hi ha un desplegament en marxa"; exit 0; }
 
-sha=${1:-$(git ls-remote "$url" "refs/heads/$BRANCH" | cut -f1)}
+pr_label_sha() {
+    curl -fsS -H 'Accept: application/vnd.github+json' \
+        "https://api.github.com/repos/$REPO/issues?state=open&labels=$PR_LABEL&sort=updated&direction=desc&per_page=1" \
+        | jq -r '.[0].number // empty' | {
+        read -r number || true
+        [[ -n $number ]] || exit 0
+        curl -fsS -H 'Accept: application/vnd.github+json' "https://api.github.com/repos/$REPO/pulls/$number" \
+            | jq -r '.head.sha'
+    }
+}
+if [[ -n $PR_LABEL ]]; then
+    default_sha=$(pr_label_sha || true)
+    [[ -n $default_sha ]] || exit 0   # cap PR amb l'etiqueta: no hi ha res a provar
+else
+    default_sha=$(git ls-remote "$url" "refs/heads/$BRANCH" | cut -f1)
+fi
+sha=${1:-$default_sha}
 [[ $sha =~ ^[0-9a-f]{40}$ ]] || { log "No s'ha pogut obtenir el commit de $BRANCH"; exit 1; }
 current_sha=$(cat "$BASE/current/REVISION" 2>/dev/null || true)
 
