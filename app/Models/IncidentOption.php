@@ -10,7 +10,7 @@ class IncidentOption extends Model
 {
     protected $table = 'opcions_incidencia';
 
-    protected $fillable = ['incidencia_id', 'nom', 'accio_id', 'parametres', 'check_id', 'accio_reparacio_id', 'pes', 'posicio'];
+    protected $fillable = ['incidencia_id', 'nom', 'simptoma', 'accio_id', 'parametres', 'check_id', 'accio_reparacio_id', 'pes', 'posicio'];
 
     protected $attributes = ['pes' => 1];
 

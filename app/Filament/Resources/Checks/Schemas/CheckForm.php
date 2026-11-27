@@ -72,29 +72,35 @@ class CheckForm
                             ->helperText('Es mostra a l\'alumne en una finestra des del check, en Markdown, seguida del codi del check amb les seves dades.')
                             ->columnSpanFull(),
                         Select::make('tipus')
-                            ->options(collect(CheckKind::cases())->mapWithKeys(fn (CheckKind $k) => [$k->value => $k->value]))
+                            ->options(collect(CheckKind::cases())->mapWithKeys(fn (CheckKind $k) => [$k->value => $k->label()]))
                             ->default(CheckKind::Required->value)
                             ->required()
-                            ->helperText('Només els obligatoris compten per al percentatge de compleció.'),
-                        TextInput::make('punts')->numeric()->minValue(0)->default(1)->required(),
+                            ->live()
+                            ->helperText(fn (Get $get) => self::isIncident($get)
+                                ? 'No puntua ni surt als recomptes, i no s\'executa a la nit ni amb «Verificar» d\'un bloc. L\'alumne només el veu si ha rebut la incidència, i el pot verificar mentre la té oberta.'
+                                : 'Només els obligatoris compten per al percentatge de compleció.'),
+                        TextInput::make('punts')->numeric()->minValue(0)->default(1)->required()
+                            ->hidden(fn (Get $get) => self::isIncident($get)),
                         Select::make('es_actiu')
                             ->label('Actiu')
                             ->options(['1' => 'Sí', '0' => 'No'])
                             ->placeholder('Segons les dates')
                             ->formatStateUsing(fn ($state) => $state === null ? null : ($state ? '1' : '0'))
                             ->dehydrateStateUsing(fn ($state) => blank($state) ? null : (bool) $state)
-                            ->helperText('Si és buit, el check és actiu entre les dates de sota (cada extrem buit és obert).'),
+                            ->helperText('Si és buit, el check és actiu entre les dates de sota (cada extrem buit és obert).')
+                            ->hidden(fn (Get $get) => self::isIncident($get)),
                         TextInput::make('posicio')->label('Posició')->numeric()->default(0)->minValue(0),
-                        DatePicker::make('actiu_des')->label('Actiu des de'),
-                        DatePicker::make('actiu_fins')->label('Actiu fins a'),
-                        DateTimePicker::make('data_limit')->label('Data límit')->seconds(false),
+                        DatePicker::make('actiu_des')->label('Actiu des de')->hidden(fn (Get $get) => self::isIncident($get)),
+                        DatePicker::make('actiu_fins')->label('Actiu fins a')->hidden(fn (Get $get) => self::isIncident($get)),
+                        DateTimePicker::make('data_limit')->label('Data límit')->seconds(false)->hidden(fn (Get $get) => self::isIncident($get)),
                         TextInput::make('bonus_puntualitat_pct')
                             ->label('Bonus per puntualitat (%)')
                             ->numeric()
                             ->minValue(0)
                             ->maxValue(100)
                             ->default(0)
-                            ->helperText('Sobre els punts, si s\'assoleix per primer cop abans de la data límit.'),
+                            ->helperText('Sobre els punts, si s\'assoleix per primer cop abans de la data límit.')
+                            ->hidden(fn (Get $get) => self::isIncident($get)),
                     ]),
                 Section::make(fn (string $operation) => $operation === 'edit' ? 'Darrera versió' : 'Primera versió')
                     ->description(fn (string $operation) => $operation === 'edit'
@@ -187,5 +193,12 @@ class CheckForm
         ], $version['parametres'] ?? [])) ?: null;
 
         return $version;
+    }
+
+    private static function isIncident(Get $get): bool
+    {
+        $kind = $get('tipus');
+
+        return ($kind instanceof CheckKind ? $kind : CheckKind::tryFrom((string) $kind)) === CheckKind::Incident;
     }
 }

@@ -27,6 +27,25 @@ enum IncidentStatus: string implements HasColor, HasLabel
         return in_array($this, [self::Pendent, self::Verificant, self::Oberta], true);
     }
 
+    /**
+     * L'alumne la veu quan ja s'ha injectat. Mentre s'executa l'acció, o si no ha fet efecte, no.
+     */
+    public function isVisibleToStudent(): bool
+    {
+        return in_array($this, [self::Verificant, self::Oberta, self::Resolta, self::Tancada, self::Reparada], true);
+    }
+
+    /** El que se li ensenya a l'alumne: reparada o tancada pel professor és «tancada». */
+    public function studentLabel(): string
+    {
+        return match ($this) {
+            self::Verificant => 'Comprovant',
+            self::Oberta => 'Oberta',
+            self::Resolta => 'Resolta',
+            default => 'Tancada',
+        };
+    }
+
     /** @return list<string> */
     public static function activeValues(): array
     {

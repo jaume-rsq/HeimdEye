@@ -20,11 +20,15 @@
             <span style="opacity: .6">· B{{ $record->task->block->numero }} · {{ $record->task->block->module->nom }}</span>
         </span>
         <span style="{{ $chip }}"><span style="opacity: .6">Executor</span> {{ $record->executor->value }}</span>
-        <span style="{{ $chip }}"><span style="opacity: .6">Punts</span> {{ $record->punts }}{{ $record->tipus === \App\Enums\CheckKind::Optional ? ' · opcional' : '' }}</span>
-        <span style="{{ $chip }}" title="{{ $activeTip }}">
-            <span style="width: .5rem; height: .5rem; border-radius: 999px; background: {{ $active ? 'rgb(22,163,74)' : 'rgb(156,163,175)' }}"></span>
-            {{ $active ? 'Actiu' : 'Inactiu' }}
-        </span>
+        @if ($record->isIncident())
+            <span style="{{ $chip }}" title="No puntua ni s'executa sol: el llança el seguiment de la incidència">Incidència</span>
+        @else
+            <span style="{{ $chip }}"><span style="opacity: .6">Punts</span> {{ $record->punts }}{{ $record->tipus === \App\Enums\CheckKind::Optional ? ' · opcional' : '' }}</span>
+            <span style="{{ $chip }}" title="{{ $activeTip }}">
+                <span style="width: .5rem; height: .5rem; border-radius: 999px; background: {{ $active ? 'rgb(22,163,74)' : 'rgb(156,163,175)' }}"></span>
+                {{ $active ? 'Actiu' : 'Inactiu' }}
+            </span>
+        @endif
         <span style="{{ $chip }}"><span style="opacity: .6">Versió</span> {{ $record->currentVersion ? 'v'.$record->currentVersion->versio : 'sense codi' }}</span>
     </div>
 </div>

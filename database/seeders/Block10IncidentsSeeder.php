@@ -322,7 +322,7 @@ class Block10IncidentsSeeder extends Seeder
             [$checkName, $checkDescription, $executor, $checkCode] = $resolution;
             $check = $task->checks()->create([
                 'nom' => $checkName, 'descripcio' => $checkDescription, 'executor' => $executor,
-                'tipus' => CheckKind::Optional, 'punts' => 0, 'es_actiu' => false, 'posicio' => $i + 1,
+                'tipus' => CheckKind::Incident, 'punts' => 0, 'es_actiu' => false, 'posicio' => $i + 1,
             ]);
             $check->versions()->create(['versio' => 1, 'codi' => $checkCode, 'temps_max_seg' => 60]);
 

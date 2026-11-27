@@ -89,7 +89,7 @@ class Leaderboard
     /** Punts que dona ara un check a un alumne. Sense data d'assoliment (l'ha marcat el professor): sense bonus. */
     public static function points(Check $check, ?CheckStudent $state): float
     {
-        if ($state === null || ! $state->isAchieved()) {
+        if ($check->isIncident() || $state === null || ! $state->isAchieved()) {
             return 0;
         }
 
@@ -99,12 +99,19 @@ class Leaderboard
     /** Punts màxims d'un check: amb el bonus, si té data límit. */
     public static function maxPoints(Check $check): float
     {
+        if ($check->isIncident()) {
+            return 0;
+        }
+
         return $check->data_limit ? $check->pointsFor($check->data_limit) : (float) $check->punts;
     }
 
-    /** Un check compta si està activat a mà, o si no està desactivat i ja ha començat. */
+    /** Un check compta si està activat a mà, o si no està desactivat i ja ha començat. Els d'incidència, mai. */
     public static function counts(Check $check, ?CarbonInterface $day = null): bool
     {
+        if ($check->isIncident()) {
+            return false;
+        }
         if ($check->es_actiu !== null) {
             return $check->es_actiu;
         }

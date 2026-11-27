@@ -2,13 +2,21 @@
 titol: Novetats
 ordre: 0
 per: [professors]
-actualitzat: 2026-11-06
+actualitzat: 2026-11-27
 ---
 
 # Novetats
 
 Darrers canvis de HeimdEye, el més nou primer. Les pàgines d'ajuda que han
 canviat les darreres dues setmanes surten marcades amb **nou** al menú de l'esquerra.
+
+## 27/11/2026
+
+- **Checks de tipus «incidència»**: no puntuen, no surten als recomptes ni al leaderboard i no
+  s'executen a la nit. L'alumne només els veu quan ha rebut l'avaria. Vegeu [Checks](?doc=checks).
+- **Incidències**: cada opció pot tenir el seu **símptoma**, que l'alumne llegeix al seu
+  seguiment, i cada incidència, els **minuts entre verificacions** (buit: 10).
+- L'alumne pot **verificar** l'avaria que té oberta, fins al termini del llançament si n'hi ha.
 
 ## 06/11/2026
 

@@ -34,6 +34,33 @@ class Check extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        // Un check d'incidència no puntua mai, ni té dates, ni està «actiu»: el llança el seguiment
+        // de la incidència i l'alumne el pot verificar mentre té l'avaria oberta.
+        static::saving(function (Check $check) {
+            if ($check->isIncident()) {
+                $check->punts = 0;
+                $check->bonus_puntualitat_pct = 0;
+                $check->es_actiu = false;
+                $check->actiu_des = null;
+                $check->actiu_fins = null;
+                $check->data_limit = null;
+            }
+        });
+    }
+
+    public function isIncident(): bool
+    {
+        return $this->tipus === CheckKind::Incident;
+    }
+
+    /** Tots menys els d'incidència: els que puntuen i s'executen sols o en bloc. */
+    public function scopeWithoutIncidents(Builder $query): Builder
+    {
+        return $query->where('checks.tipus', '!=', CheckKind::Incident->value);
+    }
+
     public function task(): BelongsTo
     {
         return $this->belongsTo(Task::class, 'tasca_id');

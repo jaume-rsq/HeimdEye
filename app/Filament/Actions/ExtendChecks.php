@@ -52,7 +52,8 @@ class ExtendChecks
             return 0;
         }
 
-        [$editable, $other] = $checks->partition(fn (Check $check) => $user->canEditCheck($check));
+        // Els d'incidència no tenen dates.
+        [$editable, $other] = $checks->reject(fn (Check $check) => $check->isIncident())->partition(fn (Check $check) => $user->canEditCheck($check));
         $editable->each(fn (Check $check) => $check->update($dates));
 
         Notification::make()

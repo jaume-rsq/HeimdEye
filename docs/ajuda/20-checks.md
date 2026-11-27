@@ -2,7 +2,7 @@
 titol: Checks
 ordre: 20
 per: [professors]
-actualitzat: 2026-10-29
+actualitzat: 2026-11-27
 ---
 
 # Checks
@@ -34,6 +34,20 @@ pogut comprovar; gris, no s'ha executat mai.
   no es recalculen mai.
 - Els punts, les dates i la tasca són del check: canviar-los no crea cap versió.
 - Esborrar un check l'esborra del tot, amb els assoliments dels alumnes. L'avís diu què es perd.
+
+## Checks d'incidència
+
+El tipus **incidència** és per als checks que diuen si un alumne ja ha arreglat una avaria
+(menú **Accions → Incidències**, a cada opció):
+
+- No tenen punts ni dates, i no surten a cap recompte ni al leaderboard.
+- No s'executen a la nit ni amb «Verificar» d'una tasca, un bloc o el mòdul: els llança el
+  seguiment de la incidència (o tu, d'un en un).
+- L'alumne no els veu fins que ha rebut l'avaria. Llavors hi veu el nom de la incidència, el
+  símptoma, el termini si n'hi ha i si està **Oberta** o **Resolta**; mai el nom del check, el
+  codi ni els missatges.
+- Mentre la té oberta (i dins del termini) la pot verificar, cada tants minuts com digui la
+  incidència (10 si no es diu res).
 
 ## Verificar
 

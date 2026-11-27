@@ -49,7 +49,7 @@ class Block10IncidentsSeederTest extends TestCase
             $this->assertFalse($option->repairAction->es_incidencia);
         }
         $this->assertSame(12, $task->checks()->count());
-        $this->assertTrue($task->checks()->get()->every(fn (Check $c) => $c->tipus === CheckKind::Optional && $c->punts === 0 && $c->es_actiu === false));
+        $this->assertTrue($task->checks()->get()->every(fn (Check $c) => $c->tipus === CheckKind::Incident && $c->punts === 0 && $c->es_actiu === false));
         $this->assertSame(4, Action::where('tasca_id', $task->id)->count());
         // El Block10WebSeeder no se'n va els tiquets que no li pertanyen.
         $this->assertSame(['2', '3'], $incidents->filter(fn ($i) => $i->equip === 'router')->map(fn ($i) => $i->options->sole()->parametres['AVARIA'])->values()->all());

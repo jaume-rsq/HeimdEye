@@ -67,12 +67,21 @@ class IncidentForm
                             ->required()
                             ->rows(3)
                             ->placeholder('Els clients diuen que la web no carrega. Troba què passa i arregla-ho.')
+                            ->helperText('Si una opció té el seu propi símptoma, l\'alumne llegeix aquell.')
                             ->columnSpanFull(),
                         Textarea::make('notes')
                             ->label('Notes del professor')
                             ->rows(2)
                             ->helperText('No les veu l\'alumne.')
                             ->columnSpanFull(),
+                        TextInput::make('minuts_verificacio')
+                            ->label('Minuts entre verificacions')
+                            ->numeric()
+                            ->integer()
+                            ->minValue(1)
+                            ->maxValue(1440)
+                            ->placeholder('10')
+                            ->helperText('Cada quan l\'alumne pot tornar a comprovar si l\'ha resolt. Buit: 10.'),
                         TextInput::make('posicio')->label('Posició')->numeric()->default(0)->minValue(0),
                     ]),
                 Section::make('Opcions')
@@ -91,7 +100,7 @@ class IncidentForm
                                     ->required()
                                     ->maxLength(255)
                                     ->placeholder('nginx aturat')
-                                    ->helperText('Només el professor el veu (fins que la revela).'),
+                                    ->helperText('Només el professor el veu.'),
                                 TextInput::make('pes')
                                     ->numeric()
                                     ->minValue(1)
@@ -108,12 +117,17 @@ class IncidentForm
                                     ->label('Check de resolució')
                                     ->options(fn (Get $get) => self::checks($get('../../modul_id')))
                                     ->searchable()
-                                    ->helperText('Ha de fallar just després d\'injectar-la i passar quan l\'alumne l\'arregla.'),
+                                    ->helperText('Ha de fallar just després d\'injectar-la i passar quan l\'alumne l\'arregla. Millor un de tipus «incidència»: un de normal continua puntuant.'),
                                 Select::make('accio_reparacio_id')
                                     ->label('Acció de reparació')
                                     ->options(fn (Get $get) => self::actions($get('../../modul_id')))
                                     ->searchable()
                                     ->placeholder('Cap'),
+                                Textarea::make('simptoma')
+                                    ->label('Símptoma d\'aquesta opció')
+                                    ->rows(2)
+                                    ->helperText('El llegeix l\'alumne que la rep. Buit: el de la incidència.')
+                                    ->columnSpanFull(),
                                 KeyValue::make('parametres')
                                     ->label('Paràmetres de l\'acció')
                                     ->keyLabel('Nom')
@@ -134,11 +148,13 @@ class IncidentForm
             ->mapWithKeys(fn (Action $a) => [$a->id => $a->nom.($a->es_incidencia ? ' (avaria)' : '')." · {$a->executor->value}"]);
     }
 
-    /** @return Collection<int, string> */
+    /** @return Collection<int, string> els d'incidència primer */
     private static function checks(mixed $moduleId): Collection
     {
         return Check::whereHas('task.block', fn ($q) => $q->where('modul_id', $moduleId))
             ->orderBy('nom')
-            ->pluck('nom', 'id');
+            ->get()
+            ->sortByDesc(fn (Check $c) => $c->isIncident())
+            ->mapWithKeys(fn (Check $c) => [$c->id => $c->nom.($c->isIncident() ? ' (incidència)' : '')]);
     }
 }
