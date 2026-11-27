@@ -17,11 +17,14 @@ use RuntimeException;
  * Bloc 12, pas 15: la sessió d'incidències de correu (dues hores). La bateria de la guia del
  * professor: 30 avaries, 5 categories amb 6 variants.
  *
- * Una incidència de HeimdEye per categoria, amb un nom que no la delata («Cas 1» a «Cas 5», en
- * l'ordre d'injecció: SRV, DNS, RTR, PVE i SEG) i sis opcions, una per variant. Cada opció té el
- * seu símptoma (el tiquet que llegeix l'alumne, mai la causa), l'acció d'avaria de la categoria amb
- * el paràmetre AVARIA, l'acció de reparació i un check de resolució propi, de tipus «incidència»:
- * no puntua, no surt als recomptes ni corre a la nit. L'alumne el pot verificar cada 2 minuts.
+ * Una incidència de HeimdEye per categoria, amb el nom i el text de la categoria («Cas 1 · Servidor
+ * de correu» … «Cas 5 · Seguretat»: diuen on és l'avaria, no quina és) i sis opcions, una per
+ * variant. Cada opció té el seu símptoma (el tiquet que llegeix l'alumne, mai la causa), l'acció
+ * d'avaria de la categoria amb el paràmetre AVARIA, l'acció de reparació de la categoria (la mateixa
+ * per a les sis: el paràmetre AVARIA diu què desfà) i un check de resolució propi, de tipus
+ * «incidència»: no puntua, no surt als recomptes ni corre a la nit. L'alumne el pot verificar cada
+ * 2 minuts. Ni el nom de l'opció («SRV-1») ni el del check («Incidència SRV-1») delaten la causa:
+ * les causes són a les notes del professor i a la descripció de cada check.
  *
  * Per on entra cada codi (perquè una avaria de xarxa no tapi les altres):
  *  - PVE, DNS, SRV i SEG: ssh al Proxmox de l'alumne (grup pve; jaume amb «sudo -n»). A l'LXC mail
@@ -164,25 +167,25 @@ class Block12IncidentsSeeder extends Seeder
 
         $position = 0;
         foreach (self::CATEGORIES as $c => $category) {
-            [$what, $notes] = self::categories()[$category];
+            [$label, $where, $notes] = self::categories()[$category];
             $router = $category === 'RTR';
             $executor = $router ? Executor::Local : Executor::Ssh;
-            $inject = $this->action($module, $block, $task, "Correu {$category}: avaria", "Injecta una avaria de la categoria {$category} ({$what}). Paràmetre AVARIA = 1 a 6.", $executor, self::actionCode($category, true), true, 2 * $c + 1);
-            $repair = $this->action($module, $block, $task, "Correu {$category}: reparar", "Desfà l'avaria {$category} (AVARIA = 1 a 6). Per a tu: no compta com a resolució.", $executor, self::actionCode($category, false), false, 2 * $c + 2);
+            $inject = $this->action($module, $block, $task, "Correu {$category}: avaria", "Injecta una avaria de la categoria {$category} ({$label}). Paràmetre AVARIA = 1 a 6.", $executor, self::actionCode($category, true), true, 2 * $c + 1);
+            $repair = $this->action($module, $block, $task, "Correu {$category}: reparar", "Desfà l'avaria {$category} que digui AVARIA (1 a 6): és la mateixa acció per a les sis variants. Per a tu: no compta com a resolució.", $executor, self::actionCode($category, false), false, 2 * $c + 2);
 
             $incident = Incident::create([
                 'modul_id' => $module->id, 'bloc_id' => $block->id, 'tasca_id' => $task->id,
-                'nom' => 'Cas '.($c + 1),
-                'simptoma' => 'Hi ha una avaria al correu de la teva empresa. Esbrina la causa i corregeix-la.',
+                'nom' => 'Cas '.($c + 1).' · '.$label,
+                'simptoma' => "L'avaria és {$where}. Llegeix el tiquet, esbrina'n la causa i corregeix-la.",
                 'minuts_verificacio' => self::MINUTES,
-                'notes' => "Categoria {$category}: {$what}. {$notes}",
+                'notes' => self::notes($category, $notes),
                 'posicio' => $c + 1,
             ]);
 
-            foreach (self::variants()[$category] as $i => [$ticket, $cause, $passes, $code]) {
+            foreach (self::variants()[$category] as $i => [$ticket, , $passes, $code]) {
                 $n = $i + 1;
                 $check = $task->checks()->create([
-                    'nom' => "Incidència {$category}-{$n}: {$passes}",
+                    'nom' => "Incidència {$category}-{$n}",
                     'descripcio' => "Passa quan {$passes}.",
                     'executor' => str_starts_with($code, '# hosts:') ? Executor::Ssh : Executor::Local,
                     'tipus' => CheckKind::Incident,
@@ -191,7 +194,7 @@ class Block12IncidentsSeeder extends Seeder
                 $check->versions()->create(['versio' => 1, 'codi' => $code, 'temps_max_seg' => 90]);
 
                 $incident->options()->create([
-                    'nom' => "{$category}-{$n} · {$cause}",
+                    'nom' => "{$category}-{$n}",
                     'simptoma' => $ticket,
                     'accio_id' => $inject->id,
                     'parametres' => ['AVARIA' => (string) $n],
@@ -201,6 +204,16 @@ class Block12IncidentsSeeder extends Seeder
                 ]);
             }
         }
+    }
+
+    /** Notes del professor: el que cal saber de la categoria i la causa de cada variant (l'alumne no les veu). */
+    private static function notes(string $category, string $notes): string
+    {
+        $causes = collect(self::variants()[$category])
+            ->map(fn (array $v, int $i) => "{$category}-".($i + 1).": {$v[1]}.")
+            ->implode("\n");
+
+        return trim("{$notes}\n\n{$causes}");
     }
 
     private static function statement(): string
@@ -214,15 +227,18 @@ class Block12IncidentsSeeder extends Seeder
             MD;
     }
 
-    /** @return array<string, array{0: string, 1: string}> categoria => què és i notes per al professor */
+    /**
+     * @return array<string, array{0: string, 1: string, 2: string}> categoria => nom, on és l'avaria
+     *                                                               (el text de la incidència) i notes per al professor
+     */
     private static function categories(): array
     {
         return [
-            'SRV' => ['servei de correu (LXC mail)', 'S\'injecta la primera.'],
-            'DNS' => ['noms (ns1)', 'S\'injecta la segona. ns2 ha d\'estar apagat.'],
-            'RTR' => ['encaminament, tallafocs i NAT (MikroTik)', 'S\'injecta la tercera.'],
-            'PVE' => ['Proxmox i màquines', 'S\'injecta l\'última de les obligatòries: pot tapar les altres. PVE-5 es nota amb càrrega (uns quants correus alhora).'],
-            'SEG' => ['seguretat (LXC mail i ns1)', 'Només per a qui hagi acabat les altres quatre. Amb SEG-1 l\'aula pot enviar a través del servidor: revisa el consum del relay.'],
+            'SRV' => ['Servidor de correu', 'al servidor de correu (l\'LXC mail: Postfix, Dovecot o el webmail)', ''],
+            'DNS' => ['DNS', 'a la resolució de noms (ns1)', 'ns2 ha d\'estar apagat.'],
+            'RTR' => ['Router', 'al router: encaminament, tallafocs o NAT', ''],
+            'PVE' => ['Proxmox', 'a la plataforma de virtualització (Proxmox i les seves màquines)', 'Pot tapar altres avaries: millor no tenir-la alhora que una altra. PVE-5 es nota amb càrrega (uns quants correus alhora).'],
+            'SEG' => ['Seguretat', 'a la seguretat del correu', 'Per a qui hagi resolt les altres. Amb SEG-1 l\'aula pot enviar a través del servidor: revisa el consum del relay.'],
         ];
     }
 

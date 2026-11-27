@@ -44,10 +44,12 @@ class Block12IncidentsSeederTest extends TestCase
         $incidents = Incident::where('tasca_id', $task->id)->orderBy('posicio')->get();
 
         $this->assertSame(15, $block->tasks()->count());
-        $this->assertSame(['Cas 1', 'Cas 2', 'Cas 3', 'Cas 4', 'Cas 5'], $incidents->pluck('nom')->all());
-        // Ni el nom ni el símptoma general delaten la categoria.
-        $this->assertTrue($incidents->every(fn (Incident $i) => ! preg_match('/SRV|DNS|RTR|PVE|SEG/', $i->nom.$i->simptoma)));
+        $this->assertSame(['Cas 1 · Servidor de correu', 'Cas 2 · DNS', 'Cas 3 · Router', 'Cas 4 · Proxmox', 'Cas 5 · Seguretat'], $incidents->pluck('nom')->all());
+        // Cada cas té el text de la seva categoria; les notes no parlen de l'ordre i porten la causa de cada variant.
+        $this->assertCount(5, $incidents->pluck('simptoma')->unique());
         $this->assertTrue($incidents->every(fn (Incident $i) => $i->minuts_verificacio === 2 && blank($i->equip) && filled($i->notes)));
+        $this->assertTrue($incidents->every(fn (Incident $i) => ! str_contains($i->notes, "S'injecta")));
+        $this->assertStringContainsString('SRV-1: la zona falta a mydestination.', $incidents->first()->notes);
 
         foreach ($incidents as $incident) {
             $options = $incident->options;
@@ -55,6 +57,10 @@ class Block12IncidentsSeederTest extends TestCase
             $this->assertSame(['1', '2', '3', '4', '5', '6'], $options->map(fn ($o) => $o->parametres['AVARIA'])->all());
             $this->assertTrue($options->every(fn ($o) => filled($o->simptoma) && $o->check_id && $o->accio_reparacio_id));
             $this->assertCount(6, $options->pluck('check_id')->unique());
+            // Ni l'opció ni el check de resolució delaten la causa: només la categoria i la variant.
+            $this->assertTrue($options->every(fn ($o) => preg_match('/^[A-Z]{3}-[1-6]$/', $o->nom) === 1));
+            $this->assertTrue($options->every(fn ($o) => $o->check->nom === 'Incidència '.$o->nom));
+            $this->assertCount(1, $options->pluck('accio_reparacio_id')->unique());
             $this->assertCount(1, $options->pluck('accio_id')->unique());
             $this->assertTrue($options->first()->action->es_incidencia);
             $this->assertFalse($options->first()->repairAction->es_incidencia);
@@ -92,7 +98,7 @@ class Block12IncidentsSeederTest extends TestCase
 
     public function test_it_does_not_touch_a_launched_session(): void
     {
-        $incident = Incident::where('nom', 'Cas 1')->sole();
+        $incident = Incident::where('nom', 'Cas 1 · Servidor de correu')->sole();
         $student = Student::whereHas('modules', fn ($q) => $q->where('moduls.codi', '9991'))->first();
         $this->assertNotNull($student);
         Queue::fake();

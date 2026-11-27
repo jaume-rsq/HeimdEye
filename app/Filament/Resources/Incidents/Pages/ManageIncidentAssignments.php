@@ -33,7 +33,7 @@ use Livewire\Attributes\Url;
 
 /**
  * Seguiment d'una incidència: una fila per alumne i avaria, amb l'estat (es refresca sol), quan
- * s'ha injectat i quant ha trigat a resoldre-la, i els botons per comprovar, reparar, tancar o esborrar.
+ * s'ha injectat i quant ha trigat a resoldre-la, i els botons per verificar, reparar, tancar o esborrar.
  *
  * @property Incident $record
  */
@@ -168,11 +168,11 @@ class ManageIncidentAssignments extends ManageRelatedRecords
                     ->visible(fn (IncidentStudent $record) => $record->option?->accio_id !== null)
                     ->url(fn (IncidentStudent $record) => ActionResource::getUrl('runs', ['record' => $record->option->accio_id])),
                 Action::make('comprovar')
-                    ->label('Comprovar')
-                    ->icon(Heroicon::OutlinedCheckCircle)
-                    ->color('success')
+                    ->label('Verificar')
+                    ->icon(Heroicon::OutlinedPlay)
+                    ->color('primary')
                     ->iconButton()
-                    ->tooltip('Llançar ara el check de resolució')
+                    ->tooltip('Verificar ara (llança el check de resolució)')
                     ->visible(fn (IncidentStudent $record) => in_array($record->estat, [IncidentStatus::Verificant, IncidentStatus::Oberta], true) && $record->option?->check_id)
                     ->action(fn (IncidentStudent $record) => self::verify(collect([$record]))),
                 Action::make('reparar')
@@ -213,8 +213,8 @@ class ManageIncidentAssignments extends ManageRelatedRecords
             ])
             ->toolbarActions([
                 BulkAction::make('comprovarTots')
-                    ->label('Comprovar')
-                    ->icon(Heroicon::OutlinedCheckCircle)
+                    ->label('Verificar')
+                    ->icon(Heroicon::OutlinedPlay)
                     ->action(fn (Collection $records) => self::verify($records)),
                 BulkAction::make('repararTots')
                     ->label('Reparar')
